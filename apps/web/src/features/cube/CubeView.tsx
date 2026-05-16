@@ -114,6 +114,8 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         currentFace
       );
       frame.applyRootTransform(presentation.root, step, presentationCount);
+      camera.position.x = frame.cameraOffsetX ?? 0;
+      camera.position.y = frame.cameraOffsetY ?? 0;
       camera.position.z = frame.cameraZ;
       camera.fov = frame.fieldOfView;
       camera.updateProjectionMatrix();
@@ -277,8 +279,8 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         <div className="absolute top-6 left-6 pointer-events-none max-w-[420px]">
           <h3 className="text-2xl font-black text-white/90">3D VISUALIZATION</h3>
           <p className="text-blue-400 text-sm leading-relaxed">
-            {selectedEffectDefinition.label} · 사진당 약 5초로 천천히 전환한 뒤 정면에서 장면에 머무르며
-            인물·배경 원근을 적용합니다.
+            {selectedEffectDefinition.label} · 사진마다 다른 궤적으로 전환한 뒤 정면에서 잠시 머무르며
+            인물·배경 원근(패럴랙스)을 적용합니다. 템플릿 2~5는 책·원판·궤도·앨범 연출입니다.
           </p>
         </div>
 

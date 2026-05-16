@@ -7,12 +7,21 @@ import {
   CUBE_FACE_COUNT,
   getPresentationFace,
 } from "./cubeSequence";
+import { hasDepthSeparationBoost } from "../../shared/lib/subjectPortrait";
 import {
   createParallaxMaterial,
   isParallaxMaterial,
   setParallaxAmount,
   updateParallaxMaterial,
+  type ParallaxMaterialOptions,
 } from "./cubeParallaxMaterial";
+
+function parallaxOptionsForImage(image: ProcessedImage): ParallaxMaterialOptions {
+  return {
+    portraitBoost: hasDepthSeparationBoost(image),
+    subjectBounds: image.subject.bounds,
+  };
+}
 
 const DEFAULT_FOCUS_CENTER = { x: 50, y: 50 } as const;
 const PLANE_SIZE = 2.35;
@@ -33,14 +42,16 @@ function shouldUseDepthMap(image: ProcessedImage): boolean {
 function createPageMaterial(
   texture: THREE.Texture,
   image: ProcessedImage,
-  depthTexture: THREE.Texture
+  depthTexture: THREE.Texture,
+  parallaxOptions: ParallaxMaterialOptions = parallaxOptionsForImage(image)
 ): THREE.Material {
   return createParallaxMaterial(
     texture,
     image.center ?? DEFAULT_FOCUS_CENTER,
     depthTexture,
     image.depth?.subjectDepth ?? 0.75,
-    shouldUseDepthMap(image)
+    shouldUseDepthMap(image),
+    parallaxOptions
   );
 }
 
@@ -71,7 +82,12 @@ export function createPresentationScene(
       if (!image) {
         continue;
       }
-      materials[faceIndex] = createPageMaterial(textures[index], image, depthTextures[index]);
+      materials[faceIndex] = createPageMaterial(
+        textures[index],
+        image,
+        depthTextures[index],
+        parallaxOptionsForImage(image)
+      );
     }
 
     const geometry = new THREE.BoxGeometry(CUBE_EDGE_LENGTH, CUBE_EDGE_LENGTH, CUBE_EDGE_LENGTH);
@@ -103,7 +119,8 @@ export function createPresentationScene(
             depthTextures[step],
             image.depth?.subjectDepth ?? 0.75,
             shouldUseDepthMap(image),
-            0
+            0,
+            parallaxOptionsForImage(image)
           );
         }
         appliedStep = step;
@@ -177,7 +194,7 @@ export function createPresentationScene(
       if (!texture || !image) {
         return;
       }
-      const nextMaterial = createPageMaterial(texture, image, depthTextures[step]);
+      const nextMaterial = createPageMaterial(texture, image, depthTextures[step], parallaxOptionsForImage(image));
       pageMesh.material = nextMaterial;
       if (pageMaterial !== nextMaterial) {
         pageMaterial.dispose();

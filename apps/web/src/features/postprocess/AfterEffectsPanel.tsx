@@ -1,6 +1,8 @@
 import { Loader2, Sparkles } from "lucide-react";
-import type { PostProcessingSettings, ProcessedImage } from "../../shared/types";
+import type { ImageCenter, PostProcessingSettings, ProcessedImage } from "../../shared/types";
 import { buildCssFilter } from "../../shared/lib/imagePostProcess";
+import { isPortraitSubject } from "../../shared/lib/subjectPortrait";
+import { FocusWorkbench } from "../gallery/FocusWorkbench";
 import {
   AFTER_EFFECT_PRESETS,
   AFTER_EFFECT_RECOMMENDATIONS,
@@ -12,6 +14,7 @@ interface AfterEffectsPanelProps {
   settings: PostProcessingSettings;
   isProcessing: boolean;
   onSettingsChange: (settings: PostProcessingSettings) => void;
+  onFocusCenterCommit?: (center: ImageCenter) => void;
   onApply: () => void;
   onApplyAll: () => void;
   onReset: () => void;
@@ -33,6 +36,7 @@ export function AfterEffectsPanel({
   settings,
   isProcessing,
   onSettingsChange,
+  onFocusCenterCommit,
   onApply,
   onApplyAll,
   onReset,
@@ -71,28 +75,31 @@ export function AfterEffectsPanel({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="lg:w-1/2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-              미리보기
+              포커싱 · 미리보기
             </p>
-            <div className="mt-3 aspect-square overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-              {selectedImage ? (
-                <img
-                  src={selectedImage.preparedUrl}
-                  alt={selectedImage.label}
-                  className="h-full w-full object-cover"
-                  style={{ filter: previewFilter }}
-                />
+            <div className="mt-3 relative">
+              {selectedImage && onFocusCenterCommit ? (
+                <div className="relative" style={{ filter: previewFilter }}>
+                  <FocusWorkbench
+                    image={selectedImage}
+                    variant="large"
+                    onCenterCommit={onFocusCenterCommit}
+                  />
+                </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                <div className="aspect-square overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-center text-sm text-slate-500">
                   갤러리에서 이미지를 선택하세요.
                 </div>
               )}
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
               {selectedImage
-                ? `${selectedImage.label} · AI 추천 포커스 (${Math.round(
-                    (selectedImage.aiRecommendedCenter ?? selectedImage.center).x
-                  )}%, ${Math.round((selectedImage.aiRecommendedCenter ?? selectedImage.center).y)}%)`
-                : "선택한 이미지의 포커스는 갤러리에서 드래그로 조정할 수 있습니다."}
+                ? `${selectedImage.label} · 스크롤로 확대/축소, 드래그로 포커스(크롭 중심) 조정. Alt+드래그로 화면 이동.${
+                    isPortraitSubject(selectedImage)
+                      ? " 인물 사진은 3D 큐브에서 전경 확대·배경 후퇴 패럴랙스가 강화됩니다."
+                      : ""
+                  }`
+                : "후처리 탭에서 선택한 이미지의 포커스와 슬라이더를 함께 조정합니다."}
             </p>
           </div>
 

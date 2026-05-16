@@ -71,13 +71,14 @@ function GalleryItem({
       }`}
     >
       <div className="relative aspect-square bg-slate-800">
-        <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
         {selected && enableFocusEditor && onFocusCenterCommit ? (
           <FocusEditorOverlay
             image={item}
             onCenterCommit={(center) => onFocusCenterCommit(item.id, center)}
           />
-        ) : null}
+        ) : (
+          <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+        )}
         {selected && enableFocusEditor && onApplyAiRecommendedFocus ? (
           <div className="absolute bottom-2 right-2 z-10">
             <button
