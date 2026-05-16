@@ -1,6 +1,7 @@
 export const DEPTH_GRID_SIZE = 16;
 
-export const MAX_API_IMAGE_EDGE = 1280;
+/** Smaller edge = faster Vertex analysis (mobile-friendly). */
+export const MAX_API_IMAGE_EDGE = 960;
 
 export const API_JPEG_QUALITY = 0.78;
 

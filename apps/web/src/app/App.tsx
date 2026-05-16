@@ -40,10 +40,14 @@ import {
 import { API_PUBLIC_URL, ENABLE_DEV_ASSET_BATCH } from "../shared/config/runtime";
 import {
   canAddPresentationImage,
+  canFitVaultPayload,
+  estimateVaultPayloadBytes,
   formatPresentationBytes,
   getPresentationTotalBytes,
   MAX_PRESENTATION_BYTES,
+  MAX_VAULT_BYTES,
 } from "../shared/lib/mediaLimits";
+import { formatVaultQuotaMessage, getVaultStorageUsageBytes } from "../features/events/indexedDbVault";
 
 import {
   DEFAULT_IMAGE_CATEGORIES,
@@ -56,17 +60,13 @@ import {
   saveCategoryCatalog,
 } from "../features/gallery/categoryStorage";
 
-const localWorkspace = usesServerVault() ? null : bootstrapLocalWorkspace();
-
 export default function App() {
-  const [workspaceReady, setWorkspaceReady] = useState(!usesServerVault());
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [sourceImages, setSourceImages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [events, setEvents] = useState<HoloEvent[]>(localWorkspace?.events ?? []);
-  const [activeEventId, setActiveEventId] = useState(localWorkspace?.activeEventId ?? "");
-  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>(
-    localWorkspace?.processedImages ?? []
-  );
+  const [events, setEvents] = useState<HoloEvent[]>([]);
+  const [activeEventId, setActiveEventId] = useState("");
+  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [status, setStatus] = useState("이미지를 업로드해주세요.");
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
   const [focusTarget, setFocusTarget] = useState("");
@@ -87,25 +87,33 @@ export default function App() {
   }, [categories]);
 
   useEffect(() => {
-    if (!usesServerVault()) {
-      return;
-    }
+    const bootstrap = usesServerVault() ? bootstrapRemoteWorkspace() : bootstrapLocalWorkspace();
 
-    bootstrapRemoteWorkspace()
+    bootstrap
       .then((workspace) => {
         setEvents(workspace.events);
         setActiveEventId(workspace.activeEventId);
         setProcessedImages(workspace.processedImages);
         setSelectedImageId(workspace.processedImages[0]?.id ?? null);
         setWorkspaceReady(true);
+        const eventName =
+          workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
         setStatus(
-          `서버 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${workspace.events.find((e) => e.id === workspace.activeEventId)?.name ?? "이벤트"})`
+          usesServerVault()
+            ? `서버 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName})`
+            : usesServerVault()
+              ? `클라우드 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · PC/모바일 동일 작업실)`
+              : `보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · 이 브라우저에 최대 1GB)`
         );
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Unknown error";
         setWorkspaceReady(true);
-        setStatus(`서버 보관함 로드 실패 — localStorage 모드로 계속합니다: ${message}`);
+        setStatus(
+          usesServerVault()
+            ? `서버 보관함 로드 실패: ${message}`
+            : `보관함 로드 실패: ${message}`
+        );
       });
   }, []);
 
@@ -116,16 +124,20 @@ export default function App() {
 
     let cancelled = false;
     persistEventVault(activeEventId, processedImages, events)
-      .then(({ saved, events: nextEvents }) => {
+      .then(({ saved, events: nextEvents, vaultSave }) => {
         if (cancelled) {
           return;
         }
         setEvents(nextEvents);
         if (!saved && processedImages.length > 0 && !usesServerVault()) {
+          const quotaHint =
+            vaultSave?.reason === "quota" && vaultSave.usageBytes
+              ? `보관함 한도 초과 (${formatVaultQuotaMessage(vaultSave.usageBytes)}).`
+              : "브라우저 저장에 실패했습니다.";
           setStatus((previous) =>
             /완료/.test(previous)
-              ? `${previous} (브라우저 저장 용량 한도로 새로고침 시 이미지가 지워질 수 있습니다. 같은 탭에서 3D·MP4까지 이어가세요.)`
-              : "브라우저 저장 용량이 부족합니다. 같은 탭에서 작업을 마친 뒤 MP4로보내세요."
+              ? `${previous} (${quotaHint} 같은 탭에서 3D·MP4까지 이어가세요.)`
+              : `${quotaHint} 같은 탭에서 작업을 마친 뒤 MP4로보내세요.`
           );
         }
       })
@@ -281,15 +293,34 @@ export default function App() {
         },
       });
 
+      const otherEventsVaultBytes = usesServerVault()
+        ? 0
+        : await getVaultStorageUsageBytes(activeEventId);
+
       for (const entry of batchProcessed) {
-        if (!canAddPresentationImage([...processedImages, ...processedEntries], entry.byteSize)) {
+        const nextGallery = [...processedImages, ...processedEntries];
+        if (!canAddPresentationImage(nextGallery, entry.byteSize)) {
           setStatus(
-            `1GB 한도를 초과해 ${processedEntries.length}장만 저장했습니다. 현재 사용량 ${formatPresentationBytes(
-              getPresentationTotalBytes([...processedImages, ...processedEntries])
+            `3D 재생 1GB 한도를 초과해 ${processedEntries.length}장만 저장했습니다. ${formatPresentationBytes(
+              getPresentationTotalBytes(nextGallery)
             )} / ${formatPresentationBytes(MAX_PRESENTATION_BYTES)}`
           );
           break;
         }
+
+        const nextEventVaultBytes = estimateVaultPayloadBytes([...nextGallery, entry]);
+        if (
+          !usesServerVault() &&
+          !canFitVaultPayload(otherEventsVaultBytes, nextEventVaultBytes, MAX_VAULT_BYTES)
+        ) {
+          setStatus(
+            `보관함 1GB 한도를 초과해 ${processedEntries.length}장만 저장했습니다. ${formatPresentationBytes(
+              otherEventsVaultBytes + nextEventVaultBytes
+            )} / ${formatPresentationBytes(MAX_VAULT_BYTES)}`
+          );
+          break;
+        }
+
         processedEntries.push(entry);
       }
       reporter.setCurrent(processedEntries.length, `${processedEntries.length}/${total}장 처리됨`, "cropping");

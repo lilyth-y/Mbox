@@ -2,11 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Download, Loader2, Play } from "lucide-react";
 import * as THREE from "three";
 import type { ProcessedImage } from "../../shared/types";
+import { PARALLAX_MS, ZOOM_MS, getPresentationFace } from "./cubeSequence";
 import {
-  PHOTO_SEGMENT_MS,
-  getPresentationFace,
-  getSequenceDurationMs,
-} from "./cubeSequence";
+  createPresentationMotionSeed,
+  formatPresentationDurationMs,
+  getStepMotionVariety,
+  getStepPhaseTiming,
+  getStepSegmentMs,
+  resolvePresentationStep,
+  sumSegmentDurations,
+} from "./cubeMotionVariety";
 import { computePresentationFrame } from "./presentationFrame";
 import {
   DEFAULT_PRESENTATION_EFFECT,
@@ -50,7 +55,19 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     () => getPresentationTotalBytes(orderedImages),
     [orderedImages]
   );
-  const segmentDuration = PHOTO_SEGMENT_MS;
+  const motionSeed = useMemo(
+    () => createPresentationMotionSeed(orderedImages, presentationKey),
+    [orderedImages, presentationKey]
+  );
+  const segmentMsByStep = useMemo(
+    () =>
+      orderedImages.map((_, step) => getStepSegmentMs(motionSeed, step, ZOOM_MS, PARALLAX_MS)),
+    [orderedImages, motionSeed]
+  );
+  const presentationDurationMs = useMemo(
+    () => sumSegmentDurations(segmentMsByStep),
+    [segmentMsByStep]
+  );
   const selectedEffectDefinition =
     PRESENTATION_EFFECTS.find((effect) => effect.id === selectedEffect) ??
     PRESENTATION_EFFECTS[0];
@@ -90,15 +107,19 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     scene.add(presentation.root);
 
     timelineStartRef.current = performance.now();
-    const recordingDuration = getSequenceDurationMs(presentationCount);
+    const recordingDuration = presentationDurationMs;
     let appliedStep = -1;
 
     const animate = (now: number) => {
       const elapsed = now - timelineStartRef.current;
-      const timeline = recordingRef.current ? elapsed : elapsed % recordingDuration;
-      const step = Math.min(presentationCount - 1, Math.floor(timeline / segmentDuration));
-      const stepElapsed = timeline - step * segmentDuration;
+      const timeline =
+        recordingRef.current || recordingDuration <= 0
+          ? elapsed
+          : elapsed % recordingDuration;
+      const { step, stepElapsed } = resolvePresentationStep(timeline, segmentMsByStep);
       const currentFace = getPresentationFace(step);
+      const stepTiming = getStepPhaseTiming(motionSeed, step, ZOOM_MS, PARALLAX_MS);
+      const stepVariety = getStepMotionVariety(motionSeed, step);
 
       if (step !== appliedStep) {
         presentation.applyStepTexture(step);
@@ -111,7 +132,8 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         step,
         stepElapsed,
         presentationCount,
-        currentFace
+        currentFace,
+        { timing: stepTiming, variety: stepVariety }
       );
       frame.applyRootTransform(presentation.root, step, presentationCount);
       camera.position.x = frame.cameraOffsetX ?? 0;
@@ -149,9 +171,11 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
   }, [
     active,
     orderedImages,
+    motionSeed,
     presentationCount,
+    presentationDurationMs,
     presentationKey,
-    segmentDuration,
+    segmentMsByStep,
     selectedEffect,
   ]);
 
@@ -183,7 +207,7 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
 
       // Wall-clock wait so export completes in headless/automation (rAF may be throttled).
       await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, getSequenceDurationMs(presentationCount));
+        window.setTimeout(resolve, presentationDurationMs);
       });
 
       const blob = await recorder.stop();
@@ -214,7 +238,8 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         </div>
         <p className="mt-2 text-sm text-slate-400 leading-relaxed">
           배경 생성과 같이 <strong className="text-slate-300">템플릿 선택 → 연출 적용 → MP4 생성</strong> 순서입니다.
-          템플릿을 바꾸면 바로 미리보기가 갱신되고, 같은 템플릿으로 처음부터 다시 돌리려면「연출 적용」을 누르세요.
+          장면은 비슷한 구도·주제끼리 이어지도록 자동 정렬되고, 회전도 다음 장면 쪽으로 자연스럽게 넘어갑니다.
+          처음부터 다시 돌리려면「연출 적용」을 누르세요.
         </p>
         <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
           1. 템플릿 선택 · 2. 연출 적용 · 3. MP4 생성
@@ -272,8 +297,8 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         <div className="absolute top-6 left-6 pointer-events-none max-w-[420px]">
           <h3 className="text-2xl font-black text-white/90">3D VISUALIZATION</h3>
           <p className="text-blue-400 text-sm leading-relaxed">
-            {selectedEffectDefinition.label} · 사진마다 다른 궤적으로 전환한 뒤 정면에서 잠시 머무르며
-            인물·배경 원근(패럴랙스)을 적용합니다. 템플릿 2~5는 책·원판·궤도·앨범 연출입니다.
+            {selectedEffectDefinition.label} · 유사한 장면끼리 이어 붙인 뒤, 한 컷이 끝나면 다음 장면 방향으로
+            끊기지 않고 회전합니다. 정면 홀드에서 인물·배경 패럴랙스를 적용합니다.
           </p>
         </div>
 
@@ -304,8 +329,9 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
               <p className="text-amber-400">처리된 이미지가 없습니다.</p>
             ) : (
               <p>
-                재생 {presentationCount}장 · 현재 {currentStep}/{presentationCount}번째 · 용량{" "}
-                {formatPresentationBytes(presentationBytes)} /{" "}
+                재생 {presentationCount}장 · 1회전 약{" "}
+                {formatPresentationDurationMs(presentationDurationMs)} · 현재 {currentStep}/
+                {presentationCount}번째 · 용량 {formatPresentationBytes(presentationBytes)} /{" "}
                 {formatPresentationBytes(MAX_PRESENTATION_BYTES)}
               </p>
             )}

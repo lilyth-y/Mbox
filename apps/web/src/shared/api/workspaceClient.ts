@@ -2,6 +2,8 @@ import type {
   CategoryAssignmentMap,
   CreateEventRequest,
   HoloEvent,
+  PresignVaultAssetRequest,
+  PresignVaultAssetResponse,
   WorkspaceBootstrapResponse,
 } from "@mbox/shared";
 import type { ProcessedImage } from "../types";
@@ -32,6 +34,19 @@ export async function putWorkspaceMeta(events: HoloEvent[], activeEventId: strin
     method: "PUT",
     body: JSON.stringify({ events, activeEventId }),
   });
+}
+
+export async function presignVaultAssets(
+  eventId: string,
+  assets: PresignVaultAssetRequest["assets"]
+): Promise<PresignVaultAssetResponse> {
+  return workspaceFetch<PresignVaultAssetResponse>(
+    `/events/${encodeURIComponent(eventId)}/vault/presign`,
+    {
+      method: "POST",
+      body: JSON.stringify({ assets }),
+    }
+  );
 }
 
 export async function putEventVault(eventId: string, images: ProcessedImage[]): Promise<HoloEvent[]> {

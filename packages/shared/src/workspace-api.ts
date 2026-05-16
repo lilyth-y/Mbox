@@ -12,6 +12,38 @@ export interface PutVaultRequest {
   images: VaultImageRecord[];
 }
 
+export type VaultAssetSlot = "url" | "preparedUrl" | "originalUrl" | "preCropSourceUrl";
+
+export interface VaultImageStoragePaths {
+  url: string;
+  preparedUrl?: string;
+  originalUrl?: string;
+  preCropSourceUrl?: string;
+}
+
+/** Set on vault records when blobs live in GCS (cross-device sync). */
+export const VAULT_STORAGE_PATHS_KEY = "storagePaths";
+
+export interface PresignVaultAssetRequest {
+  assets: Array<{
+    imageId: number;
+    slot: VaultAssetSlot;
+    contentType?: string;
+  }>;
+}
+
+export interface PresignVaultAssetDescriptor {
+  imageId: number;
+  slot: VaultAssetSlot;
+  objectPath: string;
+  uploadUrl: string;
+  readUrl: string;
+}
+
+export interface PresignVaultAssetResponse {
+  uploads: PresignVaultAssetDescriptor[];
+}
+
 export interface PutCategoryAssignmentsRequest {
   assignments: CategoryAssignmentMap;
 }

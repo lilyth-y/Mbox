@@ -24,8 +24,10 @@ substitutions:
   _WEB_BUCKET: "mbox-web-newmedia-496107"
   _VITE_API_BASE_URL: "https://mbox-api-118689443638.asia-northeast3.run.app"
   _VITE_WORKSPACE_ID: "default"
-  # Static GCS hosting: keep processed images in-browser (server vault PUT is huge + ephemeral on Run).
-  _VITE_USE_SERVER_VAULT: "false"
+  # Cloud vault: images in GCS (cross-device). Requires GCS_VAULT_BUCKET on API + bucket IAM for Cloud Run SA.
+  _VITE_USE_SERVER_VAULT: "true"
+  _GCS_VAULT_BUCKET: "mbox-vault-newmedia-496107"
+  # One-time: create bucket + grant Cloud Run SA roles/storage.objectAdmin on it.
   _VITE_LOCALHOST_DEMO: "false"
   _VITE_ENABLE_DEV_ASSET_BATCH: "false"
   _CORS_ORIGIN: "https://storage.googleapis.com,https://mbox-web-newmedia-496107.storage.googleapis.com"
@@ -101,7 +103,7 @@ steps:
             --region="${_REGION}" \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         else
           gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
@@ -109,7 +111,7 @@ steps:
             --region="${_REGION}" \
             --platform=managed \
             --no-allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         fi
 

@@ -1,6 +1,6 @@
 import { IMAGE_CATEGORY_OPTIONS } from "@mbox/shared";
 
-export const ANALYSIS_MODEL = "gemini-2.5-flash";
+export const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL?.trim() || "gemini-2.5-flash";
 export const EDIT_MODEL = "gemini-2.5-flash-image";
 
 export function buildAnalysisPrompt(focusTarget?: string): string {
@@ -9,9 +9,9 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     : "If no focus target is provided, choose the most salient person or subject in the image.";
 
   return [
-    "Analyze this image for subject-aware framing and depth-aware parallax.",
+    "Fast photo framing JSON for crop and parallax.",
     targetInstruction,
-    "Return JSON only with this shape:",
+    "Return JSON only:",
     "{",
     "  'label': 'short subject label',",
     "  'center': { 'x': number, 'y': number },",
@@ -19,7 +19,7 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "    'onPrimarySubject': boolean,",
     "    'centering': 'centered' | 'rule_of_thirds' | 'offset' | 'edge_weighted',",
     "    'aestheticScore': number,",
-    "    'compositionNotes': 'string'",
+    "    'compositionNotes': ''",
     "  },",
     "  'subject': {",
     "    'requestedTarget': 'string',",
@@ -28,19 +28,14 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "    'confidence': number,",
     "    'bounds': { 'x0': number, 'y0': number, 'x1': number, 'y1': number }",
     "  },",
-    "  'depth': {",
-    "    'subjectDepth': number",
-    "  },",
-    "  'bgPrompt': 'string',",
+    "  'depth': { 'subjectDepth': number },",
+    "  'bgPrompt': 'short background style',",
     `  'category': '${IMAGE_CATEGORY_OPTIONS.join("' | '")}',`,
     "  'categoryConfidence': number",
     "}",
-    "category must be exactly one of the listed values.",
-    "categoryConfidence is a value from 0.0 to 1.0 for how confident you are in category.",
-    "Coordinates and bounds are percentages from 0 to 100.",
-    "subjectDepth is relative depth at the focus center (0.0 far background, 1.0 nearest).",
-    "Do not return a depth grid; the server synthesizes parallax from center and bounds.",
-    "Keep the requested target in subject.requestedTarget even when detected is false.",
+    "Use percentages 0-100 for coordinates and bounds.",
+    "subjectDepth: 0 far, 1 near. No depth grid.",
+    "compositionNotes: empty string unless subject missing.",
   ].join(" ");
 }
 

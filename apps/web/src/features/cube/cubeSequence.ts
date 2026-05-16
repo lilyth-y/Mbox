@@ -52,6 +52,14 @@ export function lerpEuler(current: THREE.Euler, target: THREE.Euler, alpha: numb
   );
 }
 
+/** Spherical interpolation avoids harsh axis flips between scene poses. */
+export function slerpEuler(current: THREE.Euler, target: THREE.Euler, alpha: number): THREE.Euler {
+  const from = new THREE.Quaternion().setFromEuler(current);
+  const to = new THREE.Quaternion().setFromEuler(target);
+  const blended = new THREE.Quaternion().slerpQuaternions(from, to, alpha);
+  return new THREE.Euler().setFromQuaternion(blended, current.order);
+}
+
 export function getSequenceDurationMs(faceCount: number): number {
   if (faceCount <= 0) {
     return 0;

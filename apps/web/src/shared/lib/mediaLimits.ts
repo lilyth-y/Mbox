@@ -1,6 +1,9 @@
 import type { ProcessedImage } from "../types";
+import { orderImagesForSceneContinuity } from "./sceneContinuity";
 
+/** Shared 1 GB cap for 3D playback payload and IndexedDB vault blobs (per browser origin). */
 export const MAX_PRESENTATION_BYTES = 1_024 * 1_024 * 1_024;
+export const MAX_VAULT_BYTES = MAX_PRESENTATION_BYTES;
 
 export function estimateDataUrlBytes(dataUrl: string): number {
   const commaIndex = dataUrl.indexOf(",");
@@ -42,7 +45,7 @@ export function sortPresentationImages(images: ProcessedImage[]): ProcessedImage
 }
 
 export function constrainPresentationImages(images: ProcessedImage[]): ProcessedImage[] {
-  const sorted = sortPresentationImages(images);
+  const sorted = orderImagesForSceneContinuity(images);
   const selected: ProcessedImage[] = [];
   let totalBytes = 0;
 
@@ -63,4 +66,34 @@ export function canAddPresentationImage(
   nextImageBytes: number
 ): boolean {
   return getPresentationTotalBytes(images) + nextImageBytes <= MAX_PRESENTATION_BYTES;
+}
+
+const IMAGE_URL_FIELDS = ["url", "preparedUrl", "originalUrl", "preCropSourceUrl"] as const;
+
+export function estimateUniqueImageBlobBytes(image: ProcessedImage): number {
+  const seen = new Set<string>();
+  let total = 0;
+
+  for (const field of IMAGE_URL_FIELDS) {
+    const value = image[field];
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    total += image.byteSize ?? estimateDataUrlBytes(value);
+  }
+
+  return total;
+}
+
+export function estimateVaultPayloadBytes(images: ProcessedImage[]): number {
+  return images.reduce((total, image) => total + estimateUniqueImageBlobBytes(image), 0);
+}
+
+export function canFitVaultPayload(
+  usageBytes: number,
+  nextPayloadBytes: number,
+  limitBytes: number = MAX_VAULT_BYTES
+): boolean {
+  return usageBytes + nextPayloadBytes <= limitBytes;
 }

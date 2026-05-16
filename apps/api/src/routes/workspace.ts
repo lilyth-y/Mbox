@@ -1,10 +1,17 @@
 import { Router } from "express";
 import type {
   CreateEventRequest,
+  PresignVaultAssetRequest,
   PutCategoryAssignmentsRequest,
   PutVaultRequest,
   PutWorkspaceMetaRequest,
+  VaultAssetSlot,
 } from "@mbox/shared";
+import {
+  buildVaultObjectPath,
+  createVaultUploadUrl,
+  isGcsVaultEnabled,
+} from "../services/gcsVaultStorage.js";
 import {
   bootstrapWorkspace,
   createEvent,
@@ -73,6 +80,44 @@ workspaceRouter.get("/events/:eventId/vault", async (req, res) => {
     res.json({ images: vault });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Vault load failed.";
+    res.status(500).json({ error: message });
+  }
+});
+
+workspaceRouter.post("/events/:eventId/vault/presign", async (req, res) => {
+  try {
+    if (!isGcsVaultEnabled()) {
+      res.status(503).json({ error: "GCS vault is not configured on this API." });
+      return;
+    }
+
+    const body = req.body as PresignVaultAssetRequest;
+    if (!Array.isArray(body?.assets) || body.assets.length === 0) {
+      res.status(400).json({ error: "assets array is required." });
+      return;
+    }
+
+    const workspaceId = workspaceIdFromRequest(req);
+    const eventId = req.params.eventId;
+    const uploads = await Promise.all(
+      body.assets.map(async (asset) => {
+        const slot = asset.slot as VaultAssetSlot;
+        const contentType = asset.contentType?.trim() || "image/jpeg";
+        const objectPath = buildVaultObjectPath(workspaceId, eventId, asset.imageId, slot);
+        const signed = await createVaultUploadUrl(objectPath, contentType);
+        return {
+          imageId: asset.imageId,
+          slot,
+          objectPath,
+          uploadUrl: signed.uploadUrl,
+          readUrl: signed.readUrl,
+        };
+      })
+    );
+
+    res.json({ uploads });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Vault presign failed.";
     res.status(500).json({ error: message });
   }
 });
