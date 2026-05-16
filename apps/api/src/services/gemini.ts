@@ -284,7 +284,7 @@ async function generateAnalysisMetadata(
     ],
     generationConfig: {
       responseMimeType: "application/json",
-      maxOutputTokens: 512,
+      maxOutputTokens: 1024,
       temperature: 0.2,
     },
   });
