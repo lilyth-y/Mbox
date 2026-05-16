@@ -84,9 +84,14 @@ try {
         ["scripts/e2e-hosted-pipeline.mjs"],
         {
           cwd: root,
-          env: { ...process.env, MBOX_SKIP_MP4: "1", MBOX_WEB_URL: WEB_URL },
           encoding: "utf8",
-          timeout: Number(process.env.MBOX_E2E_TIMEOUT_MS ?? 300_000),
+          timeout: Number(process.env.MBOX_E2E_TIMEOUT_MS ?? 360_000),
+          env: {
+            ...process.env,
+            MBOX_SKIP_MP4: "1",
+            MBOX_WEB_URL: WEB_URL,
+            MBOX_ANALYZE_TIMEOUT_MS: process.env.MBOX_ANALYZE_TIMEOUT_MS ?? "240000",
+          },
         },
       );
       const ok = e2e.status === 0;
