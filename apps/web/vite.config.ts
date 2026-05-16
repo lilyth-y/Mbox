@@ -8,6 +8,9 @@ const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const sharedRoot = path.resolve(webRoot, "../../packages/shared");
 
 export default defineConfig({
+  // GCS / subdirectory hosting: absolute "/assets/..." breaks on
+  // https://storage.googleapis.com/BUCKET/index.html (resolves to host root).
+  base: "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

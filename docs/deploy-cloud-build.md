@@ -55,13 +55,15 @@ gcloud storage buckets add-iam-policy-binding "gs://${WEB_BUCKET}" \
   --role=roles/storage.objectViewer
 ```
 
-**SPA routing:** point website / 404 to `index.html` (exact commands vary; one option):
-
 ```bash
 gsutil web set -m index.html -e index.html "gs://${WEB_BUCKET}"
 ```
 
+**Static asset URLs:** `gsutil web` only sets the default object. Vite defaults to absolute `/assets/...`, which on `https://storage.googleapis.com/BUCKET_NAME/index.html` resolve to the **wrong host path** (`/assets` at the domain root → white screen). This repo sets `base: "./"` in `apps/web/vite.config.ts` so bundles load from `.../BUCKET_NAME/assets/...`.
+
 **CORS on the bucket** is *not* the same as API `CORS_ORIGIN`. The API env `CORS_ORIGIN` must match the **Origin** header the browser sends when calling your API (see step 6).
+
+**`index.html` caching:** after `gcloud storage rsync`, the pipeline re-uploads `index.html` with `Cache-Control: no-cache, must-revalidate` so browsers pick up new hashed JS/CSS after each deploy. Hashed files under `assets/` can stay long-lived.
 
 ## 4. Secret Manager (`API_KEY`)
 
@@ -121,7 +123,7 @@ Trigger or manual `gcloud builds submit` should pass **substitutions** (see defa
 | `_VITE_ENABLE_DEV_ASSET_BATCH` | `VITE_ENABLE_DEV_ASSET_BATCH` |
 | `_VITE_API_BASE_URL` | Public HTTPS URL of the Cloud Run API (often filled after first API deploy) |
 | `_VITE_API_KEY` | Same value as `API_KEY` (embedded in the web bundle at build time) |
-| `_CORS_ORIGIN` | **Single** origin allowed by the API (must match the browser’s `Origin` when calling the API — check DevTools → Network on a failing request; GCS website often looks like `https://BUCKET_NAME.storage.googleapis.com`) |
+| `_CORS_ORIGIN` | Allowed browser **Origins** for the API (comma-separated). Must match the `Origin` header on API requests. **Virtual-hosted GCS URL** `https://BUCKET_NAME.storage.googleapis.com` is what browsers send; path-style `https://storage.googleapis.com/BUCKET_NAME/...` sends `Origin: https://storage.googleapis.com`. Include **both** if you use both URLs. Example: `https://storage.googleapis.com,https://mbox-web-PROJECT_ID.storage.googleapis.com` |
 | `_API_KEY_SECRET` | Secret **id** (default `mbox-api-key`) |
 | `_RUN_ALLOW_UNAUTHENTICATED` | `true` = `--allow-unauthenticated` on Run (IAM still applies for locking down later) |
 
@@ -136,10 +138,10 @@ export REGION=asia-northeast3
 export WEB_BUCKET=mbox-web-$(gcloud config get-value project)
 
 gcloud builds submit --region="$REGION" --config=cloudbuild.yaml \
-  --substitutions=_WEB_BUCKET="${WEB_BUCKET}",_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app,_VITE_API_KEY='your-key',_CORS_ORIGIN=https://${WEB_BUCKET}.storage.googleapis.com
+  --substitutions="^;^_WEB_BUCKET=${WEB_BUCKET};_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app;_VITE_API_KEY=your-key;_CORS_ORIGIN=https://storage.googleapis.com,https://${WEB_BUCKET}.storage.googleapis.com"
 ```
 
-Adjust `_CORS_ORIGIN` to whatever the browser sends (custom domain vs `storage.googleapis.com`).
+Adjust `_CORS_ORIGIN` to match every **Origin** your users hit (custom domain, path-style vs virtual-hosted GCS). If a manual `gcloud run services update` fails on commas inside `CORS_ORIGIN`, use `gcloud`’s alternate delimiter (see [escaping](https://cloud.google.com/sdk/gcloud/reference/topic/escaping)), e.g. `--update-env-vars="^;^CORS_ORIGIN=https://a,https://b"` — **do not** pass a one-key `--env-vars-file` unless the file lists **all** non-secret variables, or Cloud Run will drop the rest.
 
 ## 8. GitHub trigger (optional)
 
@@ -148,9 +150,11 @@ Connect the repo in **Cloud Build → Repositories**, then create a trigger that
 ## 9. Limits (same as other deploy docs)
 
 - `WORKSPACE_DATA_DIR` on Cloud Run is **ephemeral** unless you attach a volume / use GCS for vault (see `docs/deploy-internal.md`).
-- Multi-line or comma-heavy `CORS_ORIGIN` may need `gcloud`’s `#` delimiter; keep one origin per build for simplicity.
+- **`CORS_ORIGIN` with commas:** `cloudbuild.yaml` deploy uses `gcloud`’s `^;^` / `;` delimiter so multiple origins work. For ad-hoc CLI fixes, use `--update-env-vars="^;^CORS_ORIGIN=https://origin1,https://origin2"` (see [gcloud escaping](https://cloud.google.com/sdk/gcloud/reference/topic/escaping)).
 
 ## 10. Troubleshooting
+
+**Blank (white) page on GCS but `index.html` loads:** often a bad JS chunk URL (`base` / caching) or a **failed API** call blocked by CORS (check DevTools → Console / Network). Prefer **`https://BUCKET_NAME.storage.googleapis.com/`** and ensure `CORS_ORIGIN` on Cloud Run includes exactly that origin string.
 
 **Docker build fails with “Could not find a declaration file for module `@mbox/shared`” inside Cloud Build:** the upload often **excludes** `packages/*/dist` via `.gcloudignore` but can still include `**/tsconfig.tsbuildinfo`. TypeScript then thinks outputs are up to date and **emits nothing**. This repo ignores `**/*.tsbuildinfo` in `.gcloudignore` and runs `rm -f …tsbuildinfo` in `apps/api/Dockerfile` before `npm run build`. Local `@mbox/shared` and `@mbox/api` builds also delete `tsconfig.tsbuildinfo` before `tsc` so a missing `dist/` cannot strand the workspace.
 
