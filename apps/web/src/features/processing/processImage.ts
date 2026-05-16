@@ -218,19 +218,42 @@ export async function resolveAnalysisMetadataBatch(
     return resolved;
   }
 
-  options.onStatus?.(`AI 배치 분석 중 (${pending.length}장, 캐시 ${resolved.size}장)...`);
-  const response = await analyzeImagesBatch(pending, focusTarget);
-  for (const item of response.results) {
-    if (!item.metadata) {
-      throw new Error(item.error ?? `Failed to analyze ${item.id}.`);
+  let remaining = pending;
+  for (let attempt = 0; attempt < 3 && remaining.length > 0; attempt += 1) {
+    options.onStatus?.(
+      attempt === 0
+        ? `AI 배치 분석 중 (${remaining.length}장, 캐시 ${resolved.size}장)...`
+        : `AI 배치 재시도 중 (${remaining.length}장, ${attempt + 1}/3)...`
+    );
+    const response = await analyzeImagesBatch(remaining, focusTarget);
+    const failed: typeof remaining = [];
+
+    for (const item of response.results) {
+      if (!item.metadata) {
+        const source = remaining.find((candidate) => candidate.id === item.id);
+        if (source) {
+          failed.push(source);
+        }
+        continue;
+      }
+
+      resolved.set(item.id, item.metadata);
+      const pendingItem = remaining.find((candidate) => candidate.id === item.id);
+      if (pendingItem) {
+        const cacheKey = await createAnalysisCacheKey(pendingItem.imageBase64, focusTarget);
+        writeAnalysisCache(cacheKey, item.metadata);
+      }
     }
 
-    resolved.set(item.id, item.metadata);
-    const pendingItem = pending.find((candidate) => candidate.id === item.id);
-    if (pendingItem) {
-      const cacheKey = await createAnalysisCacheKey(pendingItem.imageBase64, focusTarget);
-      writeAnalysisCache(cacheKey, item.metadata);
+    remaining = failed;
+    if (remaining.length > 0 && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
+  }
+
+  if (remaining.length > 0) {
+    const first = remaining[0];
+    throw new Error(`Failed to analyze ${first?.id ?? "image"} after retries.`);
   }
 
   return resolved;

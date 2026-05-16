@@ -12,6 +12,11 @@ import {
   writeAnalysisCache,
 } from "./analysisCache.js";
 import { DEPTH_GRID_SIZE, synthesizeDepthField } from "./depth.js";
+import {
+  coerceAnalysisMetadata,
+  extractVertexResponseText,
+  parseAnalysisJson,
+} from "./analysisResponse.js";
 import { ANALYSIS_MODEL, EDIT_MODEL, buildAnalysisPrompt, buildEditPrompt, buildRemoveBackgroundPrompt } from "./prompts.js";
 import type {
   AnalysisMetadata,
@@ -227,34 +232,36 @@ function normalizeAnalysisMetadata(
   raw: Partial<AnalysisMetadata>,
   focusTarget?: string
 ): AnalysisMetadata {
-  if (!raw.label || !raw.center || !raw.bgPrompt) {
-    throw new Error("Analysis response did not include required metadata fields.");
-  }
+  const prepared = coerceAnalysisMetadata(raw, focusTarget);
+  const label = prepared.label!;
+  const center = prepared.center!;
 
-  const subject = normalizeSubject(raw.subject, focusTarget, raw.label, raw.center);
-  const focus = normalizeFocus(raw.focus);
+  const subject = normalizeSubject(prepared.subject, focusTarget, label, center);
+  const focus = normalizeFocus(prepared.focus);
   const suggestion = resolveSuggestedCategory({
-    label: raw.label,
-    category: raw.category ?? "",
-    categoryConfidence: normalizeCategoryConfidence(raw.categoryConfidence),
+    label,
+    category: prepared.category ?? "",
+    categoryConfidence: normalizeCategoryConfidence(prepared.categoryConfidence),
     subject,
     focus,
     focusTarget,
   });
 
   return {
-    label: raw.label,
-    center: raw.center,
+    label,
+    center,
     focus,
     subject,
-    depth: normalizeDepthField(raw.depth, raw.center, subject),
-    bgPrompt: raw.bgPrompt,
+    depth: normalizeDepthField(prepared.depth, center, subject),
+    bgPrompt: prepared.bgPrompt!,
     category: suggestion.category,
     categoryConfidence: suggestion.confidence,
   };
 }
+
 interface VertexGenerateResponse {
   candidates?: Array<{
+    finishReason?: string;
     content?: {
       parts?: Array<{
         text?: string;
@@ -265,6 +272,14 @@ interface VertexGenerateResponse {
       }>;
     };
   }>;
+  promptFeedback?: {
+    blockReason?: string;
+  };
+}
+
+function resolveAnalysisAttempts(): number {
+  const parsed = Number(process.env.ANALYSIS_PARSE_RETRIES ?? 3);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 3;
 }
 
 async function generateAnalysisMetadata(
@@ -272,29 +287,41 @@ async function generateAnalysisMetadata(
   mimeType = "image/png",
   focusTarget?: string
 ): Promise<AnalysisMetadata> {
-  const result = await vertexGenerateContent<VertexGenerateResponse>(ANALYSIS_MODEL, {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: buildAnalysisPrompt(focusTarget) },
-          { inlineData: { mimeType, data: imageBase64 } },
-        ],
-      },
-    ],
-    generationConfig: {
-      responseMimeType: "application/json",
-      maxOutputTokens: 1024,
-      temperature: 0.2,
-    },
-  });
+  const attempts = resolveAnalysisAttempts();
+  let lastError: unknown;
 
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Analysis response did not include JSON metadata.");
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const result = await vertexGenerateContent<VertexGenerateResponse>(ANALYSIS_MODEL, {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: buildAnalysisPrompt(focusTarget) },
+              { inlineData: { mimeType, data: imageBase64 } },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          maxOutputTokens: attempt === 0 ? 1536 : 2048,
+          temperature: 0.15,
+        },
+      });
+
+      const text = extractVertexResponseText(result);
+      const parsed = parseAnalysisJson(text);
+      return normalizeAnalysisMetadata(parsed, focusTarget);
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts - 1) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
   }
 
-  return normalizeAnalysisMetadata(JSON.parse(text) as Partial<AnalysisMetadata>, focusTarget);
+  throw lastError instanceof Error ? lastError : new Error("Analysis response did not include JSON metadata.");
 }
 
 export async function analyzeImage(
@@ -313,7 +340,7 @@ export async function analyzeImage(
   return metadata;
 }
 
-export async function analyzeImageBatch(
+async function analyzeImageBatchOnce(
   items: AnalyzeBatchItem[],
   focusTarget?: string
 ): Promise<AnalyzeBatchResultItem[]> {
@@ -342,6 +369,42 @@ export async function analyzeImageBatch(
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
+}
+
+export async function analyzeImageBatch(
+  items: AnalyzeBatchItem[],
+  focusTarget?: string
+): Promise<AnalyzeBatchResultItem[]> {
+  const byId = new Map<string, AnalyzeBatchResultItem>();
+  let pending = items;
+  const rounds = Math.max(1, Number(process.env.ANALYZE_BATCH_ITEM_ROUNDS ?? 2));
+
+  for (let round = 0; round < rounds && pending.length > 0; round += 1) {
+    const roundResults = await analyzeImageBatchOnce(pending, focusTarget);
+    const retryItems: AnalyzeBatchItem[] = [];
+
+    for (const result of roundResults) {
+      if (result.metadata) {
+        byId.set(result.id, result);
+        continue;
+      }
+      if (round < rounds - 1) {
+        const item = pending.find((candidate) => candidate.id === result.id);
+        if (item) {
+          retryItems.push(item);
+        }
+        continue;
+      }
+      byId.set(result.id, result);
+    }
+
+    pending = retryItems;
+    if (pending.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 600 * (round + 1)));
+    }
+  }
+
+  return items.map((item) => byId.get(item.id) ?? { id: item.id, error: "Analyze request failed." });
 }
 
 export async function editImageBackground(
