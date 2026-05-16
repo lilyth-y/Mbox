@@ -1,0 +1,27 @@
+# Upload only what Docker / npm need (speeds `gcloud builds submit`).
+.git
+.gitignore
+.cursor
+.vscode
+**/.DS_Store
+Thumbs.db
+*.log
+
+node_modules
+**/node_modules
+.cache
+**/.cache
+
+# Incremental TS info must not ship without dist/ (tsc would skip emit and break @mbox/api build)
+**/*.tsbuildinfo
+
+# Rebuilt in Cloud Build
+apps/web/dist
+apps/api/dist
+packages/shared/dist
+
+experiments/outputs
+data/workspaces
+
+.playwright-mcp
+.snapshots

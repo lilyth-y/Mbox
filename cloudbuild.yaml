@@ -1,0 +1,122 @@
+# Cloud Build: @mbox/web → GCS, @mbox/api → Artifact Registry + Cloud Run
+#
+# One-time GCP setup: docs/deploy-cloud-build.md
+#
+# Manual run (example):
+#   gcloud builds submit --region=asia-northeast3 \
+#     --substitutions=_WEB_BUCKET=my-app-web,_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app,\
+# _VITE_API_KEY=...,_CORS_ORIGIN=https://storage.googleapis.com
+
+options:
+  substitution_option: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+substitutions:
+  _REGION: asia-northeast3
+  _AR_REPO: mbox
+  _API_IMAGE_NAME: api
+  _CLOUD_RUN_SERVICE: mbox-api
+  _WEB_BUCKET: ""
+  _VITE_API_BASE_URL: "https://REPLACE_WITH_CLOUD_RUN_URL"
+  _VITE_WORKSPACE_ID: "default"
+  _VITE_USE_SERVER_VAULT: "true"
+  _VITE_LOCALHOST_DEMO: "false"
+  _VITE_ENABLE_DEV_ASSET_BATCH: "false"
+  _VITE_API_KEY: ""
+  _CORS_ORIGIN: "https://REPLACE_WITH_WEB_ORIGIN"
+  _API_KEY_SECRET: mbox-api-key
+  _RUN_ALLOW_UNAUTHENTICATED: "true"
+
+steps:
+  - id: web-build
+    name: node:22-bookworm
+    waitFor: ["-"]
+    dir: .
+    env:
+      - "VITE_API_BASE_URL=${_VITE_API_BASE_URL}"
+      - "VITE_WORKSPACE_ID=${_VITE_WORKSPACE_ID}"
+      - "VITE_USE_SERVER_VAULT=${_VITE_USE_SERVER_VAULT}"
+      - "VITE_LOCALHOST_DEMO=${_VITE_LOCALHOST_DEMO}"
+      - "VITE_ENABLE_DEV_ASSET_BATCH=${_VITE_ENABLE_DEV_ASSET_BATCH}"
+      - "VITE_API_KEY=${_VITE_API_KEY}"
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        npm ci
+        npm run build --workspace @mbox/shared
+        npm run build --workspace @mbox/web
+
+  - id: api-image
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["web-build"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        img="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_IMAGE_NAME}"
+        docker build -f apps/api/Dockerfile -t "$$img:${BUILD_ID}" -t "$$img:latest" .
+        docker push "$$img:${BUILD_ID}"
+        docker push "$$img:latest"
+
+  - id: web-publish
+    name: gcr.io/cloud-builders/gcloud
+    waitFor: ["web-build"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [[ -z "${_WEB_BUCKET}" ]]; then
+          echo "Skipping GCS sync: _WEB_BUCKET is empty."
+          exit 0
+        fi
+        gcloud storage rsync --recursive "apps/web/dist" "gs://${_WEB_BUCKET}/"
+
+  - id: api-deploy
+    name: gcr.io/cloud-builders/gcloud
+    waitFor: ["api-image"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        img="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_API_IMAGE_NAME}:${BUILD_ID}"
+        if [[ "${_RUN_ALLOW_UNAUTHENTICATED}" == "true" ]]; then
+          gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
+            --image="$$img" \
+            --region="${_REGION}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${_REGION},CORS_ORIGIN=${_CORS_ORIGIN},WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces,RATE_LIMIT_PER_MINUTE=180" \
+            --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
+        else
+          gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
+            --image="$$img" \
+            --region="${_REGION}" \
+            --platform=managed \
+            --no-allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${_REGION},CORS_ORIGIN=${_CORS_ORIGIN},WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces,RATE_LIMIT_PER_MINUTE=180" \
+            --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
+        fi
+
+  - id: api-public-invoke
+    name: gcr.io/cloud-builders/gcloud
+    waitFor: ["api-deploy"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [[ "${_RUN_ALLOW_UNAUTHENTICATED}" != "true" ]]; then
+          echo "Skipping public invoker: _RUN_ALLOW_UNAUTHENTICATED is not true."
+          exit 0
+        fi
+        gcloud run services add-iam-policy-binding "${_CLOUD_RUN_SERVICE}" \
+          --region="${_REGION}" \
+          --member=allUsers \
+          --role=roles/run.invoker \
+          --quiet

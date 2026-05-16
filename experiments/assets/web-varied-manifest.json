@@ -1,0 +1,58 @@
+{
+  "tier": "web_varied",
+  "description": "Public web images with mixed aspect ratios for focus and crop validation.",
+  "source": "https://picsum.photos/",
+  "fetchedAt": "2026-05-13T23:23:51Z",
+  "samples": [
+    {
+      "id": "web-portrait-tall",
+      "label": "portrait",
+      "mimeType": "image/jpeg",
+      "sourceUrl": "https://picsum.photos/seed/mbox-portrait/900/1600",
+      "imagePath": "experiments/assets/web-varied/web-portrait-tall.jpg",
+      "width": 900,
+      "height": 1600,
+      "bytes": 143330
+    },
+    {
+      "id": "web-landscape-wide",
+      "label": "landscape",
+      "mimeType": "image/jpeg",
+      "sourceUrl": "https://picsum.photos/seed/mbox-landscape/1920/1080",
+      "imagePath": "experiments/assets/web-varied/web-landscape-wide.jpg",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 239204
+    },
+    {
+      "id": "web-square",
+      "label": "square",
+      "mimeType": "image/jpeg",
+      "sourceUrl": "https://picsum.photos/seed/mbox-square/1024/1024",
+      "imagePath": "experiments/assets/web-varied/web-square.jpg",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 140412
+    },
+    {
+      "id": "web-ultrawide",
+      "label": "ultrawide",
+      "mimeType": "image/jpeg",
+      "sourceUrl": "https://picsum.photos/seed/mbox-ultrawide/2400/800",
+      "imagePath": "experiments/assets/web-varied/web-ultrawide.jpg",
+      "width": 2400,
+      "height": 800,
+      "bytes": 114144
+    },
+    {
+      "id": "web-small-offset",
+      "label": "small",
+      "mimeType": "image/jpeg",
+      "sourceUrl": "https://picsum.photos/seed/mbox-small/480/360",
+      "imagePath": "experiments/assets/web-varied/web-small-offset.jpg",
+      "width": 480,
+      "height": 360,
+      "bytes": 33596
+    }
+  ]
+}
