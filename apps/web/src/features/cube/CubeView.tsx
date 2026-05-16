@@ -32,6 +32,7 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const requestRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
+  const timelineStartRef = useRef(performance.now());
   const [presentationKey, setPresentationKey] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingMessage, setRecordingMessage] = useState("");
@@ -88,12 +89,12 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     const presentation = createPresentationScene(selectedEffect, orderedImages, textures);
     scene.add(presentation.root);
 
-    const startTime = performance.now();
+    timelineStartRef.current = performance.now();
     const recordingDuration = getSequenceDurationMs(presentationCount);
     let appliedStep = -1;
 
     const animate = (now: number) => {
-      const elapsed = now - startTime;
+      const elapsed = now - timelineStartRef.current;
       const timeline = recordingRef.current ? elapsed : elapsed % recordingDuration;
       const step = Math.min(presentationCount - 1, Math.floor(timeline / segmentDuration));
       const stepElapsed = timeline - step * segmentDuration;
@@ -174,9 +175,9 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
       const { mimeType, extension } = resolveRecordingMimeType();
       const recorder = new CubeVideoRecorder();
       const stream = renderer.domElement.captureStream(30);
-      recorder.start(stream, mimeType);
+      timelineStartRef.current = performance.now();
       recordingRef.current = true;
-      setPresentationKey((value) => value + 1);
+      recorder.start(stream, mimeType);
 
       await new Promise<void>((resolve) => {
         const startedAt = performance.now();
@@ -191,6 +192,9 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
       });
 
       const blob = await recorder.stop();
+      if (blob.size < 1024) {
+        throw new Error("Recording produced an empty or unusable video file.");
+      }
       downloadBlob(blob, `mbox-${selectedEffect}.${extension}`);
       setRecordingMessage(
         extension === "mp4"

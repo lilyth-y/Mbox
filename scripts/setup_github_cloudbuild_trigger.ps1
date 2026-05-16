@@ -40,13 +40,15 @@ $cbSa = "${projectNumber}@cloudbuild.gserviceaccount.com"
 Write-Host "Cloud Build SA: $cbSa"
 
 Write-Host "Granting Secret Manager accessor on mbox-api-key to Cloud Build SA..."
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 gcloud secrets add-iam-policy-binding mbox-api-key `
   --member="serviceAccount:$cbSa" `
-  --role="roles/secretmanager.secretAccessor" 2>$null | Out-Null
+  --role="roles/secretmanager.secretAccessor" 2>&1 | Out-Null
+$ErrorActionPreference = $prevEap
 
-$connPath = "projects/$ProjectId/locations/$Region/connections/$ConnectionName"
-$connJson = gcloud builds connections describe $ConnectionName --region=$Region --project=$ProjectId --format=json 2>$null
-if (-not $connJson) {
+$connName = (gcloud builds connections describe $ConnectionName --region=$Region --project=$ProjectId --format="value(name)" 2>$null)
+if (-not $connName) {
   Write-Host @"
 
 === Step A: Create GitHub connection (browser) ===
