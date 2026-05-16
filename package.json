@@ -1,0 +1,16 @@
+{
+  "name": "mbox",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @mbox/shared && npm run build --workspace @mbox/api && npm run build --workspace @mbox/web",
+    "check:cloudbuild": "python scripts/check_cloudbuild_consistency.py",
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace @mbox/api\" \"npm run dev --workspace @mbox/web\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

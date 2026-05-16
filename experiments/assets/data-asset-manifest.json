@@ -1,0 +1,109 @@
+{
+  "tier": "data_asset",
+  "description": "Ordered KakaoTalk portraits from data/asset for cube production.",
+  "sourceDirectory": "data/asset/temp_1778692001076.-1818431043",
+  "canonicalInput": "KakaoTalk download JPGs in sourceDirectory (20 samples below). Do not use ad-hoc MP4 exports as pipeline input.",
+  "deliverablesSpec": "experiments/assets/deliverables-spec.json",
+  "samples": [
+    {
+      "id": "kakao-01",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_01.jpg"
+    },
+    {
+      "id": "kakao-02",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_02.jpg"
+    },
+    {
+      "id": "kakao-03",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_03.jpg"
+    },
+    {
+      "id": "kakao-04",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_04.jpg"
+    },
+    {
+      "id": "kakao-05",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_05.jpg"
+    },
+    {
+      "id": "kakao-06",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_06.jpg"
+    },
+    {
+      "id": "kakao-07",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_07.jpg"
+    },
+    {
+      "id": "kakao-08",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_08.jpg"
+    },
+    {
+      "id": "kakao-09",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_09.jpg"
+    },
+    {
+      "id": "kakao-10",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_10.jpg"
+    },
+    {
+      "id": "kakao-11",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_11.jpg"
+    },
+    {
+      "id": "kakao-12",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_12.jpg"
+    },
+    {
+      "id": "kakao-13",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_13.jpg"
+    },
+    {
+      "id": "kakao-14",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_14.jpg"
+    },
+    {
+      "id": "kakao-15",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_15.jpg"
+    },
+    {
+      "id": "kakao-16",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_16.jpg"
+    },
+    {
+      "id": "kakao-17",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_17.jpg"
+    },
+    {
+      "id": "kakao-18",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_18.jpg"
+    },
+    {
+      "id": "kakao-19",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_19.jpg"
+    },
+    {
+      "id": "kakao-20",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_20.jpg"
+    }
+  ]
+}

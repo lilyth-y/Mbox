@@ -1,0 +1,26 @@
+{
+  "tier": "tier1_smoke",
+  "description": "Original KakaoTalk images extracted from data/asset zip for smoke validation.",
+  "sourceArchive": "data/asset/temp_1778692001076.-1818431043.zip",
+  "sourceDirectory": "data/asset/temp_1778692001076.-1818431043",
+  "samples": [
+    {
+      "id": "kakao-01",
+      "label": "original",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_01.jpg"
+    },
+    {
+      "id": "kakao-09",
+      "label": "original",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_09.jpg"
+    },
+    {
+      "id": "kakao-20",
+      "label": "original",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_20.jpg"
+    }
+  ]
+}

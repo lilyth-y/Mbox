@@ -1,0 +1,440 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import * as THREE from 'three';
+import { 
+  Upload, 
+  Settings, 
+  Box, 
+  Play, 
+  CheckCircle, 
+  Layout, 
+  Trash2, 
+  FolderPlus,
+  Loader2,
+  Camera,
+  Scissors
+} from 'lucide-react';
+
+// --- Constants & Config ---
+const apiKey = ""; // API key is provided by the environment
+const IMAGE_SIZE = 1024;
+const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'image-cube-app';
+
+const App = () => {
+  const [sourceImage, setSourceImage] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedImages, setProcessedImages] = useState([]); // { url, label, category }
+  const [status, setStatus] = useState("이미지를 업로드해주세요.");
+  const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'cube'
+  const [categories, setCategories] = useState(['기본', '자연', '추상']);
+  
+  const canvasRef = useRef(null);
+  const cubeContainerRef = useRef(null);
+  const rendererRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const cubeRef = useRef(null);
+  const requestRef = useRef(null);
+
+  // --- 1. Image Input & Preview ---
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSourceImage(event.target.result);
+      setStatus("이미지 업로드 완료. 분석을 시작할 수 있습니다.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // --- Exponential Backoff Helper ---
+  const fetchWithRetry = async (url, options, retries = 5) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, options);
+        if (response.ok) return await response.json();
+      } catch (err) {
+        if (i === retries - 1) throw err;
+      }
+      await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
+    }
+  };
+
+  // --- 2, 3, 4, 5. AI Processing Logic ---
+  const processImage = async () => {
+    if (!sourceImage) return;
+    setIsProcessing(true);
+    setStatus("AI가 이미지 주요 부위를 분석 중입니다...");
+
+    try {
+      const base64Data = sourceImage.split(',')[1];
+
+      // Step 2 & 4: Analyze for coordinates and labeling
+      const analysisPrompt = "Analyze this image. 1. Provide a short 1-word label for the main object. 2. Identify the center coordinates (x, y) of the main object as percentages (0-100). 3. Suggest a creative background description for this object. Respond in JSON format: { 'label': 'string', 'center': { 'x': number, 'y': number }, 'bgPrompt': 'string', 'category': 'string' }";
+      
+      const analysisResult = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: analysisPrompt },
+                { inlineData: { mimeType: "image/png", data: base64Data } }
+              ]
+            }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        }
+      );
+
+      const metadata = JSON.parse(analysisResult.candidates[0].content.parts[0].text);
+      setStatus(`분석 완료: [${metadata.label}]. 배경 생성 중...`);
+
+      // Step 5: Background Editing (Image-to-Image)
+      const editPrompt = `Keep the main object (${metadata.label}) but change the background to a stunning ${metadata.bgPrompt}. High quality, professional photography style.`;
+      
+      const editResult = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: editPrompt },
+                { inlineData: { mimeType: "image/png", data: base64Data } }
+              ]
+            }],
+            generationConfig: { responseModalities: ['IMAGE'] }
+          })
+        }
+      );
+
+      const editedBase64 = editResult.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+      if (!editedBase64) throw new Error("배경 생성에 실패했습니다.");
+
+      // Step 3: Crop to 1024x1024 around the focus point
+      const editedUrl = `data:image/png;base64,${editedBase64}`;
+      const finalImage = await cropImage(editedUrl, metadata.center);
+
+      // Step 6: Categorize and store
+      const newEntry = {
+        id: Date.now(),
+        url: finalImage,
+        label: metadata.label,
+        category: metadata.category || '기본',
+        originalUrl: sourceImage
+      };
+
+      setProcessedImages(prev => [newEntry, ...prev]);
+      setStatus("이미지 처리 및 폴더 분류가 완료되었습니다.");
+      
+    } catch (error) {
+      console.error(error);
+      setStatus("처리 중 오류가 발생했습니다: " + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const cropImage = (url, center) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = IMAGE_SIZE;
+        canvas.height = IMAGE_SIZE;
+        const ctx = canvas.getContext('2d');
+
+        // Calculate crop area based on center %
+        const centerX = (center.x / 100) * img.width;
+        const centerY = (center.y / 100) * img.height;
+
+        // Ensure we stay within bounds while maintaining 1:1 aspect ratio
+        const size = Math.min(img.width, img.height);
+        let sx = centerX - size / 2;
+        let sy = centerY - size / 2;
+
+        if (sx < 0) sx = 0;
+        if (sy < 0) sy = 0;
+        if (sx + size > img.width) sx = img.width - size;
+        if (sy + size > img.height) sy = img.height - size;
+
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, IMAGE_SIZE, IMAGE_SIZE);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = url;
+    });
+  };
+
+  // --- 7, 8. 3D Cube Animation with Three.js ---
+  useEffect(() => {
+    if (activeTab !== 'cube' || !cubeContainerRef.current) return;
+
+    // Cleanup previous instance
+    if (rendererRef.current) {
+      cubeContainerRef.current.removeChild(rendererRef.current.domElement);
+    }
+
+    const width = cubeContainerRef.current.clientWidth;
+    const height = cubeContainerRef.current.clientHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.z = 5;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    cubeContainerRef.current.appendChild(renderer.domElement);
+
+    // Light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
+
+    // Material logic: Use processed images for faces
+    const loader = new THREE.TextureLoader();
+    const defaultTexture = new THREE.DataTexture(new Uint8Array([200, 200, 200, 255]), 1, 1, THREE.RGBAFormat);
+    
+    // Get up to 6 unique images for cube faces
+    const faceImages = processedImages.slice(0, 6);
+    const materials = Array(6).fill(0).map((_, i) => {
+      const img = faceImages[i];
+      if (img) {
+        return new THREE.MeshStandardMaterial({ map: loader.load(img.url) });
+      }
+      return new THREE.MeshStandardMaterial({ color: 0x334155 });
+    });
+
+    const geometry = new THREE.BoxGeometry(2.5, 2.5, 2.5);
+    const cube = new THREE.Mesh(geometry, materials);
+    scene.add(cube);
+
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    rendererRef.current = renderer;
+    cubeRef.current = cube;
+
+    let targetRotationX = 0;
+    let targetRotationY = 0;
+    let rotationSpeed = 0.01;
+
+    const animate = () => {
+      if (!cube) return;
+      
+      // Automatic sequence rotation with some randomness
+      cube.rotation.x += rotationSpeed + (Math.random() * 0.005);
+      cube.rotation.y += rotationSpeed + (Math.random() * 0.005);
+      
+      // Smoothly change "base" rotation over time to show different faces
+      if (Math.random() > 0.99) {
+        rotationSpeed = 0.005 + Math.random() * 0.02;
+      }
+
+      renderer.render(scene, camera);
+      requestRef.current = requestAnimationFrame(animate);
+    };
+
+    const handleResize = () => {
+      if (!cubeContainerRef.current) return;
+      const w = cubeContainerRef.current.clientWidth;
+      const h = cubeContainerRef.current.clientHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+
+    window.addEventListener('resize', handleResize);
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(requestRef.current);
+    };
+  }, [activeTab, processedImages]);
+
+  // --- UI Components ---
+  const GalleryItem = ({ item }) => (
+    <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 group hover:border-blue-500 transition-all shadow-lg">
+      <div className="relative aspect-square">
+        <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <button className="p-2 bg-blue-600 rounded-full text-white hover:scale-110 transition-transform">
+            <Layout size={18} />
+          </button>
+        </div>
+      </div>
+      <div className="p-3">
+        <div className="flex justify-between items-start mb-1">
+          <h3 className="text-sm font-bold text-slate-100 truncate">{item.label}</h3>
+          <span className="text-[10px] px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full">{item.category}</span>
+        </div>
+        <p className="text-[11px] text-slate-400">1024 x 1024 PNG</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8">
+      <header className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+            AI IMAGE CUBE GENERATOR
+          </h1>
+          <p className="text-slate-400 text-sm">이미지 분석, 크롭, 배경 생성 및 3D 시각화 파이프라인</p>
+        </div>
+        
+        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+          <button 
+            onClick={() => setActiveTab('upload')}
+            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${activeTab === 'upload' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}
+          >
+            <Upload size={18} /> 프로세싱
+          </button>
+          <button 
+            onClick={() => setActiveTab('cube')}
+            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${activeTab === 'cube' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}
+          >
+            <Box size={18} /> 3D 큐브
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {activeTab === 'upload' ? (
+          <>
+            {/* Left: Input & Processing */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4 text-blue-400">
+                  <Camera size={20} />
+                  <h2 className="font-bold">이미지 입력</h2>
+                </div>
+                
+                <label className="relative block group cursor-pointer">
+                  <div className={`aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${sourceImage ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'}`}>
+                    {sourceImage ? (
+                      <img src={sourceImage} className="w-full h-full object-contain p-2" alt="Source" />
+                    ) : (
+                      <>
+                        <Upload className="text-slate-500 mb-2" size={32} />
+                        <span className="text-slate-400 text-sm">파일을 드래그하거나 클릭하여 업로드</span>
+                      </>
+                    )}
+                  </div>
+                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                </label>
+
+                <div className="mt-6 flex gap-3">
+                  <button 
+                    disabled={!sourceImage || isProcessing}
+                    onClick={processImage}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <Play size={18} />}
+                    분석 및 생성 시작
+                  </button>
+                  <button 
+                    onClick={() => {setSourceImage(null); setStatus("이미지를 업로드해주세요.");}}
+                    className="p-3 bg-slate-800 hover:bg-red-900/30 hover:text-red-400 rounded-xl transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-4 p-3 bg-black/40 rounded-lg border border-slate-800 flex items-start gap-3">
+                  <div className={`p-1 rounded-full mt-0.5 ${isProcessing ? 'bg-blue-500/20 text-blue-500' : 'bg-green-500/20 text-green-500'}`}>
+                    <CheckCircle size={14} />
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed italic">{status}</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2 text-indigo-400">
+                    <FolderPlus size={20} />
+                    <h2 className="font-bold">카테고리 관리</h2>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <span key={cat} className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-md text-xs text-slate-300">
+                      {cat}
+                    </span>
+                  ))}
+                  <button className="px-3 py-1 border border-dashed border-slate-600 rounded-md text-xs text-slate-500 hover:text-slate-300">
+                    + 추가
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Gallery */}
+            <div className="lg:col-span-7">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Layout className="text-blue-400" size={24} />
+                  생성된 이미지 보관함
+                </h2>
+                <span className="text-sm text-slate-500">{processedImages.length}개 항목</span>
+              </div>
+
+              {processedImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {processedImages.map(img => (
+                    <GalleryItem key={img.id} item={img} />
+                  ))}
+                </div>
+              ) : (
+                <div className="h-[400px] flex flex-col items-center justify-center bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-2xl">
+                  <Scissors className="text-slate-700 mb-4" size={48} />
+                  <p className="text-slate-500">생성된 이미지가 아직 없습니다.</p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          /* 3D Cube View */
+          <div className="lg:col-span-12">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div ref={cubeContainerRef} className="w-full h-[600px] cursor-grab active:cursor-grabbing" />
+              
+              <div className="absolute top-6 left-6 pointer-events-none">
+                <h3 className="text-2xl font-black text-white/90">3D VISUALIZATION CUBE</h3>
+                <p className="text-blue-400 text-sm">최근 생성된 6개의 이미지가 큐브의 면을 구성합니다.</p>
+              </div>
+
+              <div className="absolute bottom-6 right-6 flex gap-4">
+                <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-xs text-slate-300 max-w-[200px]">
+                  {processedImages.length < 6 ? (
+                    <p className="text-amber-400">큐브를 채우기 위해 이미지를 더 생성해주세요. (현재: {processedImages.length}/6)</p>
+                  ) : (
+                    <p>큐브가 완벽하게 구성되었습니다. 무작위 회전이 활성화됨.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center text-slate-500 text-sm">
+        <p>© 2024 AI Visual Lab. All rights reserved.</p>
+        <div className="flex gap-6 mt-4 md:mt-0">
+          <a href="#" className="hover:text-blue-400 transition-colors">Documentation</a>
+          <a href="#" className="hover:text-blue-400 transition-colors">API Status</a>
+          <a href="#" className="hover:text-blue-400 transition-colors">Privacy</a>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default App;

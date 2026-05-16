@@ -1,0 +1,69 @@
+{
+  "version": 4,
+  "description": "Outputs are generated from KakaoTalk source JPGs (data-asset-manifest). Format normalization, lovable presentation, persuasion, and semantic association apply on top of those inputs.",
+  "canonicalInput": {
+    "manifest": "experiments/assets/data-asset-manifest.json",
+    "sourceDirectory": "data/asset/temp_1778692001076.-1818431043",
+    "filePattern": "KakaoTalk_*.jpg",
+    "sampleCount": 20,
+    "policy": "All deliverables must be produced from these images—not from pre-exported MP4 files."
+  },
+  "productIntent": {
+    "outputFormatNormalization": {
+      "summary": "KakaoTalk JPGs become 1024 square assets, ordered gallery, and named presentation exports.",
+      "inProduct": [
+        "analyze + crop_1024",
+        "gallery + sequenceOrder",
+        "presentationEffects + mp4_export",
+        "data-asset-manifest samples"
+      ]
+    },
+    "lovable": {
+      "summary": "Motion, pacing, five presentation templates, post-processing, five background presets.",
+      "inProduct": [
+        "cube / presentationEffects",
+        "post-processing + AI recommend",
+        "backgroundTemplates",
+        "Korean-first status UI"
+      ]
+    },
+    "persuasion": {
+      "summary": "Presentable MP4/WebM exports after processing source photos.",
+      "inProduct": ["square_cube_presentation_mp4", "sibling presentation effects"]
+    },
+    "semanticAssociation": {
+      "summary": "Labels, AI/user categories, focus targets, events/workspaces.",
+      "inProduct": [
+        "AnalysisMetadata + category policy",
+        "CategoryPanel",
+        "event/project vault"
+      ]
+    }
+  },
+  "outputForms": [
+    {
+      "id": "square_cube_presentation_mp4",
+      "label": "정사각 큐브 프레젠테이션 (MP4)",
+      "presentationEffect": "cube_focus",
+      "pipeline": ["kakao_jpg_input", "analyze", "crop_1024", "gallery", "cube_tab", "mp4_export"],
+      "generatedArtifactPattern": "experiments/outputs/kakao_cube_*.{mp4,webm}"
+    }
+  ],
+  "preservedTemplates": {
+    "presentationEffects": {
+      "source": "apps/web/src/features/cube/presentationEffects.ts",
+      "ids": ["cube_focus", "book_spread", "turntable", "orbit_gallery", "album_flip"],
+      "policy": "Do not delete or rename."
+    },
+    "backgroundGeneration": {
+      "source": "apps/web/src/features/background/backgroundTemplates.ts",
+      "ids": ["studio", "nature", "city", "abstract", "warm_interior"],
+      "policy": "Do not delete or rename."
+    }
+  },
+  "quickPreview": {
+    "script": "scripts/preview_kakao_cube_quick.py",
+    "defaultImageCount": 3,
+    "env": "KAKAO_PREVIEW_COUNT=3 WEB_URL=http://localhost:5173"
+  }
+}

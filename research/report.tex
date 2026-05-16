@@ -1,0 +1,85 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\title{mbox Experiment Report}
+\author{mbox}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Goal}
+Validate the Gemini analysis, background edit, crop, gallery, and cube pipeline behind mbox.
+
+\section{Hypothesis}
+A server-proxied Gemini workflow can reproduce the single-file prototype while keeping API credentials off the client.
+
+\section{Methodology}
+\begin{itemize}
+  \item Tier 1 checks end-to-end smoke execution on fixed samples.
+  \item Tier 2 reviews label, center, prompt, and crop quality on a small subset.
+  \item Tier 3 compares latency and success rate on fixed inputs and prompts.
+  \item Each experiment changes only one variable at a time.
+\end{itemize}
+
+\section{Theoretical bounds}
+\begin{itemize}
+  \item Analysis JSON succeeds when the model returns valid structured output.
+  \item Background editing quality is bounded by object preservation and scene consistency.
+  \item Crop quality is bounded by center-coordinate accuracy and source aspect ratio.
+  \item Cube rendering is bounded by browser texture loading and animation frame budget.
+\end{itemize}
+
+\section{Vertex AI migration}
+\begin{itemize}
+  \item Status: API calls now use Vertex AI Gemini through Application Default Credentials.
+  \item Project: \texttt{ai-toolbox-production} in \texttt{us-central1}.
+  \item Local validation on 2026-05-14 returned \texttt{PERMISSION\_DENIED / BILLING\_DISABLED} until billing was linked; subsequent runs succeeded after billing was enabled.
+\end{itemize}
+
+\section{Tier 1 smoke}
+\begin{itemize}
+  \item Status: executed against local API health endpoint on 2026-05-14.
+  \item Health check: \texttt{ok=true}, service \texttt{mbox-api}, duration 16 ms.
+  \item Samples: \texttt{experiments/assets/original-sample-manifest.json} referencing KakaoTalk JPGs under \texttt{data/asset/temp\_1778692001076.-1818431043/}.
+  \item Tier 1 subset: \texttt{kakao-01}, \texttt{kakao-09}, \texttt{kakao-20}.
+  \item Tier 2 subset manifest: \texttt{experiments/assets/original-tier2-manifest.json}.
+  \item Analyze/edit calls: first attempt failed with retired model IDs; analysis now uses \texttt{gemini-2.5-flash} and edit uses \texttt{gemini-2.5-flash-image}.
+  \item Web-varied analyze run on 2026-05-14: 5/5 samples returned \texttt{analyze-ok} with \texttt{focus} metadata.
+  \item KakaoTalk Tier 1 subset on 2026-05-14: 3/3 \texttt{analyze-ok}; full E2E returned 3/3 \texttt{edit-ok} with analyze latencies 5.7--13.3 s and edit latencies 9.9--12.1 s.
+  \item Output: \texttt{experiments/outputs/tier1\_smoke/result.json}
+\end{itemize}
+
+\section{Web-varied assets}
+\begin{itemize}
+  \item Status: fetched on 2026-05-14 via \texttt{scripts/fetch\_web\_assets.py}.
+  \item Manifest: \texttt{experiments/assets/web-varied-manifest.json}
+  \item Samples: portrait 900x1600, landscape 1920x1080, square 1024x1024, ultrawide 2400x800, small 480x360.
+  \item Purpose: stress center and focus metadata across mixed aspect ratios before Tier 2 scoring.
+\end{itemize}
+
+\section{Image focus metadata}
+\begin{itemize}
+  \item Analyze responses now include \texttt{focus.onPrimarySubject}, \texttt{focus.centering}, \texttt{focus.aestheticScore}, and \texttt{focus.compositionNotes}.
+  \item Gallery cards surface focus summary text for qualitative review.
+  \item Automated focus scoring is not implemented; Tier 2 rubric adds \texttt{focus\_on\_subject} and \texttt{aesthetic\_framing}.
+\end{itemize}
+
+\section{Tier 2 subset}
+\begin{itemize}
+  \item Status: qualitative rubric recorded in \texttt{experiments/tier2\_subset/rubric.json}.
+  \item Review notes: \texttt{research/figures/README.md}
+  \item Metrics: label plausibility, center plausibility, crop framing, analyze latency, edit latency.
+  \item Current state: Vertex analyze data is available for KakaoTalk and web-varied samples; qualitative scoring is still pending.
+\end{itemize}
+
+\section{Tier 3 full}
+\begin{itemize}
+  \item Status: deferred until Tier 2 subset scoring is complete.
+  \item Protocol: \texttt{experiments/tier3\_full/README.md}
+\end{itemize}
+
+\section{Open questions}
+See \texttt{TODO.md} for unverified claims and deferred platform work.
+
+\end{document}

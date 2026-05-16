@@ -1,0 +1,13 @@
+{
+  "tier": "tier1_smoke",
+  "description": "Single-image smoke run for aligned category metadata.",
+  "samples": [
+    {
+      "id": "synthetic-center",
+      "label": "synthetic",
+      "mimeType": "image/png",
+      "imageFile": "synthetic-center.png",
+      "expectedSuggestedCategory": "기타"
+    }
+  ]
+}

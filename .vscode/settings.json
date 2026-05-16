@@ -1,0 +1,9 @@
+{
+    "git.ignoreLimitWarning": true,
+    "cSpell.words": [
+        "worktree"
+    ],
+    "files.watcherExclude": {
+        "**/target": true
+    }
+}

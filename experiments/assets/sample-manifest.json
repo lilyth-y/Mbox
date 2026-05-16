@@ -1,0 +1,20 @@
+{
+  "tier": "tier1_smoke",
+  "description": "Fixed samples for end-to-end smoke validation.",
+  "samples": [
+    {
+      "id": "synthetic-center",
+      "label": "synthetic",
+      "mimeType": "image/png",
+      "imageFile": "synthetic-center.png",
+      "expectedSuggestedCategory": "기타"
+    },
+    {
+      "id": "synthetic-offset",
+      "label": "synthetic",
+      "mimeType": "image/png",
+      "imageFile": "synthetic-offset.png",
+      "expectedSuggestedCategory": "기타"
+    }
+  ]
+}

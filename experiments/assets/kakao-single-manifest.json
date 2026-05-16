@@ -1,0 +1,12 @@
+{
+  "tier": "tier1_smoke",
+  "description": "Single KakaoTalk photo smoke run.",
+  "samples": [
+    {
+      "id": "kakao-01",
+      "label": "original",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_01.jpg"
+    }
+  ]
+}

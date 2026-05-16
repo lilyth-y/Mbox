@@ -1,0 +1,33 @@
+{
+  "tier": "tier2_subset",
+  "description": "Original KakaoTalk image subset for qualitative review.",
+  "sourceArchive": "data/asset/temp_1778692001076.-1818431043.zip",
+  "sourceDirectory": "data/asset/temp_1778692001076.-1818431043",
+  "samples": [
+    {
+      "id": "kakao-01",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_01.jpg"
+    },
+    {
+      "id": "kakao-06",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_06.jpg"
+    },
+    {
+      "id": "kakao-10",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260505_131306132_10.jpg"
+    },
+    {
+      "id": "kakao-16",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_16.jpg"
+    },
+    {
+      "id": "kakao-20",
+      "mimeType": "image/jpeg",
+      "imagePath": "data/asset/temp_1778692001076.-1818431043/KakaoTalk_20260509_084748488_20.jpg"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "tier": "tier2_subset",
+  "dimensions": [
+  {
+    "name": "label_plausibility",
+    "scale": "1-5",
+    "description": "Returned label matches the visible main subject."
+  },
+  {
+    "name": "center_plausibility",
+    "scale": "1-5",
+    "description": "Declared center percentages align with the subject focus."
+  },
+  {
+    "name": "focus_on_subject",
+    "scale": "1-5",
+    "description": "Declared focus keeps attention on the primary subject."
+  },
+  {
+    "name": "aesthetic_framing",
+    "scale": "1-5",
+    "description": "Composition and aesthetic score align with the intended crop framing."
+  },
+  {
+    "name": "crop_framing",
+    "scale": "1-5",
+    "description": "1024 crop keeps the subject centered without clipping."
+  },
+  {
+    "name": "category_suggestion",
+    "scale": "1-5",
+    "description": "Suggested category and confidence align with the visible subject."
+  },
+  {
+    "scale": "numeric",
+    "description": "Analyze endpoint duration for each fixed sample."
+  },
+  {
+    "name": "edit_latency_ms",
+    "scale": "numeric",
+    "description": "Edit endpoint duration for each fixed sample."
+  }
+  ],
+  "samples": [
+    "kakao-01",
+    "kakao-06",
+    "kakao-10",
+    "kakao-16",
+    "kakao-20",
+    "web-portrait-tall",
+    "web-landscape-wide",
+    "web-square",
+    "web-ultrawide",
+    "web-small-offset"
+  ],
+  "status": "rubric_recorded_pending_gemini_key"
+}
