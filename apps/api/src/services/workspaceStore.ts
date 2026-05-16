@@ -8,6 +8,8 @@ import type {
   WorkspaceBootstrapResponse,
   WorkspaceMeta,
 } from "@mbox/shared";
+import { deleteVaultEventPrefix } from "./gcsVaultStorage.js";
+import { dehydrateVaultImages, hydrateVaultImages } from "./vaultMedia.js";
 
 const DATA_DIR = process.env.WORKSPACE_DATA_DIR ?? path.join(process.cwd(), "data", "workspaces");
 
@@ -110,7 +112,8 @@ export async function loadEventVault(
   workspaceId: string,
   eventId: string
 ): Promise<VaultImageRecord[]> {
-  return readJsonFile<VaultImageRecord[]>(vaultPath(workspaceId, eventId), []);
+  const records = await readJsonFile<VaultImageRecord[]>(vaultPath(workspaceId, eventId), []);
+  return hydrateVaultImages(records);
 }
 
 export async function saveEventVault(
@@ -119,7 +122,8 @@ export async function saveEventVault(
   images: VaultImageRecord[]
 ): Promise<void> {
   await ensureWorkspaceDir(workspaceId);
-  await writeJsonFile(vaultPath(workspaceId, eventId), images);
+  const stored = await dehydrateVaultImages(workspaceId, eventId, images);
+  await writeJsonFile(vaultPath(workspaceId, eventId), stored);
 }
 
 export async function loadCategoryAssignments(
@@ -182,6 +186,7 @@ export async function deleteEvent(workspaceId: string, eventId: string): Promise
   await Promise.all([
     rm(vaultPath(workspaceId, eventId), { force: true }),
     rm(assignmentsPath(workspaceId, eventId), { force: true }),
+    deleteVaultEventPrefix(workspaceId, eventId),
   ]);
 
   const nextMeta = { events, activeEventId };

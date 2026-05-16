@@ -17,6 +17,8 @@ import {
   applyStoredCategoryAssignments,
   saveCategoryAssignments,
 } from "../gallery/categoryStorage";
+import { prepareImagesForServerVault } from "./cloudVaultSync";
+import type { VaultSaveResult } from "./indexedDbVault";
 import {
   bootstrapEventWorkspace,
   createEventRecord,
@@ -38,10 +40,10 @@ export function usesServerVault(): boolean {
   return USE_SERVER_VAULT;
 }
 
-export function bootstrapLocalWorkspace(): EventWorkspaceState {
+export async function bootstrapLocalWorkspace(): Promise<EventWorkspaceState> {
   const { events, activeEventId } = bootstrapEventWorkspace();
   const processedImages = applyStoredCategoryAssignments(
-    loadEventVault(activeEventId),
+    await loadEventVault(activeEventId),
     activeEventId
   );
   return { events, activeEventId, processedImages };
@@ -70,24 +72,25 @@ export async function loadEventGallery(
     ]);
     return applyServerCategoryAssignments(vault, assignments);
   }
-  return applyStoredCategoryAssignments(loadEventVault(eventId), eventId);
+  return applyStoredCategoryAssignments(await loadEventVault(eventId), eventId);
 }
 
 export async function persistEventVault(
   eventId: string,
   images: ProcessedImage[],
   events: HoloEvent[]
-): Promise<{ saved: boolean; events: HoloEvent[] }> {
+): Promise<{ saved: boolean; events: HoloEvent[]; vaultSave?: VaultSaveResult }> {
   saveCategoryAssignments(images, eventId);
 
   if (USE_SERVER_VAULT) {
-    await putCategoryAssignments(eventId, assignmentsFromImages(images));
-    const nextEvents = await putEventVault(eventId, images);
+    const prepared = await prepareImagesForServerVault(eventId, images);
+    await putCategoryAssignments(eventId, assignmentsFromImages(prepared));
+    const nextEvents = await putEventVault(eventId, prepared);
     return { saved: true, events: nextEvents };
   }
 
-  const saved = saveEventVault(eventId, images);
-  return { saved, events: touchEvent(events, eventId) };
+  const vaultSave = await saveEventVault(eventId, images);
+  return { saved: vaultSave.saved, events: touchEvent(events, eventId), vaultSave };
 }
 
 export async function switchToEvent(
@@ -128,7 +131,7 @@ export async function createEventWorkspace(
   const nextEvents = [...events, event];
   saveEventCatalog(nextEvents);
   saveActiveEventId(event.id);
-  saveEventVault(event.id, []);
+  await saveEventVault(event.id, []);
   return { events: nextEvents, activeEventId: event.id, processedImages: [] };
 }
 
@@ -146,7 +149,7 @@ export async function deleteEventWorkspace(
     };
   }
 
-  deleteEventVault(eventId);
+  await deleteEventVault(eventId);
   const nextEvents = events.filter((event) => event.id !== eventId);
   const nextActive = nextEvents[0];
   if (!nextActive) {

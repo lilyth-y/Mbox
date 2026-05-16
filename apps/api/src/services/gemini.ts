@@ -282,7 +282,11 @@ async function generateAnalysisMetadata(
         ],
       },
     ],
-    generationConfig: { responseMimeType: "application/json" },
+    generationConfig: {
+      responseMimeType: "application/json",
+      maxOutputTokens: 512,
+      temperature: 0.2,
+    },
   });
 
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text;

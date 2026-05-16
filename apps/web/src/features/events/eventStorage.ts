@@ -1,9 +1,7 @@
-import type { HoloEvent, ProcessedImage } from "../../shared/types";
+import type { HoloEvent } from "../../shared/types";
 
 const EVENTS_CATALOG_KEY = "mbox.events.catalog";
 const ACTIVE_EVENT_KEY = "mbox.events.active";
-const vaultKey = (eventId: string) => `mbox.events.vault.${eventId}`;
-
 function createEventId(): string {
   return `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -54,41 +52,12 @@ export function saveActiveEventId(eventId: string): void {
   }
 }
 
-export function loadEventVault(eventId: string): ProcessedImage[] {
-  try {
-    const raw = localStorage.getItem(vaultKey(eventId));
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as ProcessedImage[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-const LOCAL_VAULT_BUDGET_BYTES = 4 * 1024 * 1024;
-
-export function saveEventVault(eventId: string, images: ProcessedImage[]): boolean {
-  try {
-    const payload = JSON.stringify(images);
-    if (payload.length > LOCAL_VAULT_BUDGET_BYTES) {
-      return false;
-    }
-    localStorage.setItem(vaultKey(eventId), payload);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function deleteEventVault(eventId: string): void {
-  try {
-    localStorage.removeItem(vaultKey(eventId));
-  } catch {
-    // Ignore storage failures.
-  }
-}
+export {
+  deleteEventVault,
+  loadEventVault,
+  revokeEventObjectUrls,
+  saveEventVault,
+} from "./indexedDbVault";
 
 export function createEventRecord(name: string, description?: string): HoloEvent {
   const now = Date.now();
