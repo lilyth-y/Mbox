@@ -9,9 +9,9 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     : "If no focus target is provided, choose the most salient person or subject in the image.";
 
   return [
-    "Fast photo framing JSON for crop and parallax.",
+    "Analyze the image for crop center and light parallax. Return compact JSON only.",
     targetInstruction,
-    "Return JSON only:",
+    "Required JSON shape:",
     "{",
     "  'label': 'short subject label',",
     "  'center': { 'x': number, 'y': number },",
@@ -19,7 +19,7 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "    'onPrimarySubject': boolean,",
     "    'centering': 'centered' | 'rule_of_thirds' | 'offset' | 'edge_weighted',",
     "    'aestheticScore': number,",
-    "    'compositionNotes': ''",
+    "    'compositionNotes': 'short note'",
     "  },",
     "  'subject': {",
     "    'requestedTarget': 'string',",
@@ -29,13 +29,12 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "    'bounds': { 'x0': number, 'y0': number, 'x1': number, 'y1': number }",
     "  },",
     "  'depth': { 'subjectDepth': number },",
-    "  'bgPrompt': 'short background style',",
+    "  'bgPrompt': 'short background prompt',",
     `  'category': '${IMAGE_CATEGORY_OPTIONS.join("' | '")}',`,
     "  'categoryConfidence': number",
     "}",
-    "Use percentages 0-100 for coordinates and bounds.",
-    "subjectDepth: 0 far, 1 near. No depth grid.",
-    "compositionNotes: empty string unless subject missing.",
+    "All fields required. Coordinates and bounds are 0-100.",
+    "subjectDepth 0=far 1=near. Server builds depth grid; do not return depth values array.",
   ].join(" ");
 }
 
