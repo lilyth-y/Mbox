@@ -1,4 +1,4 @@
-import { DEPTH_GRID_SIZE, IMAGE_CATEGORY_OPTIONS } from "@mbox/shared";
+import { IMAGE_CATEGORY_OPTIONS } from "@mbox/shared";
 
 export const ANALYSIS_MODEL = "gemini-2.5-flash";
 export const EDIT_MODEL = "gemini-2.5-flash-image";
@@ -29,9 +29,7 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "    'bounds': { 'x0': number, 'y0': number, 'x1': number, 'y1': number }",
     "  },",
     "  'depth': {",
-    `    'gridSize': ${DEPTH_GRID_SIZE},`,
-    "    'subjectDepth': number,",
-    `    'values': number[${DEPTH_GRID_SIZE * DEPTH_GRID_SIZE}]`,
+    "    'subjectDepth': number",
     "  },",
     "  'bgPrompt': 'string',",
     `  'category': '${IMAGE_CATEGORY_OPTIONS.join("' | '")}',`,
@@ -40,10 +38,8 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "category must be exactly one of the listed values.",
     "categoryConfidence is a value from 0.0 to 1.0 for how confident you are in category.",
     "Coordinates and bounds are percentages from 0 to 100.",
-    "Depth values are row-major from top-left to bottom-right.",
-    `Use a ${DEPTH_GRID_SIZE}x${DEPTH_GRID_SIZE} coarse depth grid for parallax.`,
-    "Use 0.0 for far background and 1.0 for the nearest surface.",
-    "subjectDepth is the relative depth at the focus center.",
+    "subjectDepth is relative depth at the focus center (0.0 far background, 1.0 nearest).",
+    "Do not return a depth grid; the server synthesizes parallax from center and bounds.",
     "Keep the requested target in subject.requestedTarget even when detected is false.",
   ].join(" ");
 }

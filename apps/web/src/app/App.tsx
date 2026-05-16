@@ -3,9 +3,9 @@ import { Box, SlidersHorizontal, Upload } from "lucide-react";
 import { CategoryPanel } from "../features/gallery/CategoryPanel";
 import { GalleryPanel } from "../features/gallery/GalleryPanel";
 import { processDataAssetBatch } from "../features/processing/processAssetBatch";
+import { processUploadedImages } from "../features/processing/processImage";
 import { applyBackgroundGeneration } from "../features/processing/applyBackgroundGeneration";
 import { applyBackgroundRemoval } from "../features/processing/applyBackgroundRemoval";
-import { processUploadedImage } from "../features/processing/processImage";
 import { BackgroundGenerationPanel } from "../features/background/BackgroundGenerationPanel";
 import { UploadPanel } from "../features/upload/UploadPanel";
 import { CubeView } from "../features/cube/CubeView";
@@ -110,7 +110,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!workspaceReady || !activeEventId) {
+    if (!workspaceReady || !activeEventId || isProcessing) {
       return;
     }
 
@@ -122,8 +122,10 @@ export default function App() {
         }
         setEvents(nextEvents);
         if (!saved && processedImages.length > 0 && !usesServerVault()) {
-          setStatus(
-            "브라우저 저장 공간이 부족해 이벤트 보관함을 디스크에 모두 저장하지 못했습니다. 새로고침 시 일부 이미지가 사라질 수 있습니다."
+          setStatus((previous) =>
+            /완료/.test(previous)
+              ? `${previous} (브라우저 저장 용량 한도로 새로고침 시 이미지가 지워질 수 있습니다. 같은 탭에서 3D·MP4까지 이어가세요.)`
+              : "브라우저 저장 용량이 부족합니다. 같은 탭에서 작업을 마친 뒤 MP4로보내세요."
           );
         }
       })
@@ -138,7 +140,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [processedImages, activeEventId, workspaceReady]);
+  }, [processedImages, activeEventId, workspaceReady, isProcessing, events]);
 
   const activeEvent = events.find((event) => event.id === activeEventId) ?? events[0];
 
@@ -268,26 +270,18 @@ export default function App() {
 
     try {
       reporter.setPhase("processing");
-      for (let index = 0; index < sourceImages.length; index += 1) {
-        const sourceImage = sourceImages[index];
-        if (!sourceImage) {
-          continue;
-        }
+      const batchProcessed = await processUploadedImages(sourceImages, {
+        onStatus: setStatus,
+        focusTarget,
+        preprocessMode,
+        sequenceOrder: processedImages.length,
+        onProgress: (current, batchTotal, message) => {
+          reporter.setCurrent(current, message, current < batchTotal ? "analyzing" : "cropping");
+          setStatus(message);
+        },
+      });
 
-        const message =
-          total > 1
-            ? `이미지 처리 중 (${index + 1}/${total})...`
-            : "이미지 분석·크롭 중...";
-        reporter.setCurrent(index, message, "analyzing");
-        setStatus(message);
-
-        const entry = await processUploadedImage(sourceImage, {
-          onStatus: setStatus,
-          focusTarget,
-          preprocessMode,
-          sequenceOrder: processedImages.length + processedEntries.length,
-        });
-
+      for (const entry of batchProcessed) {
         if (!canAddPresentationImage([...processedImages, ...processedEntries], entry.byteSize)) {
           setStatus(
             `1GB 한도를 초과해 ${processedEntries.length}장만 저장했습니다. 현재 사용량 ${formatPresentationBytes(
@@ -296,10 +290,9 @@ export default function App() {
           );
           break;
         }
-
         processedEntries.push(entry);
-        reporter.setCurrent(processedEntries.length, message, "cropping");
       }
+      reporter.setCurrent(processedEntries.length, `${processedEntries.length}/${total}장 처리됨`, "cropping");
 
       if (processedEntries.length === 0) {
         return;

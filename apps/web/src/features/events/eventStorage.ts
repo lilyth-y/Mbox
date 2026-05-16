@@ -67,9 +67,15 @@ export function loadEventVault(eventId: string): ProcessedImage[] {
   }
 }
 
+const LOCAL_VAULT_BUDGET_BYTES = 4 * 1024 * 1024;
+
 export function saveEventVault(eventId: string, images: ProcessedImage[]): boolean {
   try {
-    localStorage.setItem(vaultKey(eventId), JSON.stringify(images));
+    const payload = JSON.stringify(images);
+    if (payload.length > LOCAL_VAULT_BUDGET_BYTES) {
+      return false;
+    }
+    localStorage.setItem(vaultKey(eventId), payload);
     return true;
   } catch {
     return false;

@@ -38,8 +38,8 @@ function resolveRetryBaseMs(): number {
 }
 
 function resolveAnalyzeConcurrency(): number {
-  const parsed = Number(process.env.ANALYZE_BATCH_CONCURRENCY ?? 4);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 4;
+  const parsed = Number(process.env.ANALYZE_BATCH_CONCURRENCY ?? 8);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 8;
 }
 
 async function getVertexAccessToken(): Promise<string> {
