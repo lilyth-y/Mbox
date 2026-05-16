@@ -171,6 +171,13 @@ returns **`COMPLETE`** (not `PENDING_USER_OAUTH`).
 If connection create fails on Secret Manager, grant `roles/secretmanager.admin` to  
 `service-PROJECT_NUMBER@gcp-sa-cloudbuild.iam.gserviceaccount.com` once, then retry.
 
+**Repository not linked (`does not exist or is not accessible to the Cloud Build GitHub App`):**
+
+1. Get the installation id:  
+   `gcloud builds connections describe mbox-github --region=asia-northeast3 --format='value(githubConfig.appInstallationId)'`
+2. Open **https://github.com/settings/installations/INSTALLATION_ID** → **Configure** → grant access to **`Mbox`** (or all repos).
+3. Re-run `.\scripts\setup_github_cloudbuild_trigger.ps1`.
+
 ### 8.2 Link repo + create trigger
 
 From the repo root (defaults: `lilyth-y` / `Mbox`):

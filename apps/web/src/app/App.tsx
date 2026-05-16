@@ -697,6 +697,11 @@ export default function App() {
                 settings={postProcessingSettings}
                 isProcessing={isProcessing}
                 onSettingsChange={setPostProcessingSettings}
+                onFocusCenterCommit={(center) => {
+                  if (selectedImage) {
+                    void handleFocusCenterCommit(selectedImage.id, center);
+                  }
+                }}
                 onApply={handleApplyPostProcessing}
                 onApplyAll={handleApplyPostProcessingAll}
                 onReset={() => setPostProcessingSettings(DEFAULT_POST_PROCESSING)}

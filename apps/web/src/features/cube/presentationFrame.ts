@@ -26,6 +26,9 @@ export function easeOutCubic(t: number): number {
 export interface PresentationFrame {
   cameraZ: number;
   fieldOfView: number;
+  /** Subtle camera drift around the subject (parallax / hold phases). */
+  cameraOffsetX?: number;
+  cameraOffsetY?: number;
   parallaxAmount: number;
   applyRootTransform: (root: THREE.Object3D, step: number, presentationCount: number) => void;
 }
@@ -82,38 +85,103 @@ function getParallaxAmountForElapsed(stepElapsed: number): number {
   return getParallaxAmount(stepElapsed - parallaxStart);
 }
 
-function computeCubeFrame(_step: number, stepElapsed: number, currentFace: number): PresentationFrame {
+/** Alternate corner poses so each photo transition feels distinct. */
+function getCubeRestRotation(step: number): THREE.Euler {
+  const variants = [
+    CORNER_REST_ROTATION,
+    new THREE.Euler(-0.28, 0.88, -0.1),
+    new THREE.Euler(-0.48, 0.45, 0.16),
+    new THREE.Euler(-0.22, 0.72, 0.22),
+  ];
+  return variants[step % variants.length]!.clone();
+}
+
+function getCubeCameraDrift(stepElapsed: number, step: number): { x: number; y: number } {
+  const parallaxStart = ROTATE_MS + ZOOM_MS;
+  if (stepElapsed < parallaxStart || stepElapsed >= parallaxStart + PARALLAX_MS) {
+    return { x: 0, y: 0 };
+  }
+  const t = stepElapsed - parallaxStart;
+  const wobble = step * 0.7;
+  return {
+    x: Math.sin(t * 0.0024 + wobble) * 0.68,
+    y: Math.cos(t * 0.0017 + wobble * 0.6) * 0.3,
+  };
+}
+
+function applyCubeMotionAccent(
+  rotation: THREE.Euler,
+  phase: ReturnType<typeof getPhase>,
+  step: number,
+  stepElapsed: number
+): THREE.Euler {
+  const accent = rotation.clone();
+  const spinDir = step % 2 === 0 ? 1 : -1;
+
+  if (phase.phase === "rotate" || phase.phase === "reset") {
+    const swing = Math.sin(phase.alpha * Math.PI);
+    accent.y += swing * 0.82 * spinDir;
+    accent.x += swing * 0.22;
+    accent.z += swing * 0.1 * -spinDir;
+  }
+
+  if (phase.phase === "zoom") {
+    accent.y += Math.sin(stepElapsed * 0.0015 + step) * 0.06;
+  } else if (phase.phase === "parallax") {
+    accent.y += Math.sin(stepElapsed * 0.0012 + step) * 0.04;
+  }
+
+  return accent;
+}
+
+function getCubeScale(phase: ReturnType<typeof getPhase>, stepElapsed: number): number {
+  if (phase.phase === "zoom") {
+    return THREE.MathUtils.lerp(1, 1.045, phase.alpha);
+  }
+  if (phase.phase === "parallax") {
+    const t = stepElapsed - ROTATE_MS - ZOOM_MS;
+    return 1 + Math.sin(t * 0.0028) * 0.055;
+  }
+  return 1;
+}
+
+function computeCubeFrame(step: number, stepElapsed: number, currentFace: number): PresentationFrame {
   const phase = getPhase(stepElapsed);
   const camera = getCameraState(phase);
+  const cameraDrift = getCubeCameraDrift(stepElapsed, step);
   const targetRotation = getFaceRotation(currentFace);
-  const restRotation = CORNER_REST_ROTATION;
+  const restRotation = getCubeRestRotation(step);
 
   let rotationAlpha = 1;
   let fromRotation = restRotation;
   let toRotation = targetRotation;
 
   if (phase.phase === "rotate") {
-    rotationAlpha = phase.alpha;
+    rotationAlpha = easeOutCubic(phase.alpha);
     fromRotation = restRotation;
     toRotation = targetRotation;
   } else if (phase.phase === "reset") {
     rotationAlpha = phase.alpha;
     fromRotation = targetRotation;
-    toRotation = restRotation;
+    toRotation = getCubeRestRotation(step + 1);
   } else {
     fromRotation = targetRotation;
     toRotation = targetRotation;
   }
 
-  const nextRotation = lerpEuler(fromRotation, toRotation, rotationAlpha);
+  const baseRotation = lerpEuler(fromRotation, toRotation, rotationAlpha);
+  const nextRotation = applyCubeMotionAccent(baseRotation, phase, step, stepElapsed);
+  const scale = getCubeScale(phase, stepElapsed);
 
   return {
     ...camera,
+    cameraOffsetX: cameraDrift.x,
+    cameraOffsetY: cameraDrift.y,
     parallaxAmount: getParallaxAmountForElapsed(stepElapsed),
     applyRootTransform: (root) => {
       root.rotation.set(nextRotation.x, nextRotation.y, nextRotation.z);
       root.position.set(0, 0, 0);
-      root.scale.set(1, 1, 1);
+      root.scale.set(scale, scale, scale);
     },
   };
 }
@@ -150,7 +218,7 @@ function computeOrbitFrame(step: number, stepElapsed: number, presentationCount:
     phase.phase === "rotate"
       ? THREE.MathUtils.lerp(fromAngle, toAngle, easeOutCubic(phase.alpha))
       : toAngle;
-  const breathe = phase.phase === "parallax" ? Math.sin(stepElapsed * 0.0012) * 0.04 : 0;
+  const breathe = phase.phase === "parallax" ? Math.sin(stepElapsed * 0.0014 + step) * 0.07 : 0;
 
   return {
     ...camera,

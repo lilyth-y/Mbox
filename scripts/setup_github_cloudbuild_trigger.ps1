@@ -73,6 +73,7 @@ $repoResourceName = if ($env:MBOX_REPOSITORY_ID) { $env:MBOX_REPOSITORY_ID } els
 $remoteUri = "https://github.com/${GitHubOwner}/${GitHubRepo}.git"
 Write-Host "Linking repository $remoteUri as $repoResourceName ..."
 
+$appInstallId = (gcloud builds connections describe $ConnectionName --region=$Region --project=$ProjectId --format="value(githubConfig.appInstallationId)" 2>$null).Trim()
 $repoList = gcloud builds repositories list --connection=$ConnectionName --region=$Region --project=$ProjectId --format="value(name)" 2>$null
 $fullRepo = "projects/$ProjectId/locations/$Region/connections/$ConnectionName/repositories/$repoResourceName"
 if ($repoList -notmatch $repoResourceName) {
@@ -81,6 +82,20 @@ if ($repoList -notmatch $repoResourceName) {
     --region=$Region `
     --project=$ProjectId `
     --remote-uri=$remoteUri
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host @"
+
+=== GitHub App cannot access ${GitHubOwner}/${GitHubRepo} ===
+1. Open GitHub → Settings → Applications → Google Cloud Build
+   (installation id: $appInstallId)
+   Direct link: https://github.com/settings/installations/$appInstallId
+2. Click Configure → Repository access → select ""${GitHubRepo}"" (or All repositories)
+3. Confirm the repo exists at $remoteUri and you pushed master at least once
+4. Re-run: .\scripts\setup_github_cloudbuild_trigger.ps1
+
+"@
+    exit 4
+  }
 }
 
 $existing = gcloud builds triggers list --region=$Region --project=$ProjectId --filter="name:$TriggerName" --format="value(name)"

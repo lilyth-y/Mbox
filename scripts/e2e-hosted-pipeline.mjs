@@ -25,6 +25,7 @@ if (!existsSync(testImage)) {
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.MBOX_ANALYZE_TIMEOUT_MS ?? 180_000);
 const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 120_000);
+const SKIP_MP4 = process.env.MBOX_SKIP_MP4 === "1";
 
 const browser = await chromium.launch({
   headless: process.env.MBOX_HEADED !== "1",
@@ -74,24 +75,28 @@ try {
     fail("MP4 생성 button disabled — no processed images in cube view");
   }
 
-  const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
-  await mp4Button.click();
-  await page
-    .getByText(/MP4 생성 파일이 준비|WebM으로 저장|영상 저장에 실패/i)
-    .first()
-    .waitFor({ timeout: RECORD_TIMEOUT_MS });
-  const download = await downloadPromise;
-  const suggested = download.suggestedFilename();
-  const outDir = mkdtempSync(join(tmpdir(), "mbox-e2e-"));
-  const outPath = join(outDir, suggested);
-  await download.saveAs(outPath);
-  const size = statSync(outPath).size;
+  let suggested = null;
+  let size = 0;
+  if (!SKIP_MP4) {
+    const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
+    await mp4Button.click();
+    await page
+      .getByText(/MP4 생성 파일이 준비|WebM으로 저장|영상 저장에 실패/i)
+      .first()
+      .waitFor({ timeout: RECORD_TIMEOUT_MS });
+    const download = await downloadPromise;
+    suggested = download.suggestedFilename();
+    const outDir = mkdtempSync(join(tmpdir(), "mbox-e2e-"));
+    const outPath = join(outDir, suggested);
+    await download.saveAs(outPath);
+    size = statSync(outPath).size;
 
-  if (!/\.(webm|mp4)$/i.test(suggested)) {
-    fail(`Unexpected download filename: ${suggested}`);
-  }
-  if (size < 1024) {
-    fail(`Download too small (${size} bytes): ${suggested}`);
+    if (!/\.(webm|mp4)$/i.test(suggested)) {
+      fail(`Unexpected download filename: ${suggested}`);
+    }
+    if (size < 1024) {
+      fail(`Download too small (${size} bytes): ${suggested}`);
+    }
   }
 
   const blocking = consoleErrors.filter((line) =>
@@ -107,6 +112,7 @@ try {
         ok: true,
         webUrl: WEB_URL,
         testImage,
+        skipMp4: SKIP_MP4,
         downloadFile: suggested,
         downloadBytes: size,
         consoleErrorCount: consoleErrors.length,

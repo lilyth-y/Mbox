@@ -16,7 +16,8 @@ export const PRESENTATION_EFFECTS: PresentationEffectDefinition[] = [
   {
     id: "cube_focus",
     label: "1. 정육면체",
-    description: "정육면체가 천천히 회전하며 정면에 맞춘 뒤 장면에 집중합니다.",
+    description:
+      "정면에서 인물·배경이 앞뒤로 강하게 분리되며 입체감(패럴랙스)에 집중합니다.",
   },
   {
     id: "book_spread",
