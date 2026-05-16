@@ -75,6 +75,8 @@ steps:
           exit 0
         fi
         gcloud storage rsync --recursive "apps/web/dist" "gs://${_WEB_BUCKET}/"
+        gcloud storage cp "apps/web/dist/index.html" "gs://${_WEB_BUCKET}/index.html" \
+          --cache-control="no-cache, must-revalidate"
 
   - id: api-deploy
     name: gcr.io/cloud-builders/gcloud
@@ -91,7 +93,7 @@ steps:
             --region="${_REGION}" \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${_REGION},CORS_ORIGIN=${_CORS_ORIGIN},WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces,RATE_LIMIT_PER_MINUTE=180" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;RATE_LIMIT_PER_MINUTE=180" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         else
           gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
@@ -99,7 +101,7 @@ steps:
             --region="${_REGION}" \
             --platform=managed \
             --no-allow-unauthenticated \
-            --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${_REGION},CORS_ORIGIN=${_CORS_ORIGIN},WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces,RATE_LIMIT_PER_MINUTE=180" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;RATE_LIMIT_PER_MINUTE=180" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         fi
 
@@ -119,4 +121,7 @@ steps:
           --region="${_REGION}" \
           --member=allUsers \
           --role=roles/run.invoker \
-          --quiet
+          --quiet || {
+            echo "WARN: Could not set run.invoker for allUsers (org policy or IAM). If /health returns 403, run add-iam-policy-binding as project owner."
+            exit 0
+          }
