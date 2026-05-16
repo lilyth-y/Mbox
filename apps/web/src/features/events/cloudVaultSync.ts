@@ -13,6 +13,15 @@ function isInlineImageUrl(value: string): boolean {
   return value.startsWith("data:") || value.startsWith("blob:");
 }
 
+function readStoragePaths(image: ProcessedImage): VaultImageStoragePaths | undefined {
+  const paths = (image as ProcessedImage & Record<string, unknown>)[VAULT_STORAGE_PATHS_KEY];
+  if (!paths || typeof paths !== "object") {
+    return undefined;
+  }
+  const candidate = paths as VaultImageStoragePaths;
+  return typeof candidate.url === "string" ? candidate : undefined;
+}
+
 async function urlToBlob(url: string): Promise<Blob> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -28,11 +37,16 @@ export async function prepareImagesForServerVault(
   const assets: Array<{ imageId: number; slot: VaultAssetSlot; contentType: string }> = [];
 
   for (const image of images) {
+    const existingPaths = readStoragePaths(image);
     for (const slot of URL_SLOTS) {
       const value = image[slot];
-      if (value && isInlineImageUrl(value)) {
-        assets.push({ imageId: image.id, slot, contentType: "image/jpeg" });
+      if (!value || !isInlineImageUrl(value)) {
+        continue;
       }
+      if (existingPaths?.[slot]) {
+        continue;
+      }
+      assets.push({ imageId: image.id, slot, contentType: "image/jpeg" });
     }
   }
 
@@ -47,9 +61,8 @@ export async function prepareImagesForServerVault(
 
   return Promise.all(
     images.map(async (image) => {
-      const storagePaths: VaultImageStoragePaths = {
-        url: uploadByKey.get(`${image.id}:url`)?.objectPath ?? "",
-      };
+      const existingPaths = readStoragePaths(image);
+      const storagePaths: VaultImageStoragePaths = { ...(existingPaths ?? { url: "" }) };
       const next: ProcessedImage & Record<string, unknown> = { ...image };
 
       for (const slot of URL_SLOTS) {

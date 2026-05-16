@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, SlidersHorizontal, Upload } from "lucide-react";
 import { CategoryPanel } from "../features/gallery/CategoryPanel";
 import { GalleryPanel } from "../features/gallery/GalleryPanel";
@@ -81,6 +81,8 @@ export default function App() {
     const saved = loadCategoryCatalog();
     return saved && saved.length > 0 ? saved : [...DEFAULT_IMAGE_CATEGORIES];
   });
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   useEffect(() => {
     saveCategoryCatalog(categories);
@@ -100,10 +102,8 @@ export default function App() {
           workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
         setStatus(
           usesServerVault()
-            ? `서버 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName})`
-            : usesServerVault()
-              ? `클라우드 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · PC/모바일 동일 작업실)`
-              : `보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · 이 브라우저에 최대 1GB)`
+            ? `클라우드 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · PC/모바일 동일 작업실)`
+            : `보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · 이 브라우저에 최대 1GB)`
         );
       })
       .catch((error) => {
@@ -123,36 +123,48 @@ export default function App() {
     }
 
     let cancelled = false;
-    persistEventVault(activeEventId, processedImages, events)
-      .then(({ saved, events: nextEvents, vaultSave }) => {
-        if (cancelled) {
-          return;
-        }
-        setEvents(nextEvents);
-        if (!saved && processedImages.length > 0 && !usesServerVault()) {
-          const quotaHint =
-            vaultSave?.reason === "quota" && vaultSave.usageBytes
-              ? `보관함 한도 초과 (${formatVaultQuotaMessage(vaultSave.usageBytes)}).`
-              : "브라우저 저장에 실패했습니다.";
-          setStatus((previous) =>
-            /완료/.test(previous)
-              ? `${previous} (${quotaHint} 같은 탭에서 3D·MP4까지 이어가세요.)`
-              : `${quotaHint} 같은 탭에서 작업을 마친 뒤 MP4로보내세요.`
-          );
-        }
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : "Unknown error";
-        setStatus(`보관함 저장 실패: ${message}`);
-      });
+    const debounceMs = usesServerVault() ? 3_000 : 800;
+    const timer = window.setTimeout(() => {
+      persistEventVault(activeEventId, processedImages, eventsRef.current)
+        .then(({ saved, events: nextEvents, vaultSave }) => {
+          if (cancelled) {
+            return;
+          }
+          if (!usesServerVault()) {
+            setEvents(nextEvents);
+          }
+          if (!saved && processedImages.length > 0 && !usesServerVault()) {
+            const quotaHint =
+              vaultSave?.reason === "quota" && vaultSave.usageBytes
+                ? `보관함 한도 초과 (${formatVaultQuotaMessage(vaultSave.usageBytes)}).`
+                : "브라우저 저장에 실패했습니다.";
+            setStatus((previous) =>
+              /완료/.test(previous)
+                ? `${previous} (${quotaHint} 같은 탭에서 3D·MP4까지 이어가세요.)`
+                : `${quotaHint} 같은 탭에서 작업을 마친 뒤 MP4로보내세요.`
+            );
+          }
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          const message = error instanceof Error ? error.message : "Unknown error";
+          if (/429/.test(message)) {
+            setStatus(
+              "클라우드 보관함 저장이 잠시 제한되었습니다. 1분 후 자동으로 다시 시도되거나, 잠시 뒤 새로고침하세요."
+            );
+            return;
+          }
+          setStatus(`보관함 저장 실패: ${message}`);
+        });
+    }, debounceMs);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [processedImages, activeEventId, workspaceReady, isProcessing, events]);
+  }, [processedImages, activeEventId, workspaceReady, isProcessing]);
 
   const activeEvent = events.find((event) => event.id === activeEventId) ?? events[0];
 

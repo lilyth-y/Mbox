@@ -7,9 +7,18 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
-function resolveLimitPerMinute(): number {
-  const parsed = Number(process.env.RATE_LIMIT_PER_MINUTE ?? 120);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 120;
+function resolveBaseLimitPerMinute(): number {
+  const parsed = Number(process.env.RATE_LIMIT_PER_MINUTE ?? 180);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 180;
+}
+
+function resolveLimitPerMinute(req: Request): number {
+  const base = resolveBaseLimitPerMinute();
+  const hasApiKey = Boolean(req.header("x-api-key")?.trim() || req.header("authorization")?.trim());
+  if (hasApiKey && req.path.startsWith("/workspace")) {
+    return base * 4;
+  }
+  return base;
 }
 
 function clientKey(req: Request): string {
@@ -23,7 +32,7 @@ export function rateLimit(req: Request, res: Response, next: NextFunction): void
     return;
   }
 
-  const limit = resolveLimitPerMinute();
+  const limit = resolveLimitPerMinute(req);
   const key = clientKey(req);
   const now = Date.now();
   const windowMs = 60_000;
