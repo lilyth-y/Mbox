@@ -17,9 +17,9 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     "  'center': { 'x': number, 'y': number },",
     "  'focus': {",
     "    'onPrimarySubject': boolean,",
-    "    'centering': 'centered' | 'rule_of_thirds' | 'offset' | 'edge_weighted',",
-    "    'aestheticScore': number,",
-    "    'compositionNotes': 'short note'",
+    "    'centering': 'centered',",
+    "    'aestheticScore': 3,",
+    "    'compositionNotes': 'ok'",
     "  },",
     "  'subject': {",
     "    'requestedTarget': 'string',",
@@ -33,8 +33,9 @@ export function buildAnalysisPrompt(focusTarget?: string): string {
     `  'category': '${IMAGE_CATEGORY_OPTIONS.join("' | '")}',`,
     "  'categoryConfidence': number",
     "}",
-    "All fields required. Coordinates and bounds are 0-100.",
-    "subjectDepth 0=far 1=near. Server builds depth grid; do not return depth values array.",
+    "Return valid JSON only. Use double quotes for keys/strings.",
+    "Coordinates and bounds are numbers 0-100. category must be exactly one listed value.",
+    "subjectDepth is 0.0 to 1.0. Do not return a depth values array.",
   ].join(" ");
 }
 

@@ -13,13 +13,19 @@ const host = process.env.API_HOST ?? "0.0.0.0";
 const defaultDevOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:5175",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
+  "http://127.0.0.1:5175",
 ].join(",");
-const corsOrigins = (process.env.CORS_ORIGIN ?? defaultDevOrigins)
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const corsOrigins = Array.from(
+  new Set(
+    `${process.env.CORS_ORIGIN ?? ""},${defaultDevOrigins}`
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  )
+);
 
 app.use(
   cors({
@@ -27,7 +33,7 @@ app.use(
     allowedHeaders: ["Content-Type", "X-API-Key", "Authorization", "X-Workspace-Id"],
   })
 );
-app.use(express.json({ limit: "32mb" }));
+app.use(express.json({ limit: process.env.API_JSON_LIMIT ?? "64mb" }));
 app.use(apiKeyAuth);
 app.use(rateLimit);
 app.use(routesRouter);
