@@ -70,10 +70,14 @@ def main() -> None:
         fail("Dockerfile should rm shared/api tsconfig.tsbuildinfo before tsc builds (incremental emit guard)")
     ok("WORKSPACE paths, .gcloudignore tsbuildinfo, and Dockerfile tsbuildinfo guard align")
 
-    # 5) default secret id
+    # 5) default secret id + build-time VITE key from Secret Manager
     if not re.search(r"_API_KEY_SECRET:\s*mbox-api-key", cb):
         fail("Expected default _API_KEY_SECRET: mbox-api-key in cloudbuild.yaml")
-    ok("default API key secret id present")
+    if "availableSecrets" not in cb or "mbox-api-key" not in cb:
+        fail("cloudbuild.yaml should load mbox-api-key via availableSecrets for VITE_API_KEY")
+    if 'secretEnv: ["VITE_API_KEY"]' not in cb and "secretEnv: ['VITE_API_KEY']" not in cb:
+        fail("web-build step should declare secretEnv: VITE_API_KEY")
+    ok("default API key secret id and VITE_API_KEY secretEnv present")
 
     # 6) npm run build locally (tier-1 sanity)
     npm = shutil.which("npm") or shutil.which("npm.cmd")

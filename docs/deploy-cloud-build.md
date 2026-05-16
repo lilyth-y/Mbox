@@ -122,10 +122,11 @@ Trigger or manual `gcloud builds submit` should pass **substitutions** (see defa
 | `_VITE_LOCALHOST_DEMO` | `VITE_LOCALHOST_DEMO` |
 | `_VITE_ENABLE_DEV_ASSET_BATCH` | `VITE_ENABLE_DEV_ASSET_BATCH` |
 | `_VITE_API_BASE_URL` | Public HTTPS URL of the Cloud Run API (often filled after first API deploy) |
-| `_VITE_API_KEY` | Same value as `API_KEY` (embedded in the web bundle at build time) |
 | `_CORS_ORIGIN` | Allowed browser **Origins** for the API (comma-separated). Must match the `Origin` header on API requests. **Virtual-hosted GCS URL** `https://BUCKET_NAME.storage.googleapis.com` is what browsers send; path-style `https://storage.googleapis.com/BUCKET_NAME/...` sends `Origin: https://storage.googleapis.com`. Include **both** if you use both URLs. Example: `https://storage.googleapis.com,https://mbox-web-PROJECT_ID.storage.googleapis.com` |
 | `_API_KEY_SECRET` | Secret **id** (default `mbox-api-key`) |
 | `_RUN_ALLOW_UNAUTHENTICATED` | `true` = `--allow-unauthenticated` on Run (IAM still applies for locking down later) |
+
+**`VITE_API_KEY`:** loaded from Secret Manager (`mbox-api-key`) during the `web-build` step — not a substitution.
 
 **First-time bootstrap:** deploy API once with a placeholder web origin, read the Cloud Run URL, then set `_VITE_API_BASE_URL` and `_CORS_ORIGIN` to real values and rebuild the web (second pipeline run or a dedicated trigger).
 
@@ -138,14 +139,54 @@ export REGION=asia-northeast3
 export WEB_BUCKET=mbox-web-$(gcloud config get-value project)
 
 gcloud builds submit --region="$REGION" --config=cloudbuild.yaml \
-  --substitutions="^;^_WEB_BUCKET=${WEB_BUCKET};_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app;_VITE_API_KEY=your-key;_CORS_ORIGIN=https://storage.googleapis.com,https://${WEB_BUCKET}.storage.googleapis.com"
+  --substitutions="^;^_WEB_BUCKET=${WEB_BUCKET};_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app;_CORS_ORIGIN=https://storage.googleapis.com,https://${WEB_BUCKET}.storage.googleapis.com"
 ```
 
 Adjust `_CORS_ORIGIN` to match every **Origin** your users hit (custom domain, path-style vs virtual-hosted GCS). If a manual `gcloud run services update` fails on commas inside `CORS_ORIGIN`, use `gcloud`’s alternate delimiter (see [escaping](https://cloud.google.com/sdk/gcloud/reference/topic/escaping)), e.g. `--update-env-vars="^;^CORS_ORIGIN=https://a,https://b"` — **do not** pass a one-key `--env-vars-file` unless the file lists **all** non-secret variables, or Cloud Run will drop the rest.
 
-## 8. GitHub trigger (optional)
+## 8. GitHub trigger (`lilyth-y/Mbox`)
 
-Connect the repo in **Cloud Build → Repositories**, then create a trigger that uses **Cloud Build configuration file** `cloudbuild.yaml` and set the same substitutions in the trigger UI (use Secret Manager for `_VITE_API_KEY` in production via [substitutions from secrets](https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values#using_secret_manager)).
+Production repo: **https://github.com/lilyth-y/Mbox**
+
+`cloudbuild.yaml` loads **`VITE_API_KEY` from Secret Manager** (`mbox-api-key`) at web build time — do not put the API key in trigger substitutions.
+
+### 8.1 One-time (project `newmedia-496107`)
+
+1. Grant the Cloud Build service account `roles/secretmanager.secretAccessor` on `mbox-api-key` (see step 4).
+2. Create the GitHub connection (browser OAuth + install the Cloud Build GitHub App):
+
+```bash
+gcloud builds connections create github mbox-github \
+  --region=asia-northeast3 --project=newmedia-496107
+```
+
+Open the URL printed by the command (or Cloud Console → Cloud Build → Repositories → Link repository). Wait until:
+
+```bash
+gcloud builds connections describe mbox-github --region=asia-northeast3 --format='value(installationState.stage)'
+```
+
+returns **`COMPLETE`** (not `PENDING_USER_OAUTH`).
+
+If connection create fails on Secret Manager, grant `roles/secretmanager.admin` to  
+`service-PROJECT_NUMBER@gcp-sa-cloudbuild.iam.gserviceaccount.com` once, then retry.
+
+### 8.2 Link repo + create trigger
+
+From the repo root (defaults: `lilyth-y` / `Mbox`):
+
+```powershell
+.\scripts\setup_github_cloudbuild_trigger.ps1
+```
+
+Or push code first, then run the script:
+
+```bash
+git remote add origin https://github.com/lilyth-y/Mbox.git
+git push -u origin master
+```
+
+Trigger **`mbox-deploy-master`** runs `cloudbuild.yaml` on push to **`master`** or **`main`**. Defaults in `cloudbuild.yaml` already point at `mbox-web-newmedia-496107` and the Cloud Run API URL.
 
 ## 9. Limits (same as other deploy docs)
 
