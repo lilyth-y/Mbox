@@ -1,11 +1,11 @@
 # mbox
 
-Gemini 기반 이미지 분석·배경 편집·1024 크롭과 Three.js 큐브 시각화를 제공하는 웹 MVP입니다.
+ 이미지 분석·배경 편집·1024 크롭과 Three.js 큐브 시각화를 제공하는 웹 MVP입니다.
 
 ## 구조
 
 - `apps/web` — React + Vite 프론트엔드
-- `apps/api` — Gemini 프록시 API
+- `apps/api` — 프록시 API
 - `docs` — 제품 목표와 아키텍처
 - `experiments` — Tier 1/2/3 평가 자산
 - `research` — 실험 보고서와 그림
