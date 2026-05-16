@@ -2,10 +2,14 @@
 #
 # One-time GCP setup: docs/deploy-cloud-build.md
 #
-# Manual run (example):
+# Manual run (example — VITE_API_KEY comes from Secret Manager, not CLI):
 #   gcloud builds submit --region=asia-northeast3 \
-#     --substitutions=_WEB_BUCKET=my-app-web,_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app,\
-# _VITE_API_KEY=...,_CORS_ORIGIN=https://storage.googleapis.com
+#     --substitutions="^;^_WEB_BUCKET=my-app-web;_VITE_API_BASE_URL=https://mbox-api-xxxxx.run.app;_CORS_ORIGIN=https://storage.googleapis.com,https://BUCKET.storage.googleapis.com"
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/mbox-api-key/versions/latest
+      env: VITE_API_KEY
 
 options:
   substitution_option: ALLOW_LOOSE
@@ -17,14 +21,13 @@ substitutions:
   _AR_REPO: mbox
   _API_IMAGE_NAME: api
   _CLOUD_RUN_SERVICE: mbox-api
-  _WEB_BUCKET: ""
-  _VITE_API_BASE_URL: "https://REPLACE_WITH_CLOUD_RUN_URL"
+  _WEB_BUCKET: "mbox-web-newmedia-496107"
+  _VITE_API_BASE_URL: "https://mbox-api-118689443638.asia-northeast3.run.app"
   _VITE_WORKSPACE_ID: "default"
   _VITE_USE_SERVER_VAULT: "true"
   _VITE_LOCALHOST_DEMO: "false"
   _VITE_ENABLE_DEV_ASSET_BATCH: "false"
-  _VITE_API_KEY: ""
-  _CORS_ORIGIN: "https://REPLACE_WITH_WEB_ORIGIN"
+  _CORS_ORIGIN: "https://storage.googleapis.com,https://mbox-web-newmedia-496107.storage.googleapis.com"
   _API_KEY_SECRET: mbox-api-key
   _RUN_ALLOW_UNAUTHENTICATED: "true"
 
@@ -33,18 +36,22 @@ steps:
     name: node:22-bookworm
     waitFor: ["-"]
     dir: .
+    secretEnv: ["VITE_API_KEY"]
     env:
       - "VITE_API_BASE_URL=${_VITE_API_BASE_URL}"
       - "VITE_WORKSPACE_ID=${_VITE_WORKSPACE_ID}"
       - "VITE_USE_SERVER_VAULT=${_VITE_USE_SERVER_VAULT}"
       - "VITE_LOCALHOST_DEMO=${_VITE_LOCALHOST_DEMO}"
       - "VITE_ENABLE_DEV_ASSET_BATCH=${_VITE_ENABLE_DEV_ASSET_BATCH}"
-      - "VITE_API_KEY=${_VITE_API_KEY}"
     entrypoint: bash
     args:
       - -c
       - |
         set -euo pipefail
+        if [[ -z "${VITE_API_KEY:-}" ]]; then
+          echo "VITE_API_KEY missing: grant secretmanager.secretAccessor on mbox-api-key to the Cloud Build service account."
+          exit 1
+        fi
         npm ci
         npm run build --workspace @mbox/shared
         npm run build --workspace @mbox/web
