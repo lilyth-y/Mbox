@@ -61,6 +61,7 @@ try {
 
   await page.waitForFunction(
     () => document.body.innerText.includes("분석·크롭이 완료"),
+    undefined,
     { timeout: ANALYZE_TIMEOUT_MS },
   );
 

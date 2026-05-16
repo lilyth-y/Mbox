@@ -50,6 +50,82 @@ export async function createProcessedImage(
   };
 }
 
+const UPLOAD_ANALYZE_CHUNK_SIZE = 8;
+
+export async function processUploadedImages(
+  sourceImages: string[],
+  options: ProcessImageOptions & {
+    onProgress?: (current: number, total: number, message: string) => void;
+  } = {}
+): Promise<ProcessedImage[]> {
+  if (sourceImages.length === 0) {
+    return [];
+  }
+  if (sourceImages.length === 1) {
+    const first = sourceImages[0];
+    if (!first) {
+      return [];
+    }
+    return [await processUploadedImage(first, options)];
+  }
+
+  const focusTarget = options.focusTarget?.trim();
+  const preprocessMode = options.preprocessMode ?? "original";
+  const total = sourceImages.length;
+  const results: ProcessedImage[] = [];
+  let sequenceBase = options.sequenceOrder ?? 0;
+
+  for (let start = 0; start < sourceImages.length; start += UPLOAD_ANALYZE_CHUNK_SIZE) {
+    const chunkSources = sourceImages.slice(start, start + UPLOAD_ANALYZE_CHUNK_SIZE);
+    const chunkStart = start;
+
+    options.onProgress?.(
+      chunkStart,
+      total,
+      `AI 배치 분석 중 (${chunkStart + 1}-${chunkStart + chunkSources.length}/${total})...`
+    );
+    options.onStatus?.(
+      `AI 배치 분석 중 (${chunkStart + 1}-${chunkStart + chunkSources.length}/${total})...`
+    );
+
+    const prepared = await Promise.all(
+      chunkSources.map(async (sourceImage, offset) => ({
+        id: `upload-${chunkStart + offset}`,
+        sourceImage,
+      }))
+    );
+
+    const metadataById = await resolveAnalysisMetadataBatch(prepared, {
+      focusTarget,
+      preprocessMode,
+      onStatus: options.onStatus,
+    });
+
+    const cropped = await Promise.all(
+      prepared.map(async (entry, offset) => {
+        const metadata = metadataById.get(entry.id);
+        if (!metadata) {
+          throw new Error(`Missing analysis metadata for image ${chunkStart + offset + 1}.`);
+        }
+        options.onProgress?.(
+          chunkStart + offset,
+          total,
+          `크롭 중 (${chunkStart + offset + 1}/${total})...`
+        );
+        return createProcessedImage(entry.sourceImage, metadata, {
+          focusTarget,
+          preprocessMode,
+          sequenceOrder: sequenceBase + chunkStart + offset,
+        });
+      })
+    );
+
+    results.push(...cropped);
+  }
+
+  return results;
+}
+
 export async function processUploadedImage(
   sourceImage: string,
   options: ProcessImageOptions = {}

@@ -181,16 +181,9 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
       recordingRef.current = true;
       recorder.start(stream, mimeType);
 
+      // Wall-clock wait so export completes in headless/automation (rAF may be throttled).
       await new Promise<void>((resolve) => {
-        const startedAt = performance.now();
-        const wait = (now: number) => {
-          if (now - startedAt >= getSequenceDurationMs(presentationCount)) {
-            resolve();
-            return;
-          }
-          requestAnimationFrame(wait);
-        };
-        requestAnimationFrame(wait);
+        window.setTimeout(resolve, getSequenceDurationMs(presentationCount));
       });
 
       const blob = await recorder.stop();

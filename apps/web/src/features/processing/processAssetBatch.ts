@@ -19,7 +19,8 @@ export interface DataAssetManifest {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 const FETCH_CONCURRENCY = 4;
-const ANALYZE_BATCH_SIZE = 8;
+/** Keep batch POST bodies under API JSON limit (large KakaoTalk originals). */
+const ANALYZE_BATCH_SIZE = 4;
 
 interface ProcessAssetBatchOptions {
   onStatus?: (message: string) => void;

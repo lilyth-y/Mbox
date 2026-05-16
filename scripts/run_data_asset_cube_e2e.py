@@ -13,7 +13,8 @@ OUTPUT_DIR = ROOT / "experiments" / "outputs"
 MANIFEST_PATH = ROOT / "experiments" / "assets" / "data-asset-manifest.json"
 WEB_URL = os.getenv("WEB_URL", "http://localhost:4173")
 BATCH_ERROR_TEXT = "배치 처리 중 오류"
-SEGMENT_MS = 1_500 + 900 + 2_000 + 600
+# Keep in sync with apps/web cubeSequence PHOTO_SEGMENT_MS (rotate+zoom+parallax+reset).
+SEGMENT_MS = 1_200 + 800 + 3_200 + 600
 BATCH_TIMEOUT_MIN_MS = 3_600_000
 BATCH_TIMEOUT_PER_IMAGE_MS = 480_000
 
@@ -51,13 +52,27 @@ def main() -> int:
     }
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1440, "height": 960})
+        browser = playwright.chromium.launch(
+            headless=True,
+            args=["--use-gl=angle", "--ignore-gpu-blocklist", "--enable-webgl"],
+        )
+        context = browser.new_context(
+            accept_downloads=True,
+            viewport={"width": 1440, "height": 960},
+        )
+        page = context.new_page()
 
         try:
-            page.goto(WEB_URL, wait_until="networkidle")
+            page.goto(WEB_URL, wait_until="domcontentloaded", timeout=60_000)
             page.get_by_role("button", name="data/asset 배치 처리 (1GB 한도)").click()
-            page.get_by_text(batch_done_text, exact=False).wait_for(timeout=batch_timeout_ms)
+            page.wait_for_function(
+                """() => {
+                  const t = document.body.innerText;
+                  return t.includes("data/asset 배치 처리가 완료") && t.includes("20장");
+                }""",
+                timeout=batch_timeout_ms,
+            )
+            page.get_by_text(f"{expected_count}장", exact=False).wait_for(timeout=30_000)
             page.get_by_text(f"{expected_count}개", exact=False).wait_for(timeout=30_000)
             result["batchStatus"] = "ok"
         except PlaywrightTimeoutError as error:
