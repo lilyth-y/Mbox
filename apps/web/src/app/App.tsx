@@ -37,7 +37,7 @@ import {
   switchToEvent,
   usesServerVault,
 } from "../features/events/workspaceBackend";
-import { ENABLE_DEV_ASSET_BATCH, LOCALHOST_DEMO } from "../shared/config/runtime";
+import { API_PUBLIC_URL, ENABLE_DEV_ASSET_BATCH } from "../shared/config/runtime";
 import {
   canAddPresentationImage,
   formatPresentationBytes,
@@ -592,11 +592,6 @@ export default function App() {
             mbox
           </h1>
           <p className="text-slate-400 text-sm">이미지 분석, 크롭, 배경 생성 및 3D 시각화 파이프라인</p>
-          {LOCALHOST_DEMO ? (
-            <p className="mt-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300">
-              Localhost Demo
-            </p>
-          ) : null}
           <p className="mt-3 max-w-2xl text-xs leading-relaxed text-slate-400 italic">{status}</p>
           <ProcessingProgressDisplay
             progress={processingProgress}
@@ -739,7 +734,12 @@ export default function App() {
           <a href="/docs/goals.md" className="hover:text-blue-400 transition-colors">
             Documentation
           </a>
-          <a href="http://localhost:8787/health" className="hover:text-blue-400 transition-colors">
+          <a
+            href={`${API_PUBLIC_URL}/health`}
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-blue-400 transition-colors"
+          >
             API Status
           </a>
           <a href="/docs/architecture.md" className="hover:text-blue-400 transition-colors">
