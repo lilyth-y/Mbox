@@ -119,14 +119,18 @@ Trigger or manual `gcloud builds submit` should pass **substitutions** (see defa
 | `_WEB_BUCKET` | GCS bucket **name** only (empty = skip upload, still builds web) |
 | `_VITE_WORKSPACE_ID` | Passed to Vite as `VITE_WORKSPACE_ID` |
 | `_VITE_USE_SERVER_VAULT` | `VITE_USE_SERVER_VAULT` |
+| `_GCS_VAULT_BUCKET` | GCS bucket for server-side vault blobs (API `GCS_VAULT_BUCKET`) |
 | `_VITE_LOCALHOST_DEMO` | `VITE_LOCALHOST_DEMO` |
 | `_VITE_ENABLE_DEV_ASSET_BATCH` | `VITE_ENABLE_DEV_ASSET_BATCH` |
 | `_VITE_API_BASE_URL` | Public HTTPS URL of the Cloud Run API (often filled after first API deploy) |
 | `_CORS_ORIGIN` | Allowed browser **Origins** for the API (comma-separated). Must match the `Origin` header on API requests. **Virtual-hosted GCS URL** `https://BUCKET_NAME.storage.googleapis.com` is what browsers send; path-style `https://storage.googleapis.com/BUCKET_NAME/...` sends `Origin: https://storage.googleapis.com`. Include **both** if you use both URLs. Example: `https://storage.googleapis.com,https://mbox-web-PROJECT_ID.storage.googleapis.com` |
 | `_API_KEY_SECRET` | Secret **id** (default `mbox-api-key`) |
 | `_RUN_ALLOW_UNAUTHENTICATED` | `true` = `--allow-unauthenticated` on Run (IAM still applies for locking down later) |
+| `_CLOUD_RUN_TIMEOUT_SECONDS` | Cloud Run request timeout (default `600`). Raise if `/analyze/batch` hits 504 on slow Vertex calls. |
 
 **`VITE_API_KEY`:** loaded from Secret Manager (`mbox-api-key`) during the `web-build` step — not a substitution.
+
+**API deploy env (set in `api-deploy`, not substitutions):** `API_JSON_LIMIT=64mb` (large batch bodies after client resize), `ANALYZE_BATCH_CONCURRENCY=8`, `RATE_LIMIT_PER_MINUTE=180`.
 
 **First-time bootstrap:** deploy API once with a placeholder web origin, read the Cloud Run URL, then set `_VITE_API_BASE_URL` and `_CORS_ORIGIN` to real values and rebuild the web (second pipeline run or a dedicated trigger).
 

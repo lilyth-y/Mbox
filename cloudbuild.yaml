@@ -33,6 +33,8 @@ substitutions:
   _CORS_ORIGIN: "https://storage.googleapis.com,https://mbox-web-newmedia-496107.storage.googleapis.com"
   _API_KEY_SECRET: mbox-api-key
   _RUN_ALLOW_UNAUTHENTICATED: "true"
+  # Vertex analyze/batch can exceed 300s when retries run on slow images.
+  _CLOUD_RUN_TIMEOUT_SECONDS: "600"
 
 steps:
   - id: web-build
@@ -102,16 +104,18 @@ steps:
             --image="$$img" \
             --region="${_REGION}" \
             --platform=managed \
+            --timeout="${_CLOUD_RUN_TIMEOUT_SECONDS}" \
             --allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         else
           gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
             --image="$$img" \
             --region="${_REGION}" \
             --platform=managed \
+            --timeout="${_CLOUD_RUN_TIMEOUT_SECONDS}" \
             --no-allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         fi
 
