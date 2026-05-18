@@ -89,11 +89,27 @@
             height: 100vh;
             scroll-snap-align: start;
             display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--bg-color);
+        }
+
+        .slide-content {
+            width: 1920px;
+            height: 1080px;
+            min-width: 1920px;
+            min-height: 1080px;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 4rem;
             position: relative;
+            transform-origin: center center;
+            box-sizing: border-box;
         }
 
         /* Glassmorphism Elements */
@@ -317,6 +333,8 @@
         
         <!-- 01. Title -->
         <section class="slide bg-gradient-1">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll" style="text-align: center; max-width: 800px;">
                 <h3 style="color: var(--accent-gold); letter-spacing: 2px;">PRECIOUS RECREATION</h3>
                 <h1 style="margin-top: 1rem;">Life Cycle Memory Platform</h1>
@@ -329,10 +347,14 @@
                 </div>
             </div>
             <div class="scroll-hint">Scroll down ↓</div>
+        
+            </div>
         </section>
 
         <!-- 02. Executive Profile -->
         <section class="slide bg-gradient-2">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h2>Founder & CEO Profile</h2>
                 <div class="grid-2">
@@ -352,10 +374,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 03. What is MBOX -->
         <section class="slide bg-gradient-3">
+            <div class="slide-content">
+
             <style>
                 @keyframes floatHolo {
                     0% { transform: rotate(4deg) translate(40px, -15px); box-shadow: 0 0 35px rgba(229,192,123,0.5); }
@@ -403,10 +429,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 04. Business Model -->
         <section class="slide bg-gradient-1">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h2>Business Model : 3 Market Segmentation</h2>
                 <div class="grid-3" style="margin-top: 2rem;">
@@ -439,10 +469,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 05. Market Opportunity (TAM) -->
         <section class="slide bg-gradient-2">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll" style="max-height: 98%; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 1.2rem 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
                     <div>
@@ -539,10 +573,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 06. AI Video Technology Pipeline -->
         <section class="slide bg-gradient-3">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll" style="max-height: 98%; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 1.2rem 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
                     <div>
@@ -619,10 +657,14 @@
                     </p>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 07. Life's Every Moment -->
         <section class="slide bg-gradient-1">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h2>Life's Every Moment : 생애 주기 카테고리</h2>
                 <div class="grid-3">
@@ -643,10 +685,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 08. Use Case 1: Pet Memorial (Dog) -->
         <section class="slide bg-gradient-2">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 01</h3>
                 <h2 style="color: var(--accent-peach); margin-top: 0.5rem; margin-bottom: 2rem;">반려동물 추모 서비스 : 강아지 (Pet Memorial)</h2>
@@ -671,10 +717,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 09. Pet Memorial B2B2C Revenue Projections -->
         <section class="slide bg-gradient-3">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll" style="max-height: 98%; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 1.2rem 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
                     <div>
@@ -722,10 +772,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 10. Use Case 2: Wedding Memorial -->
         <section class="slide bg-gradient-3">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 02</h3>
                 <h2 style="color: var(--accent-gold); margin-top: 0.5rem; margin-bottom: 2rem;">웨딩 메모리얼 서비스 (Wedding Memorial)</h2>
@@ -750,10 +804,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 11. Wedding Memorial B2B2C Revenue Projections -->
         <section class="slide bg-gradient-3">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll" style="max-height: 98%; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 1.2rem 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
                     <div>
@@ -801,10 +859,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 12. Core Technology -->
         <section class="slide bg-gradient-2">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h2>Core Technology</h2>
                 <div class="grid-3">
@@ -835,10 +897,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 13. Core Engineering Expertise -->
         <section class="slide bg-gradient-1">
+            <div class="slide-content">
+
             <div class="glass-card animate-on-scroll">
                 <h2>Core Engineering Expertise</h2>
                 <p>MBOX의 압도적인 기술력은 '검증된 엔지니어들의 전문 역량'에서 나옵니다. 단순한 아이디어 랩스나 학생 프로젝트가 아닌, 상용화 수준의 딥테크를 구현하는 기술자 조직입니다.</p>
@@ -872,10 +938,14 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
         <!-- 14. BI Center Synergy Ecosystem -->
         <section class="slide bg-gradient-2">
+            <div class="slide-content">
+
             <style>
                 @keyframes pulseGlow {
                     0% { transform: scale(1); box-shadow: 0 0 15px rgba(229,192,123,0.4); }
@@ -943,6 +1013,8 @@
                     </div>
                 </div>
             </div>
+        
+            </div>
         </section>
 
 
@@ -961,6 +1033,33 @@
         document.querySelectorAll('.animate-on-scroll').forEach((elem) => {
             observer.observe(elem);
         });
+
+        // Responsive Scaling to Fit the Screen
+        function resizeSlides() {
+            const baseWidth = 1920;
+            const baseHeight = 1080;
+            const slides = document.querySelectorAll('.slide-content');
+            
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            const scaleX = windowWidth / baseWidth;
+            const scaleY = windowHeight / baseHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            slides.forEach(slide => {
+                slide.style.transform = `scale(${scale})`;
+            });
+        }
+
+        window.addEventListener('resize', resizeSlides);
+        window.addEventListener('load', resizeSlides);
+        // Run immediately
+        resizeSlides();
+        // Also run after DOM content is loaded
+        document.addEventListener('DOMContentLoaded', resizeSlides);
+        // Run a small delay to make sure layout is finalized
+        setTimeout(resizeSlides, 100);
     </script>
 </body>
 </html>
