@@ -5,7 +5,7 @@
  *   node scripts/browser-download-cube-mp4.mjs
  *   MBOX_SAMPLE_COUNT=3 MBOX_SKIP_BATCH=0 node scripts/browser-download-cube-mp4.mjs
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -199,7 +199,15 @@ try {
   result.downloadPath = downloadPath.replace(/\\/g, "/");
   result.downloadBytes = size;
   result.downloadFilename = suggested;
-  log(`Download saved: ${downloadPath} (${size} bytes)`);
+
+  const head = readFileSync(downloadPath).subarray(4, 8).toString("ascii");
+  result.containerMagic = head;
+  result.validIsoMp4 = head === "ftyp";
+  if (suggested.endsWith(".mp4") && head !== "ftyp") {
+    throw new Error(`Download is not ISO MP4 (magic=${head}); likely WebM or truncated.`);
+  }
+
+  log(`Download saved: ${downloadPath} (${size} bytes, magic=${head})`);
   await shot(page, "07_mp4_done");
 
   const bodyText = await page.locator("body").innerText();

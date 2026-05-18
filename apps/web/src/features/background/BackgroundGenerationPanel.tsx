@@ -4,23 +4,29 @@ import type { BackgroundTemplateId } from "../../shared/types";
 
 interface BackgroundGenerationPanelProps {
   selectedImageLabel: string | null;
+  galleryCount: number;
+  pendingCutoutCount: number;
   templateId: BackgroundTemplateId;
   customPrompt: string;
   isProcessing: boolean;
   onTemplateChange: (templateId: BackgroundTemplateId) => void;
   onCustomPromptChange: (value: string) => void;
   onApplyRemoval: () => void;
+  onApplyRemovalBatch: () => void;
   onApply: () => void;
 }
 
 export function BackgroundGenerationPanel({
   selectedImageLabel,
+  galleryCount,
+  pendingCutoutCount,
   templateId,
   customPrompt,
   isProcessing,
   onTemplateChange,
   onCustomPromptChange,
   onApplyRemoval,
+  onApplyRemovalBatch,
   onApply,
 }: BackgroundGenerationPanelProps) {
   return (
@@ -31,23 +37,37 @@ export function BackgroundGenerationPanel({
           <h2 className="font-bold">2. 배경 제거</h2>
         </div>
         <p className="text-sm text-slate-400 leading-relaxed">
-          분석·크롭이 끝난 이미지에 대해 배경 제거를 별도로 실행합니다.
+          3D 큐브의 인물·배경 분리(패럴랙스)는 <strong className="text-cyan-200">누끼</strong>처럼 배경이
+          떨어진 컷에서만 동작합니다. 분석·크롭 후 여기서 일괄 배경 제거를 적용하세요.
         </p>
-        <button
-          type="button"
-          disabled={!selectedImageLabel || isProcessing}
-          onClick={onApplyRemoval}
-          className="mt-4 w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isProcessing ? (
-            <span className="inline-flex items-center justify-center gap-2">
-              <Loader2 className="animate-spin" size={16} />
-              배경 제거 중...
-            </span>
-          ) : (
-            "선택 이미지에 배경 제거"
-          )}
-        </button>
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            disabled={pendingCutoutCount === 0 || isProcessing}
+            onClick={onApplyRemovalBatch}
+            className="w-full rounded-xl border border-cyan-400/50 bg-cyan-500/15 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isProcessing ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin" size={16} />
+                일괄 배경 제거 중...
+              </span>
+            ) : (
+              `보관함 전체 배경 제거 (${pendingCutoutCount}장)`
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={!selectedImageLabel || isProcessing}
+            onClick={onApplyRemoval}
+            className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            선택 이미지에만 배경 제거
+          </button>
+        </div>
+        {galleryCount > 0 && pendingCutoutCount === 0 ? (
+          <p className="mt-2 text-[11px] text-emerald-300/90">모든 이미지에 배경 제거가 적용되었습니다.</p>
+        ) : null}
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">

@@ -7,7 +7,13 @@ import {
 import type { ProcessedImage } from "../../shared/types";
 import { presignVaultAssets } from "../../shared/api/workspaceClient";
 
-const URL_SLOTS: VaultAssetSlot[] = ["url", "preparedUrl", "originalUrl", "preCropSourceUrl"];
+const URL_SLOTS: VaultAssetSlot[] = [
+  "url",
+  "preparedUrl",
+  "originalUrl",
+  "preCropSourceUrl",
+  "backgroundPlateUrl",
+];
 
 function isInlineImageUrl(value: string): boolean {
   return value.startsWith("data:") || value.startsWith("blob:");

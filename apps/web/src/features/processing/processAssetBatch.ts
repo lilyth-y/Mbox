@@ -101,8 +101,16 @@ export async function processDataAssetBatch(
   const focusTarget = options.focusTarget?.trim();
   const preprocessMode = options.preprocessMode ?? "original";
   const manifest = await fetchAssetManifest();
+  const batchLimit =
+    typeof sessionStorage !== "undefined"
+      ? Number(sessionStorage.getItem("mbox_batch_limit") ?? "0")
+      : 0;
+  const samples =
+    Number.isFinite(batchLimit) && batchLimit > 0
+      ? manifest.samples.slice(0, Math.floor(batchLimit))
+      : manifest.samples;
   const results: ProcessedImage[] = [];
-  const imageTotal = manifest.samples.length;
+  const imageTotal = samples.length;
   const reporter = onProgress ? createProgressReporter(imageTotal, onProgress) : null;
   let completedImages = 0;
 
@@ -114,7 +122,7 @@ export async function processDataAssetBatch(
   reporter?.setPhase("loading");
   reporter?.setCurrent(0, `data/asset 이미지 ${imageTotal}장을 불러오는 중입니다...`, "loading");
 
-  const loadedSamples = await loadSamples(manifest.samples, reporter, onStatus);
+  const loadedSamples = await loadSamples(samples, reporter, onStatus);
 
   for (let start = 0; start < loadedSamples.length; start += ANALYZE_BATCH_SIZE) {
     const chunk = loadedSamples.slice(start, start + ANALYZE_BATCH_SIZE);

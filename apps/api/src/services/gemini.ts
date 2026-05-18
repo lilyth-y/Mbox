@@ -11,6 +11,11 @@ import {
   readAnalysisCache,
   writeAnalysisCache,
 } from "./analysisCache.js";
+import {
+  createEditCacheKey,
+  readEditCache,
+  writeEditCache,
+} from "./editCache.js";
 import { DEPTH_GRID_SIZE, synthesizeDepthField } from "./depth.js";
 import {
   coerceAnalysisMetadata,
@@ -71,14 +76,17 @@ interface VertexConfig {
   location: string;
 }
 
-function getVertexConfig(): VertexConfig {
+function resolveVertexProject(): string {
   const project = process.env.GOOGLE_CLOUD_PROJECT?.trim();
   if (!project) {
     throw new Error("GOOGLE_CLOUD_PROJECT is not configured.");
   }
+  return project;
+}
 
+function getVertexConfig(): VertexConfig {
   return {
-    project,
+    project: resolveVertexProject(),
     location: process.env.GOOGLE_CLOUD_LOCATION?.trim() || DEFAULT_VERTEX_LOCATION,
   };
 }
@@ -407,19 +415,40 @@ export async function analyzeImageBatch(
   return items.map((item) => byId.get(item.id) ?? { id: item.id, error: "Analyze request failed." });
 }
 
-export async function editImageBackground(
+function formatVertexImageEditError(error: unknown, location: string): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("404") && message.includes("Publisher Model")) {
+    return new Error(
+      `Vertex image model is not available in ${location} (asia-northeast3). ` +
+        "Use remove_background (browser matte or server matte provider). " +
+        "For generative backgrounds, set GOOGLE_CLOUD_LOCATION to a region that hosts image models (e.g. us-central1) or use BACKGROUND_REMOVAL_PROVIDER=matte."
+    );
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
+export async function editImageWithVertex(
   imageBase64: string,
   label: string,
   bgPrompt: string,
   mimeType = "image/png",
   editMode: ImageEditMode = "generate_background"
 ): Promise<EditResponseBody> {
+  const cacheKey = createEditCacheKey(imageBase64, label, editMode, `vertex:${bgPrompt}`);
+  const cached = await readEditCache(cacheKey);
+  if (cached) {
+    return { imageBase64: cached.imageBase64, mimeType: cached.mimeType };
+  }
+
   const prompt =
     editMode === "remove_background"
       ? buildRemoveBackgroundPrompt(label)
       : buildEditPrompt(label, bgPrompt);
 
-  const result = await vertexGenerateContent<VertexGenerateResponse>(EDIT_MODEL, {
+  const config = getVertexConfig();
+  let result: VertexGenerateResponse;
+  try {
+    result = await vertexGenerateContent<VertexGenerateResponse>(EDIT_MODEL, {
     contents: [
       {
         role: "user",
@@ -429,8 +458,11 @@ export async function editImageBackground(
         ],
       },
     ],
-    generationConfig: { responseModalities: ["IMAGE"] },
-  });
+      generationConfig: { responseModalities: ["IMAGE"] },
+    });
+  } catch (error) {
+    throw formatVertexImageEditError(error, config.location);
+  }
 
   const inlineData = result.candidates?.[0]?.content?.parts?.find(
     (part) => part.inlineData?.data
@@ -440,8 +472,10 @@ export async function editImageBackground(
     throw new Error("Background edit response did not include image data.");
   }
 
-  return {
+  const response = {
     imageBase64: inlineData.data,
     mimeType: inlineData.mimeType ?? "image/png",
   };
+  await writeEditCache(cacheKey, response);
+  return response;
 }

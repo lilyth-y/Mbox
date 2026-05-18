@@ -5,7 +5,11 @@ import { GalleryPanel } from "../features/gallery/GalleryPanel";
 import { processDataAssetBatch } from "../features/processing/processAssetBatch";
 import { processUploadedImages } from "../features/processing/processImage";
 import { applyBackgroundGeneration } from "../features/processing/applyBackgroundGeneration";
-import { applyBackgroundRemoval } from "../features/processing/applyBackgroundRemoval";
+import {
+  applyBackgroundRemoval,
+  applyBackgroundRemovalBatch,
+} from "../features/processing/applyBackgroundRemoval";
+import { hasSubjectCutout } from "../shared/lib/cutoutPresentation";
 import { BackgroundGenerationPanel } from "../features/background/BackgroundGenerationPanel";
 import { UploadPanel } from "../features/upload/UploadPanel";
 import { CubeView } from "../features/cube/CubeView";
@@ -31,6 +35,7 @@ import { EventManagerPanel } from "../features/events/EventManagerPanel";
 import {
   bootstrapLocalWorkspace,
   bootstrapRemoteWorkspace,
+  type EventWorkspaceState,
   createEventWorkspace,
   deleteEventWorkspace,
   persistEventVault,
@@ -89,31 +94,55 @@ export default function App() {
   }, [categories]);
 
   useEffect(() => {
-    const bootstrap = usesServerVault() ? bootstrapRemoteWorkspace() : bootstrapLocalWorkspace();
+    const loadWorkspace = async (): Promise<{
+      workspace: EventWorkspaceState;
+      statusMessage: string;
+    }> => {
+      if (!usesServerVault()) {
+        const workspace = await bootstrapLocalWorkspace();
+        const eventName =
+          workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
+        return {
+          workspace,
+          statusMessage: `보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · 이 브라우저에 최대 1GB)`,
+        };
+      }
 
-    bootstrap
-      .then((workspace) => {
+      try {
+        const workspace = await bootstrapRemoteWorkspace();
+        const eventName =
+          workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
+        return {
+          workspace,
+          statusMessage: `클라우드 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · PC/모바일 동일 작업실)`,
+        };
+      } catch (remoteError) {
+        const remoteMessage =
+          remoteError instanceof Error ? remoteError.message : "Unknown error";
+        const workspace = await bootstrapLocalWorkspace();
+        const eventName =
+          workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
+        return {
+          workspace,
+          statusMessage:
+            `클라우드 보관함 연결 실패 — 이 브라우저 보관함으로 시작합니다. (${workspace.processedImages.length}장 · ${eventName}) 원인: ${remoteMessage}`,
+        };
+      }
+    };
+
+    loadWorkspace()
+      .then(({ workspace, statusMessage }) => {
         setEvents(workspace.events);
         setActiveEventId(workspace.activeEventId);
         setProcessedImages(workspace.processedImages);
         setSelectedImageId(workspace.processedImages[0]?.id ?? null);
         setWorkspaceReady(true);
-        const eventName =
-          workspace.events.find((event) => event.id === workspace.activeEventId)?.name ?? "이벤트";
-        setStatus(
-          usesServerVault()
-            ? `클라우드 보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · PC/모바일 동일 작업실)`
-            : `보관함을 불러왔습니다. (${workspace.processedImages.length}장 · ${eventName} · 이 브라우저에 최대 1GB)`
-        );
+        setStatus(statusMessage);
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Unknown error";
         setWorkspaceReady(true);
-        setStatus(
-          usesServerVault()
-            ? `서버 보관함 로드 실패: ${message}`
-            : `보관함 로드 실패: ${message}`
-        );
+        setStatus(`보관함 로드 실패: ${message}`);
       });
   }, []);
 
@@ -448,12 +477,55 @@ export default function App() {
       setProcessedImages((previous) =>
         previous.map((image) => (image.id === updated.id ? updated : image))
       );
-      setStatus("배경 제거가 완료되었습니다.");
+      setStatus("배경 제거(누끼)가 완료되었습니다. 3D 큐브에서 인물·배경 분리 연출을 사용할 수 있습니다.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       setStatus(`배경 제거 중 오류가 발생했습니다: ${message}`);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleApplyBackgroundRemovalBatch = async () => {
+    const pending = processedImages.filter((image) => !hasSubjectCutout(image));
+    if (pending.length === 0) {
+      setStatus("배경 제거가 필요한 이미지가 없습니다.");
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessingProgress(null);
+    const reporter = createProgressReporter(pending.length, setProcessingProgress);
+
+    try {
+      reporter.setPhase("processing");
+      const updatedGallery = await applyBackgroundRemovalBatch(processedImages, {
+        onStatus: setStatus,
+        onProgress: (current, _total, message) => {
+          reporter.setCurrent(current, message, "processing");
+        },
+      });
+
+      if (getPresentationTotalBytes(updatedGallery) > MAX_PRESENTATION_BYTES) {
+        setStatus(
+          `1GB 한도를 초과해 일괄 배경 제거 결과를 저장하지 않았습니다. ${formatPresentationBytes(
+            getPresentationTotalBytes(updatedGallery)
+          )} / ${formatPresentationBytes(MAX_PRESENTATION_BYTES)}`
+        );
+        return;
+      }
+
+      setProcessedImages(updatedGallery);
+      const cutoutCount = updatedGallery.filter((image) => hasSubjectCutout(image)).length;
+      const doneMessage = `${cutoutCount}장이 누끼(배경 제거) 상태입니다. 3D 큐브 탭에서 연출을 적용하세요.`;
+      reporter.complete(doneMessage);
+      setStatus(doneMessage);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setStatus(`일괄 배경 제거 중 오류가 발생했습니다: ${message}`);
+    } finally {
+      setIsProcessing(false);
+      setProcessingProgress(null);
     }
   };
 
@@ -699,12 +771,17 @@ export default function App() {
               />
               <BackgroundGenerationPanel
                 selectedImageLabel={selectedImage?.label ?? null}
+                galleryCount={processedImages.length}
+                pendingCutoutCount={
+                  processedImages.filter((image) => !hasSubjectCutout(image)).length
+                }
                 templateId={backgroundTemplateId}
                 customPrompt={backgroundCustomPrompt}
                 isProcessing={isProcessing}
                 onTemplateChange={setBackgroundTemplateId}
                 onCustomPromptChange={setBackgroundCustomPrompt}
                 onApplyRemoval={handleApplyBackgroundRemoval}
+                onApplyRemovalBatch={handleApplyBackgroundRemovalBatch}
                 onApply={handleApplyBackground}
               />
               <CategoryPanel
@@ -764,7 +841,11 @@ export default function App() {
             />
           </>
         ) : (
-          <CubeView active={activeTab === "cube"} processedImages={processedImages} />
+          <CubeView
+            active={activeTab === "cube"}
+            processedImages={processedImages}
+            onProcessedImagesChange={setProcessedImages}
+          />
         )}
         </div>
       </main>

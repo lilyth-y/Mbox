@@ -58,6 +58,8 @@ export interface EditRequestBody {
   bgPrompt?: string;
   mimeType?: string;
   editMode?: ImageEditMode;
+  /** Used by server matte removal when Vertex image models are unavailable in region. */
+  subjectBounds?: SubjectBounds;
 }
 
 export interface AnalyzeResponseBody {

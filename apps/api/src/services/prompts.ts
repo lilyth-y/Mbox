@@ -1,7 +1,7 @@
-import { IMAGE_CATEGORY_OPTIONS } from "@mbox/shared";
+import { DEFAULT_EDIT_MODEL, IMAGE_CATEGORY_OPTIONS } from "@mbox/shared";
 
 export const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL?.trim() || "gemini-2.5-flash";
-export const EDIT_MODEL = "gemini-2.5-flash-image";
+export const EDIT_MODEL = process.env.EDIT_MODEL?.trim() || DEFAULT_EDIT_MODEL;
 
 export function buildAnalysisPrompt(focusTarget?: string): string {
   const targetInstruction = focusTarget?.trim()

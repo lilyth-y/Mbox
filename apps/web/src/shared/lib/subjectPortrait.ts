@@ -1,16 +1,21 @@
 import type { ProcessedImage } from "../types";
+import { canUseSubjectBackgroundSeparation } from "./cutoutPresentation";
 
 const PERSON_LABEL_PATTERN =
   /인물|사람|person|people|portrait|human|남성|여성|모델|face|얼굴/i;
 
-/** Use stronger foreground/background parallax in the 3D viewer. */
+/** Use stronger foreground/background parallax in the 3D viewer (cutout images only). */
 export function hasDepthSeparationBoost(
-  image: Pick<ProcessedImage, "subject" | "focus">
+  image: Pick<ProcessedImage, "subject" | "focus" | "preprocessMode">
 ): boolean {
+  if (!canUseSubjectBackgroundSeparation(image)) {
+    return false;
+  }
+  // All cutouts get stronger fg/bg split (wedding portraits are not always single-person).
   if (isPortraitSubject(image)) {
     return true;
   }
-  return image.focus.onPrimarySubject && image.subject.detected;
+  return image.subject.detected || image.focus.onPrimarySubject;
 }
 
 export function isPortraitSubject(image: Pick<ProcessedImage, "subject" | "focus">): boolean {

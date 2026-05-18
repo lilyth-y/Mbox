@@ -8,11 +8,22 @@
   "scripts": {
     "build": "npm run build --workspace @mbox/shared && npm run build --workspace @mbox/api && npm run build --workspace @mbox/web",
     "check:cloudbuild": "python scripts/check_cloudbuild_consistency.py",
+    "check:imgly-pin": "node scripts/check-imgly-pin.mjs",
+    "check:mp4-structure": "node scripts/inspect-mp4-structure.mjs",
+    "setup:bgm": "node scripts/setup-default-bgm.mjs",
+    "verify:cube-frames": "node scripts/verify-cube-frames.mjs",
+    "verify:bg-removal": "node scripts/verify-background-removal.mjs",
+    "test:api-matte": "node scripts/test-api-matte.mjs",
     "verify:hosted": "node scripts/verify-hosted-deploy.mjs",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace @mbox/api\" \"npm run dev --workspace @mbox/web\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
     "playwright": "^1.60.0"
+  },
+  "overrides": {
+    "@imgly/background-removal": {
+      "onnxruntime-web": "1.21.0"
+    }
   }
 }

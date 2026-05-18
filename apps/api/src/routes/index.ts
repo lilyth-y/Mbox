@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { assetsRouter } from "./assets.js";
 import { workspaceRouter } from "./workspace.js";
-import { analyzeImage, analyzeImageBatch, editImageBackground } from "../services/gemini.js";
+import { analyzeImage, analyzeImageBatch } from "../services/gemini.js";
+import { editImageBackground } from "../services/backgroundRemoval.js";
 import type {
   AnalyzeBatchRequestBody,
   AnalyzeRequestBody,
@@ -80,7 +81,8 @@ routesRouter.post("/edit", async (req, res) => {
       body.label,
       body.bgPrompt ?? "",
       body.mimeType,
-      editMode
+      editMode,
+      body.subjectBounds
     );
     res.json(result);
   } catch (error) {

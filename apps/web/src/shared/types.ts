@@ -4,6 +4,7 @@ import type {
   FocusCentering,
   ImageCenter,
   ImageFocus,
+  ResolutionEnhanceScale,
   SubjectBounds,
   SubjectRecognition,
 } from "@mbox/shared";
@@ -49,6 +50,8 @@ export interface ProcessedImage {
   url: string;
   preparedUrl: string;
   preCropSourceUrl?: string;
+  /** Blurred plate from pre-cutout source; used as the slow parallax layer in 3D. */
+  backgroundPlateUrl?: string;
   label: string;
   userCategory?: string;
   aiSuggestedCategory: string;
@@ -65,6 +68,8 @@ export interface ProcessedImage {
   postProcessing?: PostProcessingSettings;
   byteSize: number;
   sequenceOrder?: number;
+  /** 2 = 2048-class edge upscale applied in-browser for cube export */
+  resolutionEnhanceScale?: ResolutionEnhanceScale;
 }
 
 export type AppTab = "upload" | "postprocess" | "cube";

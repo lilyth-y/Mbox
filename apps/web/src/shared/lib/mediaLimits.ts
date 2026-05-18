@@ -68,7 +68,13 @@ export function canAddPresentationImage(
   return getPresentationTotalBytes(images) + nextImageBytes <= MAX_PRESENTATION_BYTES;
 }
 
-const IMAGE_URL_FIELDS = ["url", "preparedUrl", "originalUrl", "preCropSourceUrl"] as const;
+const IMAGE_URL_FIELDS = [
+  "url",
+  "preparedUrl",
+  "originalUrl",
+  "preCropSourceUrl",
+  "backgroundPlateUrl",
+] as const;
 
 export function estimateUniqueImageBlobBytes(image: ProcessedImage): number {
   const seen = new Set<string>();

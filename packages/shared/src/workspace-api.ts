@@ -12,13 +12,19 @@ export interface PutVaultRequest {
   images: VaultImageRecord[];
 }
 
-export type VaultAssetSlot = "url" | "preparedUrl" | "originalUrl" | "preCropSourceUrl";
+export type VaultAssetSlot =
+  | "url"
+  | "preparedUrl"
+  | "originalUrl"
+  | "preCropSourceUrl"
+  | "backgroundPlateUrl";
 
 export interface VaultImageStoragePaths {
   url: string;
   preparedUrl?: string;
   originalUrl?: string;
   preCropSourceUrl?: string;
+  backgroundPlateUrl?: string;
 }
 
 /** Set on vault records when blobs live in GCS (cross-device sync). */

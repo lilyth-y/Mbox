@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import type { ImageCenter, SubjectBounds } from "../../shared/types";
 import { DEPTH_EMPHASIS, PARALLAX_MAX } from "./cubeSequence";
+import type { CubeFramePresetId } from "@mbox/shared";
+import { PHOTO_FRAME_GLSL } from "./photoFrameGlsl";
+import { createFramePresetUniform, setFramePresetUniform } from "./presentationFrameUniforms";
 
 const vertexShader = `
 varying vec2 vUv;
@@ -21,7 +24,10 @@ uniform float uPortraitBoost;
 uniform float uDepthGain;
 uniform vec4 uSubjectBounds;
 uniform vec2 uFocus;
+uniform float uFramePreset;
 varying vec2 vUv;
+
+${PHOTO_FRAME_GLSL}
 
 void main() {
   float depthWeight;
@@ -51,9 +57,10 @@ void main() {
   float background = 1.0 - foreground;
   float portraitMul = mix(1.75, mix(3.45, 3.05, background), uPortraitBoost);
   float separation = depthWeight * uParallax * portraitMul * uDepthGain;
-  float scale = 1.0 + separation;
+  float scale = 1.0 - separation;
   vec2 warped = uFocus + delta * scale;
-  gl_FragColor = texture2D(uTexture, warped);
+  vec4 tex = texture2D(uTexture, warped);
+  gl_FragColor = applyPhotoFrame(tex, vUv, uFramePreset);
 }
 `;
 
@@ -79,6 +86,7 @@ function toSubjectBoundsVector(bounds: SubjectBounds): THREE.Vector4 {
 export interface ParallaxMaterialOptions {
   portraitBoost?: boolean;
   subjectBounds?: SubjectBounds;
+  framePresetId?: CubeFramePresetId;
 }
 
 export function createParallaxMaterial(
@@ -89,6 +97,7 @@ export function createParallaxMaterial(
   useDepthMap: boolean,
   options: ParallaxMaterialOptions = {}
 ): ParallaxMaterial {
+  const framePresetId = options.framePresetId ?? "rose_gold";
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTexture: { value: texture },
@@ -104,9 +113,12 @@ export function createParallaxMaterial(
           : new THREE.Vector4(0, 0, 1, 1),
       },
       uFocus: { value: toFocusVector(center) },
+      ...createFramePresetUniform(framePresetId),
     },
     vertexShader,
     fragmentShader,
+    transparent: true,
+    side: THREE.DoubleSide,
   }) as ParallaxMaterial;
 
   material.userData.isParallax = true;
@@ -140,6 +152,22 @@ export function updateParallaxMaterial(
     : new THREE.Vector4(0, 0, 1, 1);
   material.uniforms.uDepthGain.value = DEPTH_EMPHASIS;
   material.uniforms.uParallax.value = Math.min(PARALLAX_MAX, Math.max(0, amount));
+  if (options.framePresetId) {
+    setFramePresetUniform(
+      material.uniforms as { uFramePreset: { value: number } },
+      options.framePresetId
+    );
+  }
+}
+
+export function setParallaxFramePreset(
+  material: ParallaxMaterial,
+  framePresetId: CubeFramePresetId
+): void {
+  setFramePresetUniform(
+    material.uniforms as { uFramePreset: { value: number } },
+    framePresetId
+  );
 }
 
 export function setParallaxAmount(material: ParallaxMaterial, amount: number): void {

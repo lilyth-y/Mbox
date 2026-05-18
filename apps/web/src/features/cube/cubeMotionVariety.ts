@@ -1,14 +1,27 @@
 import type { ProcessedImage } from "../../shared/types";
-import { RESET_MS, ROTATE_MS } from "./cubeSequence";
+import type { PresentationEffectId } from "./presentationEffects";
+import {
+  CUBE_RESET_MS,
+  LOOP_BRIDGE_MS,
+  RESET_MS,
+  ROTATE_MS,
+  TRAVEL_OUT_MS,
+} from "./cubeSequence";
 
-/** Per-step motion tweaks — subtle enough to feel organic, not chaotic. */
+export function getLoopBridgeMs(
+  effect: PresentationEffectId,
+  presentationCount: number
+): number {
+  if (effect !== "cube_focus" || presentationCount < 2) {
+    return 0;
+  }
+  return LOOP_BRIDGE_MS;
+}
+
+/** Per-step timing / orbit tweaks (cube rotation ignores orbit fields). */
 export interface StepMotionVariety {
   rotateMsScale: number;
   resetMsScale: number;
-  spinDirection: 1 | -1;
-  swingYawScale: number;
-  swingPitchScale: number;
-  restTiltOffset: { x: number; y: number; z: number };
   orbitDirection: 1 | -1;
 }
 
@@ -36,20 +49,11 @@ export function createPresentationMotionSeed(
 
 export function getStepMotionVariety(seed: number, step: number): StepMotionVariety {
   const random = mulberry32(seed + step * 9_973);
-  const spinDirection: 1 | -1 = random() > 0.48 ? 1 : -1;
   const orbitDirection: 1 | -1 = random() > 0.5 ? 1 : -1;
 
   return {
-    rotateMsScale: 0.94 + random() * 0.12,
-    resetMsScale: 0.95 + random() * 0.1,
-    spinDirection,
-    swingYawScale: 0.9 + random() * 0.18,
-    swingPitchScale: 0.88 + random() * 0.2,
-    restTiltOffset: {
-      x: (random() - 0.5) * 0.07,
-      y: (random() - 0.5) * 0.09,
-      z: (random() - 0.5) * 0.05,
-    },
+    rotateMsScale: 0.97 + random() * 0.06,
+    resetMsScale: 0.97 + random() * 0.06,
     orbitDirection,
   };
 }
@@ -59,20 +63,36 @@ export interface StepPhaseTiming {
   zoomMs: number;
   parallaxMs: number;
   resetMs: number;
+  /** Outbound spin toward next face (cube linked mode). */
+  travelOutMs?: number;
 }
 
 export function getStepPhaseTiming(
   seed: number,
   step: number,
   zoomMs: number,
-  parallaxMs: number
+  parallaxMs: number,
+  effect: PresentationEffectId = "cube_focus",
+  presentationCount = 1
 ): StepPhaseTiming {
   const variety = getStepMotionVariety(seed, step);
+  const isLinkedCube = effect === "cube_focus";
+  const isLastStep = step + 1 >= presentationCount;
   return {
-    rotateMs: Math.round(ROTATE_MS * variety.rotateMsScale),
+    rotateMs: isLinkedCube
+      ? step === 0
+        ? Math.round(ROTATE_MS * variety.rotateMsScale)
+        : 0
+      : Math.round(ROTATE_MS * variety.rotateMsScale),
     zoomMs,
     parallaxMs,
-    resetMs: Math.round(RESET_MS * variety.resetMsScale),
+    resetMs: isLinkedCube
+      ? CUBE_RESET_MS
+      : Math.round(RESET_MS * variety.resetMsScale),
+    travelOutMs:
+      isLinkedCube && !isLastStep
+        ? Math.round(TRAVEL_OUT_MS * variety.resetMsScale)
+        : 0,
   };
 }
 
@@ -80,14 +100,51 @@ export function getStepSegmentMs(
   seed: number,
   step: number,
   zoomMs: number,
-  parallaxMs: number
+  parallaxMs: number,
+  effect: PresentationEffectId = "cube_focus",
+  presentationCount = 1
 ): number {
-  const timing = getStepPhaseTiming(seed, step, zoomMs, parallaxMs);
-  return timing.rotateMs + timing.zoomMs + timing.parallaxMs + timing.resetMs;
+  const timing = getStepPhaseTiming(
+    seed,
+    step,
+    zoomMs,
+    parallaxMs,
+    effect,
+    presentationCount
+  );
+  return (
+    timing.rotateMs +
+    timing.zoomMs +
+    timing.parallaxMs +
+    timing.resetMs +
+    (timing.travelOutMs ?? 0)
+  );
 }
 
 export function sumSegmentDurations(segmentMs: number[]): number {
   return segmentMs.reduce((total, value) => total + value, 0);
+}
+
+export type PresentationTimeline =
+  | { kind: "step"; step: number; stepElapsed: number }
+  | { kind: "loop_bridge"; bridgeElapsed: number; lastStep: number };
+
+export function resolvePresentationTimeline(
+  elapsed: number,
+  segmentMs: number[],
+  loopBridgeMs = 0
+): PresentationTimeline {
+  const contentMs = sumSegmentDurations(segmentMs);
+  if (loopBridgeMs > 0 && elapsed >= contentMs) {
+    return {
+      kind: "loop_bridge",
+      bridgeElapsed: Math.min(elapsed - contentMs, loopBridgeMs),
+      lastStep: Math.max(0, segmentMs.length - 1),
+    };
+  }
+
+  const { step, stepElapsed } = resolvePresentationStep(elapsed, segmentMs);
+  return { kind: "step", step, stepElapsed };
 }
 
 export function resolvePresentationStep(

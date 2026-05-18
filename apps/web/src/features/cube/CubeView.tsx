@@ -6,18 +6,15 @@ import { PARALLAX_MS, ZOOM_MS, getPresentationFace } from "./cubeSequence";
 import {
   createPresentationMotionSeed,
   formatPresentationDurationMs,
+  getLoopBridgeMs,
   getStepMotionVariety,
   getStepPhaseTiming,
   getStepSegmentMs,
-  resolvePresentationStep,
+  resolvePresentationTimeline,
   sumSegmentDurations,
 } from "./cubeMotionVariety";
-import { computePresentationFrame } from "./presentationFrame";
-import {
-  DEFAULT_PRESENTATION_EFFECT,
-  PRESENTATION_EFFECTS,
-  type PresentationEffectId,
-} from "./presentationEffects";
+import { computeCubeLoopBridgeFrame, computePresentationFrame } from "./presentationFrame";
+import { PRESENTATION_EFFECTS, type PresentationEffectId } from "./presentationEffects";
 import { createPresentationScene } from "./presentationScene";
 import {
   constrainPresentationImages,
@@ -25,14 +22,37 @@ import {
   getPresentationTotalBytes,
   MAX_PRESENTATION_BYTES,
 } from "../../shared/lib/mediaLimits";
-import { CubeVideoRecorder, downloadBlob, resolveRecordingMimeType } from "./cubeRecorder";
+import { countSubjectCutouts } from "../../shared/lib/cutoutPresentation";
+import {
+  CubeVideoRecorder,
+  RECORD_ENCODER_FLUSH_MS,
+  downloadBlob,
+  looksLikeIsoMp4,
+  normalizeRecordingBlob,
+  resolveRecordingMimeType,
+} from "./cubeRecorder";
+import {
+  CubeFocusPanel,
+  DEFAULT_CUBE_FOCUS_SETTINGS,
+  type CubeFocusSettings,
+} from "./CubeFocusPanel";
+import { getCubeFramePreset } from "./cubeFramePresets";
+import { resolveBgmSource } from "./bgm/bgmTracks";
+import { startBgmRecordingSession } from "./bgm/compositeStreamWithBgm";
+import { applyResolutionEnhanceBatch } from "../processing/applyResolutionEnhance";
+import type { PresentationScene } from "./presentationScene";
 
 interface CubeViewProps {
   active: boolean;
   processedImages: ProcessedImage[];
+  onProcessedImagesChange?: (images: ProcessedImage[]) => void;
 }
 
-export function CubeView({ active, processedImages }: CubeViewProps) {
+export function CubeView({
+  active,
+  processedImages,
+  onProcessedImagesChange,
+}: CubeViewProps) {
   const cubeContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -43,13 +63,26 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
   const [recordingMessage, setRecordingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedEffect, setSelectedEffect] =
-    useState<PresentationEffectId>(DEFAULT_PRESENTATION_EFFECT);
+    useState<PresentationEffectId>("cube_focus");
+  const [cubeSettings, setCubeSettings] = useState<CubeFocusSettings>(DEFAULT_CUBE_FOCUS_SETTINGS);
+  const [showBetaTemplates, setShowBetaTemplates] = useState(false);
+  const [isEnhancingResolution, setIsEnhancingResolution] = useState(false);
+  const presentationRef = useRef<PresentationScene | null>(null);
 
   const orderedImages = useMemo(
     () => constrainPresentationImages(processedImages),
     [processedImages]
   );
   const presentationCount = orderedImages.length;
+  const cutoutCount = useMemo(() => countSubjectCutouts(orderedImages), [orderedImages]);
+  const enhancedCount = useMemo(
+    () => processedImages.filter((image) => image.resolutionEnhanceScale === 2).length,
+    [processedImages]
+  );
+  const framePreset = useMemo(
+    () => getCubeFramePreset(cubeSettings.framePresetId),
+    [cubeSettings.framePresetId]
+  );
   const omittedCount = processedImages.length - orderedImages.length;
   const presentationBytes = useMemo(
     () => getPresentationTotalBytes(orderedImages),
@@ -61,17 +94,27 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
   );
   const segmentMsByStep = useMemo(
     () =>
-      orderedImages.map((_, step) => getStepSegmentMs(motionSeed, step, ZOOM_MS, PARALLAX_MS)),
-    [orderedImages, motionSeed]
+      orderedImages.map((_, step) =>
+        getStepSegmentMs(
+          motionSeed,
+          step,
+          ZOOM_MS,
+          PARALLAX_MS,
+          selectedEffect,
+          orderedImages.length
+        )
+      ),
+    [orderedImages, motionSeed, selectedEffect]
   );
-  const presentationDurationMs = useMemo(
+  const loopBridgeMs = useMemo(
+    () => getLoopBridgeMs(selectedEffect, presentationCount),
+    [selectedEffect, presentationCount]
+  );
+  const contentDurationMs = useMemo(
     () => sumSegmentDurations(segmentMsByStep),
     [segmentMsByStep]
   );
-  const selectedEffectDefinition =
-    PRESENTATION_EFFECTS.find((effect) => effect.id === selectedEffect) ??
-    PRESENTATION_EFFECTS[0];
-
+  const presentationDurationMs = contentDurationMs + loopBridgeMs;
   useEffect(() => {
     if (!active || !cubeContainerRef.current || presentationCount === 0) {
       return;
@@ -86,7 +129,7 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a);
+    scene.background = new THREE.Color(framePreset.sceneBackground);
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 5;
@@ -103,7 +146,17 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
 
     const loader = new THREE.TextureLoader();
     const textures = orderedImages.map((image) => loader.load(image.url));
-    const presentation = createPresentationScene(selectedEffect, orderedImages, textures);
+    const plateTextures = orderedImages.map((image) =>
+      image.backgroundPlateUrl ? loader.load(image.backgroundPlateUrl) : null
+    );
+    const presentation = createPresentationScene(
+      selectedEffect,
+      orderedImages,
+      textures,
+      plateTextures,
+      cubeSettings.framePresetId
+    );
+    presentationRef.current = presentation;
     scene.add(presentation.root);
 
     timelineStartRef.current = performance.now();
@@ -116,32 +169,65 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         recordingRef.current || recordingDuration <= 0
           ? elapsed
           : elapsed % recordingDuration;
-      const { step, stepElapsed } = resolvePresentationStep(timeline, segmentMsByStep);
-      const currentFace = getPresentationFace(step);
-      const stepTiming = getStepPhaseTiming(motionSeed, step, ZOOM_MS, PARALLAX_MS);
-      const stepVariety = getStepMotionVariety(motionSeed, step);
+      const resolved = resolvePresentationTimeline(timeline, segmentMsByStep, loopBridgeMs);
 
-      if (step !== appliedStep) {
-        presentation.applyStepTexture(step);
-        setCurrentStep(step + 1);
-        appliedStep = step;
-      }
-
-      const frame = computePresentationFrame(
-        selectedEffect,
+      if (resolved.kind === "loop_bridge") {
+        const textureStep =
+          loopBridgeMs > 0 && resolved.bridgeElapsed >= loopBridgeMs * 0.82
+            ? 0
+            : resolved.lastStep;
+        if (textureStep !== appliedStep) {
+          presentation.applyStepTexture(textureStep);
+          setCurrentStep(textureStep + 1);
+          appliedStep = textureStep;
+        }
+        const frame = computeCubeLoopBridgeFrame(
+          resolved.bridgeElapsed,
+          loopBridgeMs,
+          resolved.lastStep
+        );
+        frame.applyRootTransform(presentation.root, resolved.lastStep, presentationCount);
+        camera.position.x = 0;
+        camera.position.y = 0;
+        camera.position.z = frame.cameraZ;
+        camera.fov = frame.fieldOfView;
+        camera.updateProjectionMatrix();
+        presentation.setParallaxAmount(resolved.lastStep, 0);
+      } else {
+        const { step, stepElapsed } = resolved;
+        const currentFace = getPresentationFace(step);
+        const stepTiming = getStepPhaseTiming(
+        motionSeed,
         step,
-        stepElapsed,
-        presentationCount,
-        currentFace,
-        { timing: stepTiming, variety: stepVariety }
+        ZOOM_MS,
+        PARALLAX_MS,
+        selectedEffect,
+        presentationCount
       );
-      frame.applyRootTransform(presentation.root, step, presentationCount);
-      camera.position.x = frame.cameraOffsetX ?? 0;
-      camera.position.y = frame.cameraOffsetY ?? 0;
-      camera.position.z = frame.cameraZ;
-      camera.fov = frame.fieldOfView;
-      camera.updateProjectionMatrix();
-      presentation.setParallaxAmount(step, frame.parallaxAmount);
+        const stepVariety = getStepMotionVariety(motionSeed, step);
+
+        if (step !== appliedStep) {
+          presentation.applyStepTexture(step);
+          setCurrentStep(step + 1);
+          appliedStep = step;
+        }
+
+        const frame = computePresentationFrame(
+          selectedEffect,
+          step,
+          stepElapsed,
+          presentationCount,
+          currentFace,
+          { timing: stepTiming, variety: stepVariety }
+        );
+        frame.applyRootTransform(presentation.root, step, presentationCount);
+        camera.position.x = frame.cameraOffsetX ?? 0;
+        camera.position.y = frame.cameraOffsetY ?? 0;
+        camera.position.z = frame.cameraZ;
+        camera.fov = frame.fieldOfView;
+        camera.updateProjectionMatrix();
+        presentation.setParallaxAmount(step, frame.parallaxAmount);
+      }
 
       renderer.render(scene, camera);
       requestRef.current = requestAnimationFrame(animate);
@@ -163,8 +249,10 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
+      presentationRef.current = null;
       presentation.dispose();
       textures.forEach((texture) => texture.dispose());
+      plateTextures.forEach((texture) => texture?.dispose());
       renderer.dispose();
       rendererRef.current = null;
     };
@@ -173,10 +261,14 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     orderedImages,
     motionSeed,
     presentationCount,
+    contentDurationMs,
+    loopBridgeMs,
     presentationDurationMs,
     presentationKey,
     segmentMsByStep,
     selectedEffect,
+    cubeSettings.framePresetId,
+    framePreset.sceneBackground,
   ]);
 
   const handleApplyPresentation = () => {
@@ -188,39 +280,90 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
     window.setTimeout(() => setRecordingMessage(""), 4000);
   };
 
+  const handleEnhanceResolution = async () => {
+    if (!onProcessedImagesChange || processedImages.length === 0 || isEnhancingResolution) {
+      return;
+    }
+    setIsEnhancingResolution(true);
+    setRecordingMessage("보관함 해상도 2× 향상 중...");
+    try {
+      const updated = await applyResolutionEnhanceBatch(processedImages, {
+        scale: 2,
+        onProgress: (_current, _total, message) => setRecordingMessage(message),
+      });
+      onProcessedImagesChange(updated);
+      setPresentationKey((value) => value + 1);
+      setRecordingMessage("해상도 향상이 완료되었습니다. 연출을 다시 적용해 주세요.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setRecordingMessage(`해상도 향상 실패: ${message}`);
+    } finally {
+      setIsEnhancingResolution(false);
+      window.setTimeout(() => setRecordingMessage(""), 6_000);
+    }
+  };
+
   const handleDownloadVideo = async () => {
     const renderer = rendererRef.current;
     if (!renderer || presentationCount === 0 || isRecording) {
       return;
     }
 
+    const recordDurationMs = presentationDurationMs + RECORD_ENCODER_FLUSH_MS;
+    const bgmUrl =
+      cubeSettings.bgmEnabled && cubeSettings.bgmTrackId !== "none"
+        ? resolveBgmSource(cubeSettings.bgmTrackId, cubeSettings.bgmCustomUrl)
+        : null;
+    const withAudio = Boolean(bgmUrl);
+
     setIsRecording(true);
-    setRecordingMessage("선택한 연출을 MP4로 생성하는 중입니다...");
+    setRecordingMessage(
+      withAudio ? "MP4 + BGM 합성 중입니다..." : "선택한 연출을 MP4로 생성하는 중입니다..."
+    );
+
+    let bgmSession: Awaited<ReturnType<typeof startBgmRecordingSession>> | null = null;
 
     try {
-      const { mimeType, extension } = resolveRecordingMimeType();
+      const { mimeType, extension } = resolveRecordingMimeType({ withAudio });
       const recorder = new CubeVideoRecorder();
-      const stream = renderer.domElement.captureStream(30);
+      const videoStream = renderer.domElement.captureStream(30);
+      if (withAudio && bgmUrl) {
+        bgmSession = await startBgmRecordingSession({
+          videoStream,
+          audioUrl: bgmUrl,
+          durationMs: recordDurationMs,
+          volume: cubeSettings.bgmVolume,
+        });
+      }
+      const recordStream = bgmSession?.compositeStream ?? videoStream;
+
       timelineStartRef.current = performance.now();
       recordingRef.current = true;
-      recorder.start(stream, mimeType);
+      recorder.start(recordStream, mimeType);
 
-      // Wall-clock wait so export completes in headless/automation (rAF may be throttled).
       await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, presentationDurationMs);
+        window.setTimeout(resolve, recordDurationMs);
       });
 
-      const blob = await recorder.stop();
-      if (blob.size < 1024) {
-        throw new Error("Recording produced an empty or unusable video file.");
+      let blob = normalizeRecordingBlob(await recorder.stop(), extension);
+      bgmSession?.stop();
+
+      if (extension === "mp4" && !(await looksLikeIsoMp4(blob))) {
+        throw new Error(
+          "MP4 container validation failed (file may be truncated or WebM). Try Chrome/Edge or use WebM export."
+        );
       }
-      downloadBlob(blob, `mbox-${selectedEffect}.${extension}`);
+      const suffix = withAudio ? "-bgm" : "";
+      downloadBlob(blob, `mbox-cube_focus${suffix}.${extension}`);
       setRecordingMessage(
-        extension === "mp4"
-          ? "MP4 생성 파일이 준비되었습니다."
-          : "브라우저가 MP4를 지원하지 않아 WebM으로 저장했습니다."
+        withAudio
+          ? "BGM이 합성된 MP4가 준비되었습니다."
+          : extension === "mp4"
+            ? "MP4 생성 파일이 준비되었습니다."
+            : "브라우저가 MP4를 지원하지 않아 WebM으로 저장했습니다."
       );
     } catch (error) {
+      bgmSession?.stop();
       const message = error instanceof Error ? error.message : "Unknown error";
       setRecordingMessage(`영상 저장에 실패했습니다: ${message}`);
     } finally {
@@ -234,18 +377,35 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex items-center gap-2 text-blue-300">
           <Box size={20} />
-          <h2 className="font-bold">3D 프레젠테이션 템플릿</h2>
+          <h2 className="font-bold">정육면체 큐브 (상품 핵심)</h2>
         </div>
         <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-          배경 생성과 같이 <strong className="text-slate-300">템플릿 선택 → 연출 적용 → MP4 생성</strong> 순서입니다.
-          장면은 비슷한 구도·주제끼리 이어지도록 자동 정렬되고, 회전도 다음 장면 쪽으로 자연스럽게 넘어갑니다.
-          처음부터 다시 돌리려면「연출 적용」을 누르세요.
+          프레임 5종 · BGM 자동 합성 MP4 · 2× 해상도 향상. 누끼 컷은 인물·배경 분리 연출.
         </p>
         <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          1. 템플릿 선택 · 2. 연출 적용 · 3. MP4 생성
+          1. 프레임·BGM · 2. 연출 적용 · 3. MP4 생성
         </p>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-          {PRESENTATION_EFFECTS.map((effect) => {
+        <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4">
+          <CubeFocusPanel
+            settings={cubeSettings}
+            onSettingsChange={setCubeSettings}
+            disabled={isRecording || isEnhancingResolution}
+            isEnhancingResolution={isEnhancingResolution}
+            enhancedCount={enhancedCount}
+            totalCount={processedImages.length}
+            onEnhanceResolution={handleEnhanceResolution}
+          />
+        </div>
+        <button
+          type="button"
+          className="mt-4 text-xs text-slate-500 underline"
+          onClick={() => setShowBetaTemplates((value) => !value)}
+        >
+          {showBetaTemplates ? "베타 템플릿 숨기기" : "다른 연출 템플릿 (베타) 보기"}
+        </button>
+        {showBetaTemplates ? (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          {PRESENTATION_EFFECTS.filter((effect) => effect.id !== "cube_focus").map((effect) => {
             const selected = effect.id === selectedEffect;
             return (
               <button
@@ -265,6 +425,7 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
             );
           })}
         </div>
+        ) : null}
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
           <button
@@ -283,7 +444,9 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-600/90 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-700"
           >
             {isRecording ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
-            MP4 생성
+            {cubeSettings.bgmEnabled && cubeSettings.bgmTrackId !== "none"
+              ? "MP4 + BGM 생성"
+              : "MP4 생성"}
           </button>
         </div>
       </div>
@@ -297,8 +460,7 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
         <div className="absolute top-6 left-6 pointer-events-none max-w-[420px]">
           <h3 className="text-2xl font-black text-white/90">3D VISUALIZATION</h3>
           <p className="text-blue-400 text-sm leading-relaxed">
-            {selectedEffectDefinition.label} · 유사한 장면끼리 이어 붙인 뒤, 한 컷이 끝나면 다음 장면 방향으로
-            끊기지 않고 회전합니다. 정면 홀드에서 인물·배경 패럴랙스를 적용합니다.
+            {framePreset.label} 프레임 · 누끼 {cutoutCount}/{presentationCount}장 분리 · 2× {enhancedCount}장
           </p>
         </div>
 
@@ -338,6 +500,21 @@ export function CubeView({ active, processedImages }: CubeViewProps) {
             {omittedCount > 0 ? (
               <p className="mt-2 text-amber-300">
                 1GB 한도로 {omittedCount}장은 재생에서 제외되었습니다.
+              </p>
+            ) : null}
+            {presentationCount > 0 && cutoutCount === 0 ? (
+              <p className="mt-2 text-amber-300">
+                배경 제거(누끼)된 이미지가 없습니다. 프로세싱 탭에서 배경 제거를 적용하세요.
+              </p>
+            ) : null}
+            {presentationCount > 0 && cutoutCount > 0 && cutoutCount < presentationCount ? (
+              <p className="mt-2 text-slate-400">
+                {presentationCount - cutoutCount}장은 아직 원본이라 분리 연출 없이 표시됩니다.
+              </p>
+            ) : null}
+            {presentationCount > 0 && cutoutCount > 0 ? (
+              <p className="mt-2 text-slate-500">
+                누끼 컷: 배경 플레이트(블러) + 인물 레이어가 반대 방향으로 움직이며, 포커스 시 림·그림자가 강조됩니다.
               </p>
             ) : null}
             {recordingMessage ? <p className="mt-2 text-slate-400">{recordingMessage}</p> : null}

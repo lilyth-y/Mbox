@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import type { ImageCenter, SubjectBounds } from "../../shared/types";
 import { DEPTH_EMPHASIS, PARALLAX_MAX } from "./cubeSequence";
+import type { CubeFramePresetId } from "@mbox/shared";
+import { PHOTO_FRAME_GLSL } from "./photoFrameGlsl";
+import { createFramePresetUniform, setFramePresetUniform } from "./presentationFrameUniforms";
 
 const vertexShader = `
 varying vec2 vUv;
@@ -22,6 +25,7 @@ uniform float uUseDepthMap;
 uniform float uPortraitBoost;
 uniform vec4 uSubjectBounds;
 uniform vec2 uFocus;
+uniform float uFramePreset;
 varying vec2 vUv;
 
 float subjectMask(vec2 uv) {
@@ -64,10 +68,33 @@ vec2 warpBackground(vec2 uv, float amount) {
   return uFocus + delta * scale;
 }
 
+${PHOTO_FRAME_GLSL}
+
 void main() {
-  vec4 bg = texture2D(uBgTexture, warpBackground(vUv, uParallax));
-  vec4 fg = texture2D(uFgTexture, warpForeground(vUv, uParallax));
-  gl_FragColor = vec4(mix(bg.rgb, fg.rgb, fg.a), 1.0);
+  float parallaxNorm = clamp(uParallax / ${PARALLAX_MAX.toFixed(4)}, 0.0, 1.0);
+
+  vec2 bgUv = warpBackground(vUv, uParallax);
+  vec2 fgUv = warpForeground(vUv, uParallax);
+  vec4 bg = texture2D(uBgTexture, bgUv);
+  vec4 fg = texture2D(uFgTexture, fgUv);
+
+  vec2 shadowUv = fgUv + vec2(parallaxNorm * 0.022, -parallaxNorm * 0.016);
+  float shadowSample = texture2D(uFgTexture, shadowUv).a;
+  float shadow = (1.0 - fg.a) * shadowSample * parallaxNorm * 0.42;
+  bg.rgb *= 1.0 - shadow * 0.55;
+
+  vec3 composed = mix(bg.rgb, fg.rgb, fg.a);
+
+  float edgeL = texture2D(uFgTexture, fgUv + vec2(0.003, 0.0)).a;
+  float edgeR = texture2D(uFgTexture, fgUv - vec2(0.003, 0.0)).a;
+  float edgeU = texture2D(uFgTexture, fgUv + vec2(0.0, 0.003)).a;
+  float rim = fg.a * (1.0 - min(min(edgeL, edgeR), edgeU));
+  composed += vec3(1.0, 0.93, 0.88) * rim * parallaxNorm * 0.65;
+
+  float lift = 1.0 + parallaxNorm * 0.035;
+  composed = mix(composed, composed * lift, fg.a * parallaxNorm * 0.35);
+
+  gl_FragColor = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset);
 }
 `;
 
@@ -94,6 +121,7 @@ export interface DualLayerParallaxOptions {
   portraitBoost?: boolean;
   subjectBounds?: SubjectBounds;
   bgParallaxMul?: number;
+  framePresetId?: CubeFramePresetId;
 }
 
 export function createDualLayerParallaxMaterial(
@@ -107,6 +135,7 @@ export function createDualLayerParallaxMaterial(
 ): DualLayerParallaxMaterial {
   foregroundTexture.colorSpace = THREE.SRGBColorSpace;
   backgroundTexture.colorSpace = THREE.SRGBColorSpace;
+  const framePresetId = options.framePresetId ?? "rose_gold";
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -114,7 +143,7 @@ export function createDualLayerParallaxMaterial(
       uFgTexture: { value: foregroundTexture },
       uDepthMap: { value: depthTexture },
       uParallax: { value: 0 },
-      uBgParallaxMul: { value: options.bgParallaxMul ?? 0.38 },
+      uBgParallaxMul: { value: options.bgParallaxMul ?? 0.62 },
       uSubjectDepth: { value: subjectDepth },
       uUseDepthMap: { value: useDepthMap ? 1 : 0 },
       uPortraitBoost: { value: options.portraitBoost ? 1 : 0 },
@@ -124,6 +153,7 @@ export function createDualLayerParallaxMaterial(
           : new THREE.Vector4(0, 0, 1, 1),
       },
       uFocus: { value: toFocusVector(center) },
+      ...createFramePresetUniform(framePresetId),
     },
     vertexShader,
     fragmentShader,
@@ -161,8 +191,24 @@ export function updateDualLayerParallaxMaterial(
   material.uniforms.uSubjectBounds.value = options.subjectBounds
     ? toSubjectBoundsVector(options.subjectBounds)
     : new THREE.Vector4(0, 0, 1, 1);
-  material.uniforms.uBgParallaxMul.value = options.bgParallaxMul ?? 0.42;
+  material.uniforms.uBgParallaxMul.value = options.bgParallaxMul ?? 0.62;
   material.uniforms.uParallax.value = Math.min(PARALLAX_MAX, Math.max(0, amount));
+  if (options.framePresetId) {
+    setFramePresetUniform(
+      material.uniforms as { uFramePreset: { value: number } },
+      options.framePresetId
+    );
+  }
+}
+
+export function setDualLayerFramePreset(
+  material: DualLayerParallaxMaterial,
+  framePresetId: CubeFramePresetId
+): void {
+  setFramePresetUniform(
+    material.uniforms as { uFramePreset: { value: number } },
+    framePresetId
+  );
 }
 
 export function setDualLayerParallaxAmount(material: DualLayerParallaxMaterial, amount: number): void {

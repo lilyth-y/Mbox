@@ -27,9 +27,27 @@ const corsOrigins = Array.from(
   )
 );
 
+function isLocalDevOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+      (url.protocol === "http:" || url.protocol === "https:")
+    );
+  } catch {
+    return false;
+  }
+}
+
 app.use(
   cors({
-    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
+    origin(origin, callback) {
+      if (!origin || corsOrigins.includes(origin) || isLocalDevOrigin(origin)) {
+        callback(null, origin ?? true);
+        return;
+      }
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
     allowedHeaders: ["Content-Type", "X-API-Key", "Authorization", "X-Workspace-Id"],
   })
 );

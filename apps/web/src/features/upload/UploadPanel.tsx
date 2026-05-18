@@ -27,13 +27,13 @@ const PREPROCESS_OPTIONS: Array<{
   {
     mode: "original",
     title: "1. 사진 원본",
-    description: "분석과 1024x1024 크롭만 수행합니다.",
+    description: "분석·크롭만 합니다. 3D 분리 연출은 이후「배경 제거」단계에서 누끼를 딴 뒤 사용합니다.",
     icon: ImageIcon,
   },
   {
     mode: "background_removed",
-    title: "2. 배경 제거",
-    description: "먼저 분석·크롭 후, 선택 이미지에 배경 제거를 적용합니다.",
+    title: "2. 누끼 우선",
+    description: "분석·크롭 후 배경 제거(일괄)를 먼저 진행할 계획임을 표시합니다.",
     icon: Eraser,
   },
 ];
@@ -71,12 +71,18 @@ export function UploadPanel({
       </div>
 
       <label
-        className="relative block group cursor-pointer"
+        className="relative block group cursor-pointer touch-none overscroll-none"
+        onDragEnter={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
         onDragOver={(event) => {
           event.preventDefault();
+          event.stopPropagation();
         }}
         onDrop={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           handleSelectedFiles(event.dataTransfer.files);
         }}
       >

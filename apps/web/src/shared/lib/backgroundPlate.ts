@@ -28,10 +28,12 @@ export async function createBackgroundPlateDataUrl(
   const offsetX = (size - drawWidth) / 2;
   const offsetY = (size - drawHeight) / 2;
 
-  context.filter = `blur(${blurPx}px) saturate(1.05)`;
+  context.filter = `blur(${blurPx}px) saturate(1.12) brightness(1.04)`;
   context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
   context.filter = "none";
-  context.fillStyle = "rgba(15, 23, 42, 0.22)";
+  context.fillStyle = "rgba(72, 38, 48, 0.18)";
+  context.fillRect(0, 0, size, size);
+  context.fillStyle = "rgba(255, 232, 220, 0.12)";
   context.fillRect(0, 0, size, size);
 
   return canvas.toDataURL("image/jpeg", 0.82);

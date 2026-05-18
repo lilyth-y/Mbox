@@ -18,7 +18,7 @@ const CENTERING_LABELS: Record<ProcessedImage["focus"]["centering"], string> = {
 
 const PREPROCESS_LABELS: Record<ProcessedImage["preprocessMode"], string> = {
   original: "원본",
-  background_removed: "배경 제거",
+  background_removed: "누끼",
 };
 
 function GalleryItem({
@@ -70,7 +70,7 @@ function GalleryItem({
           : "border-slate-700 hover:border-blue-500"
       }`}
     >
-      <div className="relative aspect-square bg-slate-800">
+      <div className="relative aspect-square touch-none overscroll-none bg-slate-800">
         {selected && enableFocusEditor && onFocusCenterCommit ? (
           <FocusEditorOverlay
             image={item}

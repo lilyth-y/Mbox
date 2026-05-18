@@ -1,4 +1,5 @@
 import { buildApiHeaders } from "./headers";
+import { formatApiConnectionError } from "./connectionErrors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 
@@ -40,6 +41,10 @@ async function fetchWithRetry<T>(
     }
   }
 
+  if (lastError instanceof TypeError) {
+    throw new Error(formatApiConnectionError(API_BASE_URL));
+  }
+
   throw lastError instanceof Error ? lastError : new Error("API request failed.");
 }
 
@@ -71,12 +76,13 @@ export async function editImageBackground(
   label: string,
   bgPrompt: string,
   mimeType = "image/png",
-  editMode: "remove_background" | "generate_background" = "generate_background"
+  editMode: "remove_background" | "generate_background" = "generate_background",
+  subjectBounds?: { x0: number; y0: number; x1: number; y1: number }
 ) {
   return fetchWithRetry<{ imageBase64: string; mimeType: string }>("/edit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64, label, bgPrompt, mimeType, editMode }),
+    body: JSON.stringify({ imageBase64, label, bgPrompt, mimeType, editMode, subjectBounds }),
   });
 }
 

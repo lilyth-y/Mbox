@@ -20,6 +20,16 @@ function clampZoom(value: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
 }
 
+function releaseScrollLock() {
+  document.body.style.overflow = "";
+  document.body.style.touchAction = "";
+}
+
+function applyScrollLock() {
+  document.body.style.overflow = "hidden";
+  document.body.style.touchAction = "none";
+}
+
 function clientToImagePercent(
   clientX: number,
   clientY: number,
@@ -53,6 +63,8 @@ export function FocusWorkbench({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const scrollLockedRef = useRef(false);
   const aiCenter = image.aiRecommendedCenter ?? image.center;
   const previewUrl = image.preCropSourceUrl ?? image.preparedUrl ?? image.url;
 
@@ -62,23 +74,59 @@ export function FocusWorkbench({
     setPan({ x: 0, y: 0 });
   }, [image.id, image.center.x, image.center.y]);
 
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const factor = event.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((current) => clampZoom(current * factor));
+    };
+
+    surface.addEventListener("wheel", onWheel, { passive: false });
+    return () => surface.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollLockedRef.current) {
+        releaseScrollLock();
+        scrollLockedRef.current = false;
+      }
+    };
+  }, []);
+
+  const endPointerInteraction = (target: HTMLElement, pointerId: number) => {
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+    if (scrollLockedRef.current) {
+      releaseScrollLock();
+      scrollLockedRef.current = false;
+    }
+    panStartRef.current = null;
+  };
+
   const isLarge = variant === "large";
 
   return (
     <div
-      className={`relative overflow-hidden bg-slate-950 ${isLarge ? "aspect-square rounded-2xl border border-slate-800" : "absolute inset-0"} ${className}`}
+      className={`relative overflow-hidden overscroll-none bg-slate-950 ${isLarge ? "aspect-square rounded-2xl border border-slate-800" : "absolute inset-0"} ${className}`}
     >
       <div
-        className="absolute inset-0 touch-none cursor-crosshair"
-        onWheel={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const factor = event.deltaY > 0 ? 0.9 : 1.1;
-          setZoom((current) => clampZoom(current * factor));
-        }}
+        ref={surfaceRef}
+        className="absolute inset-0 cursor-crosshair touch-none overscroll-none"
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (!scrollLockedRef.current) {
+            applyScrollLock();
+            scrollLockedRef.current = true;
+          }
           event.currentTarget.setPointerCapture(event.pointerId);
           if (event.altKey || event.button === 1) {
             panStartRef.current = {
@@ -98,6 +146,7 @@ export function FocusWorkbench({
           if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
             return;
           }
+          event.preventDefault();
           if (panStartRef.current) {
             setPan({
               x: panStartRef.current.panX + (event.clientX - panStartRef.current.x),
@@ -113,9 +162,10 @@ export function FocusWorkbench({
           if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
             return;
           }
-          event.currentTarget.releasePointerCapture(event.pointerId);
-          if (panStartRef.current) {
-            panStartRef.current = null;
+          event.preventDefault();
+          const wasPanning = Boolean(panStartRef.current);
+          endPointerInteraction(event.currentTarget, event.pointerId);
+          if (wasPanning) {
             return;
           }
           const center = clientToImagePercent(
@@ -128,6 +178,17 @@ export function FocusWorkbench({
           );
           setDraftCenter(center);
           onCenterCommit(center);
+        }}
+        onPointerCancel={(event) => {
+          event.preventDefault();
+          endPointerInteraction(event.currentTarget, event.pointerId);
+        }}
+        onLostPointerCapture={() => {
+          if (scrollLockedRef.current) {
+            releaseScrollLock();
+            scrollLockedRef.current = false;
+          }
+          panStartRef.current = null;
         }}
       >
         <div

@@ -32,10 +32,10 @@ export const PERCEPTUAL_CUBE_RESET_MS = 0;
 export const PERCEPTUAL_LOOP_BRIDGE_MS = 900;
 
 /** Peak shader parallax over the hold window (ramped via smoothstep). */
-export const PERCEPTUAL_PARALLAX_RATE_PER_SEC = 0.038;
+export const PERCEPTUAL_PARALLAX_RATE_PER_SEC = 0.048;
 
 /** Shader depth multiplier — visible separation without swim. */
-export const PERCEPTUAL_DEPTH_EMPHASIS = 1.55;
+export const PERCEPTUAL_DEPTH_EMPHASIS = 1.72;
 
 /** Camera dolly ratio at peak focus (stronger pull-in). */
 export const PERCEPTUAL_ZOOM_SCALE = 1.4;

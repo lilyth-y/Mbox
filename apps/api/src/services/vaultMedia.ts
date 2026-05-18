@@ -7,7 +7,13 @@ import {
   uploadVaultObject,
 } from "./gcsVaultStorage.js";
 
-const URL_SLOTS: VaultAssetSlot[] = ["url", "preparedUrl", "originalUrl", "preCropSourceUrl"];
+const URL_SLOTS: VaultAssetSlot[] = [
+  "url",
+  "preparedUrl",
+  "originalUrl",
+  "preCropSourceUrl",
+  "backgroundPlateUrl",
+];
 
 function isInlineImageUrl(value: unknown): value is string {
   return typeof value === "string" && (value.startsWith("data:") || value.startsWith("blob:"));

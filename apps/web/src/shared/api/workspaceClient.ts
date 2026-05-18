@@ -8,18 +8,27 @@ import type {
 } from "@mbox/shared";
 import type { ProcessedImage } from "../types";
 import { buildApiHeaders } from "./headers";
+import { formatApiConnectionError, formatWorkspaceApiError } from "./connectionErrors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 
 async function workspaceFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}/workspace${path}`, {
-    ...options,
-    headers: buildApiHeaders(options.headers),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/workspace${path}`, {
+      ...options,
+      headers: buildApiHeaders(options.headers),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(formatApiConnectionError(API_BASE_URL));
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Workspace API failed (${response.status}): ${errorBody}`);
+    throw new Error(formatWorkspaceApiError(response.status, errorBody, API_BASE_URL));
   }
 
   return (await response.json()) as T;

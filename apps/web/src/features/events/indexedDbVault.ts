@@ -16,7 +16,7 @@ const BLOB_STORE = "vault_blobs";
 
 const LEGACY_VAULT_KEY = (eventId: string) => `mbox.events.vault.${eventId}`;
 
-type ImageUrlField = "url" | "preparedUrl" | "originalUrl" | "preCropSourceUrl";
+type ImageUrlField = "url" | "preparedUrl" | "originalUrl" | "preCropSourceUrl" | "backgroundPlateUrl";
 
 interface StoredVaultMeta {
   version: 1;
@@ -89,7 +89,13 @@ function blobKey(eventId: string, imageId: number, field: ImageUrlField): string
   return `${eventId}:${imageId}:${field}`;
 }
 
-const URL_FIELDS: ImageUrlField[] = ["url", "preparedUrl", "originalUrl", "preCropSourceUrl"];
+const URL_FIELDS: ImageUrlField[] = [
+  "url",
+  "preparedUrl",
+  "originalUrl",
+  "preCropSourceUrl",
+  "backgroundPlateUrl",
+];
 
 async function planImageStorage(
   eventId: string,
@@ -123,6 +129,7 @@ async function planImageStorage(
     preparedUrl: _preparedUrl,
     originalUrl: _originalUrl,
     preCropSourceUrl: _preCropSourceUrl,
+    backgroundPlateUrl: _backgroundPlateUrl,
     ...meta
   } = image;
 
@@ -187,6 +194,7 @@ async function deserializeImage(eventId: string, stored: StoredImageMeta): Promi
     preparedUrl: urls.preparedUrl ?? urls.url,
     originalUrl: urls.originalUrl ?? urls.url,
     preCropSourceUrl: urls.preCropSourceUrl,
+    backgroundPlateUrl: urls.backgroundPlateUrl,
   };
 }
 
