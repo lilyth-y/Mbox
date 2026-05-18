@@ -110,7 +110,8 @@
             padding: 2.5rem 3.5rem !important; /* Luxurious padding */
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start !important; /* elements stacked from top */
+            gap: 1.5rem !important;
         }
 
         .gtm-card h2 {
@@ -122,26 +123,27 @@
         }
 
         .gtm-card .bar-chart-container {
-            height: 280px !important; /* Make chart significantly taller */
-            margin-top: 1.5rem !important;
-            margin-bottom: 1.5rem !important;
+            height: 420px !important; /* Make chart significantly taller */
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
         }
 
         .gtm-card .bar-fill {
-            width: 110px !important; /* Make bar charts wider */
+            width: 140px !important; /* Make bar charts wider */
         }
 
         .gtm-card .bar-fill-label {
-            font-size: 2.0rem !important; /* High impact labels */
+            font-size: 2.2rem !important; /* High impact labels */
         }
 
         .gtm-card .simulation-basis {
-            font-size: 0.95rem !important; /* Make descriptive text more legible */
-            padding: 1.5rem !important;
+            font-size: 1.25rem !important; /* Make descriptive text more legible */
+            padding: 1.5rem 2rem !important;
+            margin-top: 0 !important; /* Remove margin auto to prevent pushing down */
         }
 
         .gtm-card .simulation-basis strong {
-            font-size: 1.1rem !important;
+            font-size: 1.35rem !important;
         }
 
         /* Glassmorphism Elements */
@@ -975,34 +977,34 @@
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-gold); font-weight: 800;">1.57억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0; height: 30px;">
+                            style="background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0; height: 60px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2026 (도입기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 5곳 / 유료회원 350명</p>
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2026 (도입기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 5곳 / 유료회원 350명</p>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-peach); font-weight: 800;">6.56억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0; height: 90px;">
+                            style="background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0; height: 180px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2027 (성장기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 갱신 포함 1,575명
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2027 (성장기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 갱신 포함 1,575명
                         </p>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-blue); font-weight: 800;">16.9억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0; height: 200px;">
+                            style="background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0; height: 390px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2028 (확장기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 50곳 / 갱신 포함 4,287명
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2028 (확장기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 50곳 / 갱신 포함 4,287명
                         </p>
                     </div>
                 </div>
 
                 <!-- Simulation Basis Details -->
                 <div class="simulation-basis"
-                    style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box; margin-top: auto;">
+                    style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
                     <div style="width: 33%;">
                         <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;">📊 산출 근거
                             (Basis)</strong>
@@ -1083,32 +1085,32 @@
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-gold); font-weight: 800;">1.8억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0; height: 35px;">
+                            style="background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0; height: 60px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2026 (도입기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 연간 1,200건</p>
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2026 (도입기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 연간 1,200건</p>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-peach); font-weight: 800;">7.2억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0; height: 95px;">
+                            style="background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0; height: 180px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2027 (성장기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 60곳 / 연간 4,800건</p>
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2027 (성장기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 60곳 / 연간 4,800건</p>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
                         <span class="bar-fill-label" style="color: var(--accent-blue); font-weight: 800;">18.0억</span>
                         <div class="bar-fill"
-                            style="background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0; height: 200px;">
+                            style="background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0; height: 390px;">
                         </div>
-                        <h4 style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: 800;">2028 (확장기)</h4>
-                        <p style="font-size: 0.75rem; margin:0; color: var(--text-secondary);">파트너 150곳 / 연간 12,000건</p>
+                        <h4 style="margin-top: 0.5rem; font-size: 1.4rem; font-weight: 800;">2028 (확장기)</h4>
+                        <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 150곳 / 연간 12,000건</p>
                     </div>
                 </div>
 
                 <!-- Simulation Basis Details -->
                 <div class="simulation-basis"
-                    style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box; margin-top: auto;">
+                    style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
                     <div style="width: 33%;">
                         <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;">📊 산출 근거
                             (Basis)</strong>
