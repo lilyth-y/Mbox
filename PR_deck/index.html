@@ -191,7 +191,7 @@
             filter: sepia(0.1) hue-rotate(340deg) brightness(1) contrast(1.1);
         }
 
-        .slide-img.tall { height: 500px; }
+        .slide-img.tall { height: 580px; }
 
         /* Stat/Info Cards */
         .info-card {
@@ -405,15 +405,15 @@
 
                 <div class="grid-2" style="align-items: center; gap: 2rem; margin-top: auto; margin-bottom: auto;">
                     <!-- Left: 2D Photo to 3D Hologram Floating Demo -->
-                    <div style="position: relative; width: 100%; height: 420px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
+                    <div style="position: relative; width: 100%; height: 480px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
                         <!-- Original Flat Wedding Image (Back Layer) -->
-                        <div style="position: absolute; width: 240px; height: 240px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: rotate(-8deg) translateX(-80px); z-index: 1; filter: grayscale(10%); transition: all 0.5s ease;">
+                        <div style="position: absolute; width: 290px; height: 290px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: rotate(-8deg) translateX(-100px); z-index: 1; filter: grayscale(10%); transition: all 0.5s ease;">
                             <img src="wedding_2d_input.jpg" alt="Flat 2D Input" style="width: 100%; height: 100%; object-fit: cover;">
                             <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; color: #fff; font-weight: 800;">Flat 2D 원본 사진</div>
                         </div>
 
                         <!-- Glowing Hologram Video (Front Floating Layer - Enriched Highlight!) -->
-                        <div style="position: absolute; width: 320px; height: 320px; border-radius: 50%; overflow: hidden; border: 4px solid var(--accent-gold); box-shadow: 0 0 45px rgba(229,192,123,0.7); transform: rotate(4deg) translate(60px, 0px); z-index: 2; background: #000; animation: floatHolo 3s ease-in-out infinite alternate;">
+                        <div style="position: absolute; width: 390px; height: 390px; border-radius: 50%; overflow: hidden; border: 4px solid var(--accent-gold); box-shadow: 0 0 45px rgba(229,192,123,0.7); transform: rotate(4deg) translate(80px, 0px); z-index: 2; background: #000; animation: floatHolo 3s ease-in-out infinite alternate;">
                             <video src="mbox-cube_focus.mp4" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(1.6) contrast(1.15);"></video>
                             <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(229,192,123,0.95); color: #1C1C21; padding: 3px 10px; border-radius: 4px; font-size: 0.95rem; font-weight: 900; letter-spacing: 0.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4);">MBOX 3D 홀로그램</div>
                         </div>
@@ -449,7 +449,7 @@
                     <div class="info-card blue">
                         <h3 class="highlight-blue">B2B MARKET</h3>
                         <p style="font-size: 1.55rem;"><strong>Enterprise & Government</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>박물관, 전시관, 기업 고객</li>
                             <li>콘텐츠 제작 및 플랫폼 딜리버리</li>
                             <li>프로젝트 기반 설치 및 매니지드 서비스</li>
@@ -458,7 +458,7 @@
                     <div class="info-card gold">
                         <h3 class="highlight-gold">B2B2C MARKET</h3>
                         <p style="font-size: 1.55rem;"><strong>Strategic Partner Integration</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>반려동물 추모공원, 웨딩홀, 장례식장</li>
                             <li>맞춤형 콘텐츠 + H30 홀로그램 디스플레이 연동</li>
                             <li>공간 수요와 몰입형 콘텐츠를 연결하는 패키지</li>
@@ -467,7 +467,7 @@
                     <div class="info-card peach">
                         <h3 class="highlight-peach">B2C MARKET</h3>
                         <p style="font-size: 1.55rem;"><strong>Direct Consumer Services</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>개인 생애 주기 비디오 앨범</li>
                             <li>TV, PC, 모바일을 위한 사진-영상 변환</li>
                             <li>반복 사용 가능한 콘텐츠 기반 확장성</li>
@@ -495,7 +495,7 @@
                 <!-- Donut Chart & Overview Row -->
                 <div style="display: flex; gap: 2rem; align-items: center; margin-bottom: 0.8rem; justify-content: space-between; width: 100%;">
                     <div style="display: flex; justify-content: center; width: 25%;">
-                        <svg viewBox="0 0 42 42" style="width: 150px; height: 150px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));">
+                        <svg viewBox="0 0 42 42" style="width: 190px; height: 190px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));">
                             <!-- Base ring -->
                             <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(255,255,255,0.05)" stroke-width="6"></circle>
                             <!-- B2B (Blue) 44.1% -->
@@ -675,17 +675,17 @@
                 <h2>Life's Every Moment : 생애 주기 카테고리</h2>
                 <div class="grid-3">
                     <div>
-                        <img src="memorial_album_concept.png" alt="Memorial Album" class="slide-img" style="height: 260px; margin-bottom: 1.2rem;">
+                        <img src="memorial_album_concept.png" alt="Memorial Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
                         <h3 class="highlight-peach">Memorial Album</h3>
                         <p style="font-size: 1.55rem;">반려동물 및 장례 추모 헌정</p>
                     </div>
                     <div>
-                        <img src="wedding_album_concept.png" alt="Love Album" class="slide-img" style="height: 260px; margin-bottom: 1.2rem;">
+                        <img src="wedding_album_concept.png" alt="Love Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
                         <h3 class="highlight-gold">Love & Wedding</h3>
                         <p style="font-size: 1.55rem;">로맨틱 마일스톤 및 웨딩</p>
                     </div>
                     <div>
-                        <img src="family_travel_album_concept.png" alt="Family Album" class="slide-img" style="height: 260px; margin-bottom: 1.2rem;">
+                        <img src="family_travel_album_concept.png" alt="Family Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
                         <h3 class="highlight-blue">Family & Travel</h3>
                         <p style="font-size: 1.55rem;">가족 연대기 및 여행 저널</p>
                     </div>
@@ -918,7 +918,7 @@
                     <div class="info-card blue">
                         <h3 class="highlight-blue">AI Vision Lab</h3>
                         <p style="font-size: 1.55rem;"><strong>Generative AI & LLM Experts</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>단순 API 연동이 아닌 로컬(Local-first) 모델 자체 경량화/최적화</li>
                             <li>1024×1024 고해상도 피사체 분리 및 3D 배경 합성 기술 내재화</li>
                             <li>12-감정 라우팅 독자 알고리즘 구축</li>
@@ -927,7 +927,7 @@
                     <div class="info-card gold">
                         <h3 class="highlight-gold">Media Engine Team</h3>
                         <p style="font-size: 1.55rem;"><strong>3D Rendering & Video Processing</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>Zero-latency 영상 자동화 파이프라인</li>
                             <li>24fps H.264 High 인코딩 자동화</li>
                             <li>대용량 홀로그램 미디어 서버 및 CDN 멀티채널 배포 아키텍처 설계</li>
@@ -936,7 +936,7 @@
                     <div class="info-card peach">
                         <h3 class="highlight-peach">Hardware Infra</h3>
                         <p style="font-size: 1.55rem;"><strong>IoT & Embedded Systems</strong></p>
-                        <ul style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
                             <li>HoloVision H30 전용 하드웨어 설계</li>
                             <li>납골당/웨딩홀 24시간 무인 운영을 위한 무결점 시스템 제어 로직</li>
                             <li>원격 모니터링 및 OTA 펌웨어 업데이트</li>
@@ -970,7 +970,7 @@
                 <div class="grid-2" style="margin-top: auto; margin-bottom: auto; align-items: center; gap: 2rem; width: 100%;">
                     <!-- Left: CSS Venn Diagram -->
                     <div style="display: flex; justify-content: center; align-items: center;">
-                        <div style="position: relative; width: 320px; height: 320px;">
+                        <div style="position: relative; width: 390px; height: 390px;">
                             <!-- Circle 1: BI Center (Top) -->
                             <div style="position: absolute; top: 5px; left: 75px; width: 190px; height: 190px; border-radius: 50%; border: 2px solid var(--accent-gold); background: rgba(229,192,123,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-start; align-items: center; z-index: 1; padding-top: 1rem; box-sizing: border-box;">
                                 <span style="font-size: 1.05rem; font-weight: 800; color: var(--accent-gold); letter-spacing: 1px;">BI Center</span>
@@ -985,7 +985,7 @@
                             </div>
                             
                             <!-- Overlapping Center Synergy (Intersection area) -->
-                            <div style="position: absolute; top: 80px; left: 80px; width: 150px; height: 150px; border-radius: 50%; background: linear-gradient(135deg, rgba(229,192,123,0.3), rgba(255,183,178,0.3)); border: 2px solid #fff; box-shadow: 0 0 15px rgba(229,192,123,0.5); z-index: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0.3rem; animation: pulseGlow 3s infinite alternate; box-sizing: border-box;">
+                            <div style="position: absolute; top: 100px; left: 100px; width: 140px; height: 140px; border-radius: 50%; background: linear-gradient(135deg, rgba(229,192,123,0.3), rgba(255,183,178,0.3)); border: 2px solid #fff; box-shadow: 0 0 15px rgba(229,192,123,0.5); z-index: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0.3rem; animation: pulseGlow 3s infinite alternate; box-sizing: border-box;">
                                 <strong style="font-size: 0.85rem; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); line-height: 1.2;">MBOX × BI CENTER × HOLOVISION<br><span style="color: var(--accent-gold); font-size: 1.05rem; font-weight: 900; letter-spacing: 1px;">SYNERGY</span></strong>
                             </div>
                         </div>
@@ -994,22 +994,22 @@
                     <!-- Right: Content Lists -->
                     <div style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
                         <!-- AS-IS Collaboration Card -->
-                        <div class="info-card gold" style="padding: 0.8rem 1rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
+                        <div class="info-card gold" style="padding: 1.2rem 1.6rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
                             <h3 class="highlight-gold" style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
                                 🤝 AS-IS COLLABORATION (현재 협력)
                             </h3>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 0.98rem; padding: 0;">
+                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 1.18rem; padding: 0; line-height: 1.7;">
                                 <li style="margin-bottom: 0.2rem;"><strong>HoloVision Partnership:</strong> 3D 홀로그램 제어 모듈 공동 개발 및 실증 테스트</li>
                                 <li><strong>Student Talent:</strong> 한신대 유준석 학생과의 AI 자동화 파이프라인 제어 툴 협업을 통한 실무 기여</li>
                             </ul>
                         </div>
 
                         <!-- TO-BE Expansion Card -->
-                        <div class="info-card peach" style="padding: 0.8rem 1rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
+                        <div class="info-card peach" style="padding: 1.2rem 1.6rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
                             <h3 class="highlight-peach" style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
                                 🚀 TO-BE EXPANSION VISION (미래 비전)
                             </h3>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 0.98rem; padding: 0;">
+                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 1.18rem; padding: 0; line-height: 1.7;">
                                 <li style="margin-bottom: 0.2rem;"><strong>Revenue Foundation:</strong> 초기 MBOX 솔루션 조기 상용화를 통한 신속한 비즈니스 궤도 진입</li>
                                 <li style="margin-bottom: 0.2rem;"><strong>AI Service Expansion:</strong> MBOX CCTV (어린이집), MBOX 3D 영상통화 (시니어) 등 10개 이상 서비스 생태계 구축</li>
                                 <li style="margin-bottom: 0.2rem;"><strong>University Collaboration:</strong> BI 센터 교수진과의 공동 R&D를 통한 독보적 원천 기술 내재화</li>
