@@ -1,19 +1,25 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MBOX: Life Cycle Memory Platform</title>
     <!-- Pretendard Font -->
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
         :root {
-            --bg-color: #1C1C21; /* Warm Dark Mode */
+            --bg-color: #1C1C21;
+            /* Warm Dark Mode */
             --text-primary: #F8F8F8;
             --text-secondary: #D1D1D6;
-            --accent-gold: #E5C07B; /* Soft Gold */
-            --accent-peach: #FFB7B2; /* Warm Peach */
-            --accent-blue: #A4BBD6; /* Serenity Blue */
+            --accent-gold: #E5C07B;
+            /* Soft Gold */
+            --accent-peach: #FFB7B2;
+            /* Warm Peach */
+            --accent-blue: #A4BBD6;
+            /* Serenity Blue */
             --glass-bg: rgba(255, 255, 255, 0.05);
             --glass-border: rgba(255, 255, 255, 0.1);
         }
@@ -113,7 +119,7 @@
         }
 
         /* Glassmorphism Elements */
-                .glass-card {
+        .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
@@ -122,11 +128,14 @@
             padding: 3.5rem 4.5rem;
             width: 100%;
             max-width: 1600px;
-            min-height: 880px; /* Force it to occupy a large vertical space */
+            min-height: 880px;
+            /* Force it to occupy a large vertical space */
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Center elements vertically by default */
-            gap: 2rem; /* Add elegant gap between elements */
+            justify-content: center;
+            /* Center elements vertically by default */
+            gap: 2rem;
+            /* Add elegant gap between elements */
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
             opacity: 0;
             transform: translateY(30px);
@@ -135,7 +144,8 @@
 
         /* Typography */
         h1 {
-            font-size: 4rem; /* Enlarged from 3.5rem */
+            font-size: 4rem;
+            /* Enlarged from 3.5rem */
             font-weight: 800;
             margin-bottom: 1.2rem;
             line-height: 1.2;
@@ -145,34 +155,63 @@
         }
 
         h2 {
-            font-size: 2.8rem; /* Enlarged from 2.2rem */
+            font-size: 2.8rem;
+            /* Enlarged from 2.2rem */
             font-weight: 700;
             margin-bottom: 1.8rem;
             color: var(--accent-peach);
         }
 
         h3 {
-            font-size: 2rem; /* Enlarged from 1.6rem */
+            font-size: 2rem;
+            /* Enlarged from 1.6rem */
             font-weight: 700;
             margin-bottom: 1rem;
             color: var(--text-primary);
         }
 
         p {
-            font-size: 1.35rem; /* Enlarged from 1.1rem */
+            font-size: 1.35rem;
+            /* Enlarged from 1.1rem */
             line-height: 1.65;
             color: var(--text-secondary);
             margin-bottom: 1.2rem;
         }
 
-        .highlight-gold { color: var(--accent-gold); font-weight: 600; }
-        .highlight-peach { color: var(--accent-peach); font-weight: 600; }
-        .highlight-blue { color: var(--accent-blue); font-weight: 600; }
+        .highlight-gold {
+            color: var(--accent-gold);
+            font-weight: 600;
+        }
+
+        .highlight-peach {
+            color: var(--accent-peach);
+            font-weight: 600;
+        }
+
+        .highlight-blue {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
 
         /* Layouts */
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
 
         /* Images */
         .slide-img {
@@ -181,22 +220,25 @@
             object-fit: cover;
             border-radius: 16px;
             border: 1px solid var(--glass-border);
-            filter: sepia(0.3) hue-rotate(340deg) brightness(0.8) contrast(1.1); /* Warm Peach/Gold filter */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            filter: sepia(0.3) hue-rotate(340deg) brightness(0.8) contrast(1.1);
+            /* Warm Peach/Gold filter */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             transition: transform 0.5s ease, filter 0.5s ease;
         }
-        
+
         .slide-img:hover {
             transform: scale(1.03);
             filter: sepia(0.1) hue-rotate(340deg) brightness(1) contrast(1.1);
         }
 
-        .slide-img.tall { height: 580px; }
+        .slide-img.tall {
+            height: 500px;
+        }
 
         /* Stat/Info Cards */
         .info-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 16px;
             padding: 2rem;
             text-align: left;
@@ -208,17 +250,25 @@
         .info-card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; width: 4px; height: 100%;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
             background: var(--accent-gold);
             border-radius: 4px 0 0 4px;
         }
 
-        .info-card.blue::before { background: var(--accent-blue); }
-        .info-card.peach::before { background: var(--accent-peach); }
+        .info-card.blue::before {
+            background: var(--accent-blue);
+        }
+
+        .info-card.peach::before {
+            background: var(--accent-peach);
+        }
 
         .info-card:hover {
             transform: translateY(-5px);
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
         }
 
         /* Pipeline Steps */
@@ -229,6 +279,7 @@
             margin-top: 2rem;
             position: relative;
         }
+
         .pipeline::before {
             content: '';
             position: absolute;
@@ -239,6 +290,7 @@
             background: linear-gradient(90deg, var(--accent-peach), var(--accent-blue));
             z-index: 0;
         }
+
         .step {
             display: flex;
             flex-direction: column;
@@ -247,6 +299,7 @@
             z-index: 1;
             width: 15%;
         }
+
         .step-num {
             width: 50px;
             height: 50px;
@@ -263,9 +316,17 @@
         }
 
         /* Gradients */
-        .bg-gradient-1 { background: radial-gradient(circle at top right, rgba(229, 192, 123, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(255, 183, 178, 0.1), transparent 40%); }
-        .bg-gradient-2 { background: radial-gradient(circle at top left, rgba(164, 187, 214, 0.1), transparent 40%); }
-        .bg-gradient-3 { background: radial-gradient(circle at center, rgba(255, 183, 178, 0.05), transparent 60%); }
+        .bg-gradient-1 {
+            background: radial-gradient(circle at top right, rgba(229, 192, 123, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(255, 183, 178, 0.1), transparent 40%);
+        }
+
+        .bg-gradient-2 {
+            background: radial-gradient(circle at top left, rgba(164, 187, 214, 0.1), transparent 40%);
+        }
+
+        .bg-gradient-3 {
+            background: radial-gradient(circle at center, rgba(255, 183, 178, 0.05), transparent 60%);
+        }
 
         /* Animation Classes */
         .animate-on-scroll.is-visible {
@@ -273,21 +334,33 @@
         }
 
         @keyframes floatUp {
-            to { opacity: 1; transform: translateY(0); }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Chart Animations */
         @keyframes drawDonut {
-            from { stroke-dasharray: 0 100; }
+            from {
+                stroke-dasharray: 0 100;
+            }
         }
+
         .donut-segment {
             animation: drawDonut 1.5s ease-out forwards;
         }
 
         @keyframes growBar {
-            from { transform: scaleY(0); }
-            to { transform: scaleY(1); }
+            from {
+                transform: scaleY(0);
+            }
+
+            to {
+                transform: scaleY(1);
+            }
         }
+
         .bar-fill {
             transform-origin: bottom;
             animation: growBar 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -305,29 +378,45 @@
         }
 
         @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {transform: translateY(0) translateX(-50%);}
-            40% {transform: translateY(-10px) translateX(-50%);}
-            60% {transform: translateY(-5px) translateX(-50%);}
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0) translateX(-50%);
+            }
+
+            40% {
+                transform: translateY(-10px) translateX(-50%);
+            }
+
+            60% {
+                transform: translateY(-5px) translateX(-50%);
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header class="header">
         <a href="#" class="mbox-logo">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 3L4 7.5V16.5L12 21L20 16.5V7.5L12 3Z" stroke="url(#logo-grad1)" stroke-width="2.5" stroke-linejoin="round"/>
-                <path d="M12 12.5L4 7.5M12 12.5L20 7.5M12 12.5V21" stroke="url(#logo-grad2)" stroke-width="2.5" stroke-linejoin="round"/>
-                <circle cx="12" cy="12" r="2.5" fill="#E5C07B" filter="blur(1.5px)"/>
-                <circle cx="12" cy="12" r="1.5" fill="#FFFFFF"/>
+                <path d="M12 3L4 7.5V16.5L12 21L20 16.5V7.5L12 3Z" stroke="url(#logo-grad1)" stroke-width="2.5"
+                    stroke-linejoin="round" />
+                <path d="M12 12.5L4 7.5M12 12.5L20 7.5M12 12.5V21" stroke="url(#logo-grad2)" stroke-width="2.5"
+                    stroke-linejoin="round" />
+                <circle cx="12" cy="12" r="2.5" fill="#E5C07B" filter="blur(1.5px)" />
+                <circle cx="12" cy="12" r="1.5" fill="#FFFFFF" />
                 <defs>
                     <linearGradient id="logo-grad1" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#E5C07B"/>
-                        <stop offset="1" stop-color="#FFB7B2"/>
+                        <stop stop-color="#E5C07B" />
+                        <stop offset="1" stop-color="#FFB7B2" />
                     </linearGradient>
                     <linearGradient id="logo-grad2" x1="12" y1="7" x2="12" y2="21" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#FFB7B2"/>
-                        <stop offset="1" stop-color="#A4BBD6"/>
+                        <stop stop-color="#FFB7B2" />
+                        <stop offset="1" stop-color="#A4BBD6" />
                     </linearGradient>
                 </defs>
             </svg>
@@ -336,24 +425,26 @@
     </header>
 
     <div class="presentation-container">
-        
+
         <!-- 01. Title -->
         <section class="slide bg-gradient-1">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll" style="text-align: center; max-width: 1200px; align-items: center; justify-content: center;">
-                <h3 style="color: var(--accent-gold); letter-spacing: 2px;">PRECIOUS RECREATION</h3>
-                <h1 style="margin-top: 1rem;">Life Cycle Memory Platform</h1>
-                <p style="font-size: 1.5rem; color: var(--accent-peach); font-weight: 500;">"AI + 3D Hologram Technologies"</p>
-                <p>당신의 모든 생애 주기, 그 소중한 순간들을 3D 홀로그램으로 영원히</p>
-                <div style="margin-top: 3rem; display: flex; justify-content: center; gap: 2rem;">
-                    <span class="highlight-blue">Memory</span><span>•</span>
-                    <span class="highlight-gold">Immersion</span><span>•</span>
-                    <span class="highlight-peach">AI</span>
+                <div class="glass-card animate-on-scroll"
+                    style="text-align: center; max-width: 1200px; align-items: center; justify-content: center;">
+                    <h3 style="color: var(--accent-gold); letter-spacing: 2px;">PRECIOUS RECREATION</h3>
+                    <h1 style="margin-top: 1rem;">Life Cycle Memory Platform</h1>
+                    <p style="font-size: 1.5rem; color: var(--accent-peach); font-weight: 500;">"AI + 3D Hologram
+                        Technologies"</p>
+                    <p>당신의 모든 생애 주기, 그 소중한 순간들을 3D 홀로그램으로 영원히</p>
+                    <div style="margin-top: 3rem; display: flex; justify-content: center; gap: 2rem;">
+                        <span class="highlight-blue">Memory</span><span>•</span>
+                        <span class="highlight-gold">Immersion</span><span>•</span>
+                        <span class="highlight-peach">AI</span>
+                    </div>
                 </div>
-            </div>
-            <div class="scroll-hint">Scroll down ↓</div>
-        
+                <div class="scroll-hint">Scroll down ↓</div>
+
             </div>
         </section>
 
@@ -361,26 +452,32 @@
         <section class="slide bg-gradient-2">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h2>Founder & CEO Profile</h2>
-                <div class="grid-2">
-                    <div>
-                        <h3 class="highlight-gold">Sonny (YOUNGMIN SON)</h3>
-                        <p style="font-size: 1.3rem; margin-bottom: 2rem;">"35 Years ICT / Mobile / Platform / Global Experiences"</p>
-                        
-                        <ul style="color: var(--text-secondary); line-height: 1.8; margin-left: 1.5rem;">
-                            <li><strong class="highlight-peach">Education:</strong> Hanyang Univ (B.S. EE), Univ. of Michigan (M.S. EE & CS)</li>
-                            <li><strong class="highlight-blue">Samsung Electronics:</strong> R&D Center Research Manager (1993-1998)</li>
-                            <li><strong class="highlight-gold">SK Telecom:</strong> MMRC San Jose, SKT China Product Leader (1999-2011)</li>
-                            <li><strong class="highlight-peach">SK Planet:</strong> PRM Leader, New Product Group Leader (2012-2026)</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <img src="ceo_profile_updated.png" alt="CEO Profile" class="slide-img" style="height: 450px;">
+                <div class="glass-card animate-on-scroll">
+                    <h2>Founder & CEO Profile</h2>
+                    <div class="grid-2">
+                        <div>
+                            <h3 class="highlight-gold">Sonny (YOUNGMIN SON)</h3>
+                            <p style="font-size: 1.3rem; margin-bottom: 2rem;">"35 Years ICT / Mobile / Platform /
+                                Global Experiences"</p>
+
+                            <ul style="color: var(--text-secondary); line-height: 1.8; margin-left: 1.5rem;">
+                                <li><strong class="highlight-peach">Education:</strong> Hanyang Univ (B.S. EE), Univ. of
+                                    Michigan (M.S. EE & CS)</li>
+                                <li><strong class="highlight-blue">Samsung Electronics:</strong> R&D Center Research
+                                    Manager (1993-1998)</li>
+                                <li><strong class="highlight-gold">SK Telecom:</strong> MMRC San Jose, SKT China Product
+                                    Leader (1999-2011)</li>
+                                <li><strong class="highlight-peach">SK Planet:</strong> PRM Leader, New Product Group
+                                    Leader (2012-2026)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <img src="ceo_profile_updated.png" alt="CEO Profile" class="slide-img"
+                                style="height: 450px;">
+                        </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -388,54 +485,85 @@
         <section class="slide bg-gradient-3">
             <div class="slide-content">
 
-            <style>
-                @keyframes floatHolo {
-                    0% { transform: rotate(4deg) translate(40px, -15px); box-shadow: 0 0 35px rgba(229,192,123,0.5); }
-                    100% { transform: rotate(4deg) translate(40px, 15px); box-shadow: 0 0 60px rgba(229,192,123,0.9); }
-                }
-            </style>
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <h3 style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">PLATFORM OVERVIEW</h3>
-                        <h2 style="margin: 0;">What is MBOX?</h2>
+                <style>
+                    @keyframes floatHolo {
+                        0% {
+                            transform: rotate(4deg) translate(40px, -15px);
+                            box-shadow: 0 0 35px rgba(229, 192, 123, 0.5);
+                        }
+
+                        100% {
+                            transform: rotate(4deg) translate(40px, 15px);
+                            box-shadow: 0 0 60px rgba(229, 192, 123, 0.9);
+                        }
+                    }
+                </style>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                PLATFORM OVERVIEW</h3>
+                            <h2 style="margin: 0;">What is MBOX?</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">AI +
+                            3D 홀로그램 기반의 생애 주기 메모리 아카이빙 플랫폼</p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">AI + 3D 홀로그램 기반의 생애 주기 메모리 아카이빙 플랫폼</p>
+
+                    <div class="grid-2" style="align-items: center; gap: 2rem; margin-top: auto; margin-bottom: auto;">
+                        <!-- Left: 2D Photo to 3D Hologram Floating Demo -->
+                        <div
+                            style="position: relative; width: 100%; height: 480px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
+                            <!-- Original Flat Wedding Image (Back Layer) -->
+                            <div
+                                style="position: absolute; width: 290px; height: 290px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: rotate(-8deg) translateX(-100px); z-index: 1; filter: grayscale(10%); transition: all 0.5s ease;">
+                                <img src="wedding_2d_input.jpg" alt="Flat 2D Input"
+                                    style="width: 100%; height: 100%; object-fit: cover;">
+                                <div
+                                    style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; color: #fff; font-weight: 800;">
+                                    Flat 2D 원본 사진</div>
+                            </div>
+
+                            <!-- Glowing Hologram Video (Front Floating Layer - Enriched Highlight!) -->
+                            <div
+                                style="position: absolute; width: 380px; height: 380px; border-radius: 50%; overflow: hidden; border: 4px solid var(--accent-gold); box-shadow: 0 0 45px rgba(229,192,123,0.7); transform: rotate(4deg) translate(80px, 0px); z-index: 2; background: #000; animation: floatHolo 3s ease-in-out infinite alternate;">
+                                <video src="mbox-cube_focus.mp4" autoplay loop muted playsinline
+                                    style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(1.6) contrast(1.15);"></video>
+                                <div
+                                    style="position: absolute; bottom: 12px; right: 12px; background: rgba(229,192,123,0.95); color: #1C1C21; padding: 3px 10px; border-radius: 4px; font-size: 0.95rem; font-weight: 900; letter-spacing: 0.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4);">
+                                    MBOX 3D 홀로그램</div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Platform Descriptions -->
+                        <div>
+                            <h3 class="highlight-peach" style="font-size: 1.6rem; margin-bottom: 1.2rem;">AI-powered
+                                automated video generation platform</h3>
+                            <p
+                                style="font-size: 1.55rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">
+                                스마트폰 속 잠들어 있는 평범한 사진들을 공간적 입체감이 살아 숨쉬는 고품질 3D 홀로그램 비디오 에셋으로 단 몇 분 만에 자동 변환합니다.</p>
+
+                            <div class="info-card gold"
+                                style="padding: 1.8rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                                <h4 class="highlight-gold"
+                                    style="margin-bottom: 0.6rem; font-size: 1.35rem; font-weight: 800;">핵심 역량 (Core
+                                    Capabilities)</h4>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0 1.2rem; font-size: 1.05rem; padding: 0;">
+                                    <li style="margin-bottom: 0.4rem;"><strong>Auto Format:</strong> 빠른 콘텐츠 어셈블리를 위한 해상도
+                                        자동 규격화</li>
+                                    <li style="margin-bottom: 0.4rem;"><strong>3D Synthesis:</strong> 딥러닝 기반 배경 분리 및 3D
+                                        공간 레이어 합성</li>
+                                    <li style="margin-bottom: 0;"><strong>Hologram Delivery:</strong> 전용 H30 홀로그램 디바이스
+                                        즉시 송출 통합</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid-2" style="align-items: center; gap: 2rem; margin-top: auto; margin-bottom: auto;">
-                    <!-- Left: 2D Photo to 3D Hologram Floating Demo -->
-                    <div style="position: relative; width: 100%; height: 480px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
-                        <!-- Original Flat Wedding Image (Back Layer) -->
-                        <div style="position: absolute; width: 290px; height: 290px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: rotate(-8deg) translateX(-100px); z-index: 1; filter: grayscale(10%); transition: all 0.5s ease;">
-                            <img src="wedding_2d_input.jpg" alt="Flat 2D Input" style="width: 100%; height: 100%; object-fit: cover;">
-                            <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; color: #fff; font-weight: 800;">Flat 2D 원본 사진</div>
-                        </div>
-
-                        <!-- Glowing Hologram Video (Front Floating Layer - Enriched Highlight!) -->
-                        <div style="position: absolute; width: 390px; height: 390px; border-radius: 50%; overflow: hidden; border: 4px solid var(--accent-gold); box-shadow: 0 0 45px rgba(229,192,123,0.7); transform: rotate(4deg) translate(80px, 0px); z-index: 2; background: #000; animation: floatHolo 3s ease-in-out infinite alternate;">
-                            <video src="mbox-cube_focus.mp4" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(1.6) contrast(1.15);"></video>
-                            <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(229,192,123,0.95); color: #1C1C21; padding: 3px 10px; border-radius: 4px; font-size: 0.95rem; font-weight: 900; letter-spacing: 0.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4);">MBOX 3D 홀로그램</div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Platform Descriptions -->
-                    <div>
-                        <h3 class="highlight-peach" style="font-size: 1.6rem; margin-bottom: 1.2rem;">AI-powered automated video generation platform</h3>
-                        <p style="font-size: 1.55rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">스마트폰 속 잠들어 있는 평범한 사진들을 공간적 입체감이 살아 숨쉬는 고품질 3D 홀로그램 비디오 에셋으로 단 몇 분 만에 자동 변환합니다.</p>
-                        
-                        <div class="info-card gold" style="padding: 1.8rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                            <h4 class="highlight-gold" style="margin-bottom: 0.6rem; font-size: 1.35rem; font-weight: 800;">핵심 역량 (Core Capabilities)</h4>
-                            <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0 1.2rem; font-size: 1.05rem; padding: 0;">
-                                <li style="margin-bottom: 0.4rem;"><strong>Auto Format:</strong> 빠른 콘텐츠 어셈블리를 위한 해상도 자동 규격화</li>
-                                <li style="margin-bottom: 0.4rem;"><strong>3D Synthesis:</strong> 딥러닝 기반 배경 분리 및 3D 공간 레이어 합성</li>
-                                <li style="margin-bottom: 0;"><strong>Hologram Delivery:</strong> 전용 H30 홀로그램 디바이스 즉시 송출 통합</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -443,39 +571,42 @@
         <section class="slide bg-gradient-1">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h2>Business Model : 3 Market Segmentation</h2>
-                <div class="grid-3" style="margin-top: 2rem;">
-                    <div class="info-card blue">
-                        <h3 class="highlight-blue">B2B MARKET</h3>
-                        <p style="font-size: 1.55rem;"><strong>Enterprise & Government</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>박물관, 전시관, 기업 고객</li>
-                            <li>콘텐츠 제작 및 플랫폼 딜리버리</li>
-                            <li>프로젝트 기반 설치 및 매니지드 서비스</li>
-                        </ul>
-                    </div>
-                    <div class="info-card gold">
-                        <h3 class="highlight-gold">B2B2C MARKET</h3>
-                        <p style="font-size: 1.55rem;"><strong>Strategic Partner Integration</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>반려동물 추모공원, 웨딩홀, 장례식장</li>
-                            <li>맞춤형 콘텐츠 + H30 홀로그램 디스플레이 연동</li>
-                            <li>공간 수요와 몰입형 콘텐츠를 연결하는 패키지</li>
-                        </ul>
-                    </div>
-                    <div class="info-card peach">
-                        <h3 class="highlight-peach">B2C MARKET</h3>
-                        <p style="font-size: 1.55rem;"><strong>Direct Consumer Services</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>개인 생애 주기 비디오 앨범</li>
-                            <li>TV, PC, 모바일을 위한 사진-영상 변환</li>
-                            <li>반복 사용 가능한 콘텐츠 기반 확장성</li>
-                        </ul>
+                <div class="glass-card animate-on-scroll">
+                    <h2>Business Model : 3 Market Segmentation</h2>
+                    <div class="grid-3" style="margin-top: 2rem;">
+                        <div class="info-card blue">
+                            <h3 class="highlight-blue">B2B MARKET</h3>
+                            <p style="font-size: 1.55rem;"><strong>Enterprise & Government</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                                <li>박물관, 전시관, 기업 고객</li>
+                                <li>콘텐츠 제작 및 플랫폼 딜리버리</li>
+                                <li>프로젝트 기반 설치 및 매니지드 서비스</li>
+                            </ul>
+                        </div>
+                        <div class="info-card gold">
+                            <h3 class="highlight-gold">B2B2C MARKET</h3>
+                            <p style="font-size: 1.55rem;"><strong>Strategic Partner Integration</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                                <li>반려동물 추모공원, 웨딩홀, 장례식장</li>
+                                <li>맞춤형 콘텐츠 + H30 홀로그램 디스플레이 연동</li>
+                                <li>공간 수요와 몰입형 콘텐츠를 연결하는 패키지</li>
+                            </ul>
+                        </div>
+                        <div class="info-card peach">
+                            <h3 class="highlight-peach">B2C MARKET</h3>
+                            <p style="font-size: 1.55rem;"><strong>Direct Consumer Services</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem;">
+                                <li>개인 생애 주기 비디오 앨범</li>
+                                <li>TV, PC, 모바일을 위한 사진-영상 변환</li>
+                                <li>반복 사용 가능한 콘텐츠 기반 확장성</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -483,103 +614,153 @@
         <section class="slide bg-gradient-2">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
-                    <div>
-                        <h3 style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">MARKET SIZE</h3>
-                        <h2 style="margin: 0;">검증된 Market Opportunity (TAM)</h2>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                MARKET SIZE</h3>
+                            <h2 style="margin: 0;">검증된 Market Opportunity (TAM)</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">보수적인
+                            통계 데이터를 기반으로 한 MBOX 시장 확장 포트폴리오</p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">보수적인 통계 데이터를 기반으로 한 MBOX 시장 확장 포트폴리오</p>
+
+                    <!-- Donut Chart & Overview Row -->
+                    <div
+                        style="display: flex; gap: 2rem; align-items: center; margin-bottom: 0.8rem; justify-content: space-between; width: 100%;">
+                        <div style="display: flex; justify-content: center; width: 25%;">
+                            <svg viewBox="0 0 42 42"
+                                style="width: 190px; height: 190px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));">
+                                <!-- Base ring -->
+                                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="6"></circle>
+                                <!-- B2B (Blue) 44.1% -->
+                                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-blue)"
+                                    stroke-width="6" stroke-dasharray="44.1 55.9" stroke-dashoffset="25"
+                                    class="donut-segment"></circle>
+                                <!-- B2C (Peach) 37.6% -->
+                                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-peach)"
+                                    stroke-width="6" stroke-dasharray="37.6 62.4" stroke-dashoffset="-19.1"
+                                    class="donut-segment"></circle>
+                                <!-- B2B2C (Gold) 18.3% -->
+                                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-gold)"
+                                    stroke-width="6" stroke-dasharray="18.3 81.7" stroke-dashoffset="-56.7"
+                                    class="donut-segment"></circle>
+                                <!-- Inner Text -->
+                                <text x="21" y="19" text-anchor="middle" fill="var(--text-primary)" font-size="5"
+                                    font-weight="800">1.15조</text>
+                                <text x="21" y="24" text-anchor="middle" fill="var(--text-secondary)"
+                                    font-size="2.6">TAM (KRW)</text>
+                            </svg>
+                        </div>
+                        <div style="width: 75%; display: flex; justify-content: space-between; font-size: 1.15rem;">
+                            <div>
+                                <span
+                                    style="display:inline-block; width:8px; height:8px; background:var(--accent-peach); border-radius:50%; margin-right:6px;"></span>
+                                <strong class="highlight-peach">B2C Market: 4,325억</strong>
+                                <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">인구
+                                    수 및 생애 주기 연간 매출</p>
+                            </div>
+                            <div>
+                                <span
+                                    style="display:inline-block; width:8px; height:8px; background:var(--accent-gold); border-radius:50%; margin-right:6px;"></span>
+                                <strong class="highlight-gold">B2B2C Market: 2,100억</strong>
+                                <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">
+                                    반려동물/실버/웨딩 특화 파트너십</p>
+                            </div>
+                            <div>
+                                <span
+                                    style="display:inline-block; width:8px; height:8px; background:var(--accent-blue); border-radius:50%; margin-right:6px;"></span>
+                                <strong class="highlight-blue">B2B Market: 5,075억</strong>
+                                <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">
+                                    디지털 사이니지 B2B 영역</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Three Columns Details -->
+                    <div class="grid-3" style="gap: 1rem; margin-top: auto; margin-bottom: auto; width: 100%;">
+                        <!-- B2C Column -->
+                        <div class="info-card peach"
+                            style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
+                            <div>
+                                <div
+                                    style="background: var(--accent-peach); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">
+                                    B2C MARKET</div>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
+                                    <li style="margin-bottom: 0.2rem;"><strong>Korea Population:</strong> 5,000만 명</li>
+                                    <li style="margin-bottom: 0.2rem;"><strong>Lifetime Value (LTV):</strong> ₩600,000 /
+                                        인</li>
+                                    <li style="margin-bottom: 0;">70년 평생 인당 평균 20개 이상의 <strong>메모리얼 앨범</strong> 생성</li>
+                                </ul>
+                            </div>
+                            <div
+                                style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
+                                <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Annual
+                                    Market Size</span>
+                                <span style="color: var(--accent-peach); font-weight: 800; font-size: 1.55rem;">4,325억 원
+                                    / 년</span>
+                            </div>
+                        </div>
+
+                        <!-- B2B2C Column -->
+                        <div class="info-card gold"
+                            style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
+                            <div>
+                                <div
+                                    style="background: var(--accent-gold); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">
+                                    B2B2C MARKET</div>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
+                                    <li style="margin-bottom: 0.2rem;"><strong>Pet Memorial:</strong> 연간 12.1만 건 (추모시설
+                                        76개소)</li>
+                                    <li style="margin-bottom: 0.2rem;"><strong>Funeral Services (장례):</strong> 연간 35만 건
+                                    </li>
+                                    <li style="margin-bottom: 0;"><strong>Wedding (결혼식):</strong> 연간 24만 건 (웨딩홀 733개소)
+                                    </li>
+                                </ul>
+                            </div>
+                            <div
+                                style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
+                                <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Annual
+                                    Market Size</span>
+                                <span style="color: var(--accent-gold); font-weight: 800; font-size: 1.55rem;">2,100억 원
+                                    / 년</span>
+                            </div>
+                        </div>
+
+                        <!-- B2B Column -->
+                        <div class="info-card blue"
+                            style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
+                            <div>
+                                <div
+                                    style="background: var(--accent-blue); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">
+                                    B2B MARKET</div>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
+                                    <li style="margin-bottom: 0.2rem;"><strong>Digital Signage (2033):</strong> 1.3조 원
+                                        시장 규모</li>
+                                    <li style="margin-bottom: 0.2rem;"><strong>Initial Target:</strong> M/S 1% = 연간 115억
+                                        원</li>
+                                    <li style="margin-bottom: 0;"><strong>Long-term Target:</strong> M/S 10% = 연간 1,150억
+                                        원</li>
+                                </ul>
+                            </div>
+                            <div
+                                style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
+                                <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Long-Term
+                                    Target Market</span>
+                                <span style="color: var(--accent-blue); font-weight: 800; font-size: 1.55rem;">1,150억 원
+                                    / 년</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Donut Chart & Overview Row -->
-                <div style="display: flex; gap: 2rem; align-items: center; margin-bottom: 0.8rem; justify-content: space-between; width: 100%;">
-                    <div style="display: flex; justify-content: center; width: 25%;">
-                        <svg viewBox="0 0 42 42" style="width: 190px; height: 190px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));">
-                            <!-- Base ring -->
-                            <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(255,255,255,0.05)" stroke-width="6"></circle>
-                            <!-- B2B (Blue) 44.1% -->
-                            <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-blue)" stroke-width="6" stroke-dasharray="44.1 55.9" stroke-dashoffset="25" class="donut-segment"></circle>
-                            <!-- B2C (Peach) 37.6% -->
-                            <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-peach)" stroke-width="6" stroke-dasharray="37.6 62.4" stroke-dashoffset="-19.1" class="donut-segment"></circle>
-                            <!-- B2B2C (Gold) 18.3% -->
-                            <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent-gold)" stroke-width="6" stroke-dasharray="18.3 81.7" stroke-dashoffset="-56.7" class="donut-segment"></circle>
-                            <!-- Inner Text -->
-                            <text x="21" y="19" text-anchor="middle" fill="var(--text-primary)" font-size="5" font-weight="800">1.15조</text>
-                            <text x="21" y="24" text-anchor="middle" fill="var(--text-secondary)" font-size="2.6">TAM (KRW)</text>
-                        </svg>
-                    </div>
-                    <div style="width: 75%; display: flex; justify-content: space-between; font-size: 1.15rem;">
-                        <div>
-                            <span style="display:inline-block; width:8px; height:8px; background:var(--accent-peach); border-radius:50%; margin-right:6px;"></span>
-                            <strong class="highlight-peach">B2C Market: 4,325억</strong>
-                            <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">인구 수 및 생애 주기 연간 매출</p>
-                        </div>
-                        <div>
-                            <span style="display:inline-block; width:8px; height:8px; background:var(--accent-gold); border-radius:50%; margin-right:6px;"></span>
-                            <strong class="highlight-gold">B2B2C Market: 2,100억</strong>
-                            <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">반려동물/실버/웨딩 특화 파트너십</p>
-                        </div>
-                        <div>
-                            <span style="display:inline-block; width:8px; height:8px; background:var(--accent-blue); border-radius:50%; margin-right:6px;"></span>
-                            <strong class="highlight-blue">B2B Market: 5,075억</strong>
-                            <p style="margin: 0.2rem 0 0 1rem; font-size: 0.95rem; color: var(--text-secondary);">디지털 사이니지 B2B 영역</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Three Columns Details -->
-                <div class="grid-3" style="gap: 1rem; margin-top: auto; margin-bottom: auto; width: 100%;">
-                    <!-- B2C Column -->
-                    <div class="info-card peach" style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
-                        <div>
-                            <div style="background: var(--accent-peach); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">B2C MARKET</div>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
-                                <li style="margin-bottom: 0.2rem;"><strong>Korea Population:</strong> 5,000만 명</li>
-                                <li style="margin-bottom: 0.2rem;"><strong>Lifetime Value (LTV):</strong> ₩600,000 / 인</li>
-                                <li style="margin-bottom: 0;">70년 평생 인당 평균 20개 이상의 <strong>메모리얼 앨범</strong> 생성</li>
-                            </ul>
-                        </div>
-                        <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Annual Market Size</span>
-                            <span style="color: var(--accent-peach); font-weight: 800; font-size: 1.55rem;">4,325억 원 / 년</span>
-                        </div>
-                    </div>
-
-                    <!-- B2B2C Column -->
-                    <div class="info-card gold" style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
-                        <div>
-                            <div style="background: var(--accent-gold); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">B2B2C MARKET</div>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
-                                <li style="margin-bottom: 0.2rem;"><strong>Pet Memorial:</strong> 연간 12.1만 건 (추모시설 76개소)</li>
-                                <li style="margin-bottom: 0.2rem;"><strong>Funeral Services (장례):</strong> 연간 35만 건</li>
-                                <li style="margin-bottom: 0;"><strong>Wedding (결혼식):</strong> 연간 24만 건 (웨딩홀 733개소)</li>
-                            </ul>
-                        </div>
-                        <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Annual Market Size</span>
-                            <span style="color: var(--accent-gold); font-weight: 800; font-size: 1.55rem;">2,100억 원 / 년</span>
-                        </div>
-                    </div>
-
-                    <!-- B2B Column -->
-                    <div class="info-card blue" style="display: flex; flex-direction: column; justify-content: space-between; padding: 0.8rem 1rem; height: 240px; box-sizing: border-box;">
-                        <div>
-                            <div style="background: var(--accent-blue); color: #1C1C21; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 800; font-size: 0.95rem; display: inline-block; margin-bottom: 0.5rem;">B2B MARKET</div>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin-left: 1rem; font-size: 0.95rem; padding: 0;">
-                                <li style="margin-bottom: 0.2rem;"><strong>Digital Signage (2033):</strong> 1.3조 원 시장 규모</li>
-                                <li style="margin-bottom: 0.2rem;"><strong>Initial Target:</strong> M/S 1% = 연간 115억 원</li>
-                                <li style="margin-bottom: 0;"><strong>Long-term Target:</strong> M/S 10% = 연간 1,150억 원</li>
-                            </ul>
-                        </div>
-                        <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.4rem; text-align: right;">
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); display: block;">Long-Term Target Market</span>
-                            <span style="color: var(--accent-blue); font-weight: 800; font-size: 1.55rem;">1,150억 원 / 년</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -587,83 +768,137 @@
         <section class="slide bg-gradient-3">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
-                    <div>
-                        <h3 style="color: var(--accent-peach); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">AI ENGINE PIPELINE</h3>
-                        <h2 style="margin: 0;">AI Video Technology Pipeline</h2>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-peach); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                AI ENGINE PIPELINE</h3>
+                            <h2 style="margin: 0;">AI Video Technology Pipeline</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">스마트폰의
+                            평면 사진을 3D 홀로그램 비디오 에셋으로 자동화 연산하는 핵심 파이프라인</p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">스마트폰의 평면 사진을 3D 홀로그램 비디오 에셋으로 자동화 연산하는 핵심 파이프라인</p>
+
+                    <!-- Horizontal Process Flow -->
+                    <div
+                        style="display: flex; align-items: stretch; justify-content: space-between; gap: 0.5rem; margin-top: auto; margin-bottom: auto; width: 100%;">
+                        <!-- Step 1 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                1</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                Photo Upload</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">
+                                스마트폰 2D 원본 사진 업로드</p>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">
+                            ➡️</div>
+
+                        <!-- Step 2 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                2</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                AI Segment</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">
+                                고도화된 피사체 추출 및 배경 실시간 분리</p>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">
+                            ➡️</div>
+
+                        <!-- Step 3 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                3</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                Template</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">
+                                H30 디바이스 전용 1024×1024 규격화</p>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">
+                            ➡️</div>
+
+                        <!-- Step 4 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                4</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                BG Synthesis</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">3D
+                                깊이 맵(Depth Map) 자동 연산 및 합성</p>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">
+                            ➡️</div>
+
+                        <!-- Step 5 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                5</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                Rendering</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">
+                                30fps 실시간 고품질 비디오 코덱 인코딩</p>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">
+                            ➡️</div>
+
+                        <!-- Step 6 -->
+                        <div
+                            style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
+                            <div
+                                style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">
+                                6</div>
+                            <h4
+                                style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">
+                                Distribution</h4>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">
+                                H30 디바이스 및 모바일 즉시 송출 배포</p>
+                        </div>
+                    </div>
+
+                    <div
+                        style="background: rgba(255,183,178,0.05); border: 1px solid rgba(255,183,178,0.15); border-radius: 12px; padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem;">
+                        <div style="font-size: 1.2rem; color: var(--accent-peach);"></div>
+                        <p style="margin: 0; font-size: 1.05rem; color: var(--text-secondary); line-height: 1.4;">
+                            <strong class="highlight-peach">로컬 우선(Local-First) 자동화 연산:</strong> MBOX AI 엔진 파이프라인은 모든 연산
+                            과정을 네트워크 레이텐시 없이 디바이스 로컬에서 수 분 내에 처리하도록 최적화되어 있어, 상용화 즉시 비용 효율적인 대규모 확장이 가능합니다.
+                        </p>
+                    </div>
                 </div>
 
-                <!-- Horizontal Process Flow -->
-                <div style="display: flex; align-items: stretch; justify-content: space-between; gap: 0.5rem; margin-top: auto; margin-bottom: auto; width: 100%;">
-                    <!-- Step 1 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">1</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">Photo Upload</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">스마트폰 2D 원본 사진 업로드</p>
-                    </div>
-
-                    <!-- Arrow -->
-                    <div style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">➡️</div>
-
-                    <!-- Step 2 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">2</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">AI Segment</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">고도화된 피사체 추출 및 배경 실시간 분리</p>
-                    </div>
-
-                    <!-- Arrow -->
-                    <div style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">➡️</div>
-
-                    <!-- Step 3 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">3</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">Template</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">H30 디바이스 전용 1024×1024 규격화</p>
-                    </div>
-
-                    <!-- Arrow -->
-                    <div style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">➡️</div>
-
-                    <!-- Step 4 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">4</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">BG Synthesis</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">3D 깊이 맵(Depth Map) 자동 연산 및 합성</p>
-                    </div>
-
-                    <!-- Arrow -->
-                    <div style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">➡️</div>
-
-                    <!-- Step 5 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">5</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">Rendering</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">30fps 실시간 고품질 비디오 코덱 인코딩</p>
-                    </div>
-
-                    <!-- Arrow -->
-                    <div style="display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 1.5rem; font-weight: bold; width: 28px;">➡️</div>
-
-                    <!-- Step 6 -->
-                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; box-sizing: border-box; justify-content: space-between; height: 200px;">
-                        <div style="width: 36px; height: 36px; background: var(--accent-peach); color: #1c1c21; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.05rem;">6</div>
-                        <h4 style="color: var(--text-primary); margin-top: 0.5rem; margin-bottom: 0.3rem; font-size: 1.15rem; font-weight: 800;">Distribution</h4>
-                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">H30 디바이스 및 모바일 즉시 송출 배포</p>
-                    </div>
-                </div>
-
-                <div style="background: rgba(255,183,178,0.05); border: 1px solid rgba(255,183,178,0.15); border-radius: 12px; padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem;">
-                    <div style="font-size: 1.2rem; color: var(--accent-peach);"></div>
-                    <p style="margin: 0; font-size: 1.05rem; color: var(--text-secondary); line-height: 1.4;">
-                        <strong class="highlight-peach">로컬 우선(Local-First) 자동화 연산:</strong> MBOX AI 엔진 파이프라인은 모든 연산 과정을 네트워크 레이텐시 없이 디바이스 로컬에서 수 분 내에 처리하도록 최적화되어 있어, 상용화 즉시 비용 효율적인 대규모 확장이 가능합니다.
-                    </p>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -671,27 +906,30 @@
         <section class="slide bg-gradient-1">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h2>Life's Every Moment : 생애 주기 카테고리</h2>
-                <div class="grid-3">
-                    <div>
-                        <img src="memorial_album_concept.png" alt="Memorial Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
-                        <h3 class="highlight-peach">Memorial Album</h3>
-                        <p style="font-size: 1.55rem;">반려동물 및 장례 추모 헌정</p>
-                    </div>
-                    <div>
-                        <img src="wedding_album_concept.png" alt="Love Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
-                        <h3 class="highlight-gold">Love & Wedding</h3>
-                        <p style="font-size: 1.55rem;">로맨틱 마일스톤 및 웨딩</p>
-                    </div>
-                    <div>
-                        <img src="family_travel_album_concept.png" alt="Family Album" class="slide-img" style="height: 320px; margin-bottom: 1.2rem;">
-                        <h3 class="highlight-blue">Family & Travel</h3>
-                        <p style="font-size: 1.55rem;">가족 연대기 및 여행 저널</p>
+                <div class="glass-card animate-on-scroll">
+                    <h2>Life's Every Moment : 생애 주기 카테고리</h2>
+                    <div class="grid-3">
+                        <div>
+                            <img src="memorial_album_concept.png" alt="Memorial Album" class="slide-img"
+                                style="height: 320px; margin-bottom: 1.2rem;">
+                            <h3 class="highlight-peach">Memorial Album</h3>
+                            <p style="font-size: 1.55rem;">반려동물 및 장례 추모 헌정</p>
+                        </div>
+                        <div>
+                            <img src="wedding_album_concept.png" alt="Love Album" class="slide-img"
+                                style="height: 320px; margin-bottom: 1.2rem;">
+                            <h3 class="highlight-gold">Love & Wedding</h3>
+                            <p style="font-size: 1.55rem;">로맨틱 마일스톤 및 웨딩</p>
+                        </div>
+                        <div>
+                            <img src="family_travel_album_concept.png" alt="Family Album" class="slide-img"
+                                style="height: 320px; margin-bottom: 1.2rem;">
+                            <h3 class="highlight-blue">Family & Travel</h3>
+                            <p style="font-size: 1.55rem;">가족 연대기 및 여행 저널</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -699,31 +937,47 @@
         <section class="slide bg-gradient-2">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 01</h3>
-                <h2 style="color: var(--accent-peach); margin-top: 0.5rem; margin-bottom: 2rem;">반려동물 추모 서비스 : 강아지 (Pet Memorial)</h2>
-                <div class="grid-2">
-                    <div>
-                        <div class="info-card peach" style="margin-bottom: 1.5rem;">
-                            <h4 class="highlight-peach" style="margin-bottom: 0.5rem; font-size: 1.2rem;">THE CHALLENGE (시장 통증)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">국내 반려인 1,500만 시대, 반려견의 죽음으로 인한 <strong>'펫로스 증후군(Pet Loss Syndrome)'</strong>은 심각한 사회적 현상이지만, 깊은 슬픔을 위로하고 치유할 수 있는 고도화된 감성적 추모 솔루션이 부재합니다.</p>
+                <div class="glass-card animate-on-scroll">
+                    <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 01</h3>
+                    <h2 style="color: var(--accent-peach); margin-top: 0.5rem; margin-bottom: 2rem;">반려동물 추모 서비스 : 강아지
+                        (Pet Memorial)</h2>
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-card peach" style="margin-bottom: 1.5rem;">
+                                <h4 class="highlight-peach" style="margin-bottom: 0.5rem; font-size: 1.2rem;">THE
+                                    CHALLENGE (시장 통증)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">국내 반려인 1,500만 시대, 반려견의 죽음으로 인한
+                                    <strong>'펫로스 증후군(Pet Loss Syndrome)'</strong>은 심각한 사회적 현상이지만, 깊은 슬픔을 위로하고 치유할 수 있는
+                                    고도화된 감성적 추모 솔루션이 부재합니다.
+                                </p>
+                            </div>
+                            <div class="info-card gold" style="margin-bottom: 1.5rem;">
+                                <h4 class="highlight-gold" style="margin-bottom: 0.5rem; font-size: 1.2rem;">OUR
+                                    SOLUTION (MBOX 해결책)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">추모공원 내 <strong>H30 1024×1024 3D 홀로그램
+                                        키오스크</strong>를 설치하여 AI가 12가지 감정선에 맞춰 제작한 개인 맞춤형 반려견 추억 영상 에셋을 재생합니다. 마치 살아있는 듯한
+                                    공간적 입체감으로 따뜻한 위안을 선사합니다.</p>
+                            </div>
+                            <div class="info-card blue">
+                                <h4 class="highlight-blue" style="margin-bottom: 0.5rem; font-size: 1.2rem;">
+                                    DIFFERENTIATION (차별화 요소)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">국내 최초의 3D 홀로그램 펫 추모 기술력, 반려동물 납골당과 연계하는
+                                    <strong>B2B2C 파트너십 상생 비즈니스 모델</strong>, 24시간 무인 키오스크 자동화 시스템 및 실시간 감성 반응형 AI 인터랙션을
+                                    제공합니다.
+                                </p>
+                            </div>
                         </div>
-                        <div class="info-card gold" style="margin-bottom: 1.5rem;">
-                            <h4 class="highlight-gold" style="margin-bottom: 0.5rem; font-size: 1.2rem;">OUR SOLUTION (MBOX 해결책)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">추모공원 내 <strong>H30 1024×1024 3D 홀로그램 키오스크</strong>를 설치하여 AI가 12가지 감정선에 맞춰 제작한 개인 맞춤형 반려견 추억 영상 에셋을 재생합니다. 마치 살아있는 듯한 공간적 입체감으로 따뜻한 위안을 선사합니다.</p>
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <img src="dog_hologram_memorial.png" alt="Pet Memorial Hologram" class="slide-img tall"
+                                style="border: 2px solid var(--accent-peach); box-shadow: 0 15px 40px rgba(255, 183, 178, 0.2);">
+                            <p
+                                style="margin-top: 1rem; font-size: 1.15rem; color: var(--accent-peach); font-style: italic; text-align: center;">
+                                MBOX H30 홀로그램 디바이스를 통해 재현된 반려견의 따뜻한 순간</p>
                         </div>
-                        <div class="info-card blue">
-                            <h4 class="highlight-blue" style="margin-bottom: 0.5rem; font-size: 1.2rem;">DIFFERENTIATION (차별화 요소)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">국내 최초의 3D 홀로그램 펫 추모 기술력, 반려동물 납골당과 연계하는 <strong>B2B2C 파트너십 상생 비즈니스 모델</strong>, 24시간 무인 키오스크 자동화 시스템 및 실시간 감성 반응형 AI 인터랙션을 제공합니다.</p>
-                        </div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <img src="dog_hologram_memorial.png" alt="Pet Memorial Hologram" class="slide-img tall" style="border: 2px solid var(--accent-peach); box-shadow: 0 15px 40px rgba(255, 183, 178, 0.2);">
-                        <p style="margin-top: 1rem; font-size: 1.15rem; color: var(--accent-peach); font-style: italic; text-align: center;">MBOX H30 홀로그램 디바이스를 통해 재현된 반려견의 따뜻한 순간</p>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -731,54 +985,75 @@
         <section class="slide bg-gradient-3">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
-                    <div>
-                        <h3 style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">GO-TO-MARKET</h3>
-                        <h2 style="margin: 0;">Pet Memorial B2B2C 수익 시뮬레이션</h2>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; box-sizing: border-box; padding: 2rem 3rem; gap: 1.5rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                GO-TO-MARKET</h3>
+                            <h2 style="margin: 0;">Pet Memorial B2B2C 수익 시뮬레이션</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;"></p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;"></p>
+
+                    <!-- Bar Chart -->
+                    <div
+                        style="display: flex; align-items: flex-end; justify-content: space-around; height: 420px; margin-top: 0.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; width: 100%;">
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-gold); font-weight: 800; font-size: 2.2rem;">1.57억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 60px; background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2026 (도입기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 5곳 / 유료회원 350명
+                            </p>
+                        </div>
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-peach); font-weight: 800; font-size: 2.2rem;">6.56억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 180px; background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2027 (성장기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 갱신 포함
+                                1,575명</p>
+                        </div>
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-blue); font-weight: 800; font-size: 2.2rem;">16.9억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 390px; background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2028 (확장기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 50곳 / 갱신 포함
+                                4,287명</p>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Basis Details -->
+                    <div
+                        style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); padding: 1.5rem 2rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); font-size: 1.25rem; color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+                        <div style="width: 33%;">
+                            <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;"> 산출 근거
+                                (Basis)</strong>
+                            반려동물 추모공원 납골당 평균 안치 1,600건 기준, 잠재 고객 30%(500명) 타겟팅
+                        </div>
+                        <div style="width: 33%;">
+                            <strong class="highlight-peach" style="display: block; margin-bottom: 0.3rem;"> 유료 전환율
+                                (Conversion)</strong>
+                            체험 고객 중 35% 연회원 전환 가정 (Basic 30만 원 / Premium 50만 원 구성)
+                        </div>
+                        <div style="width: 33%;">
+                            <strong class="highlight-blue" style="display: block; margin-bottom: 0.3rem;"> 갱신 및 재구독
+                                (Renewal)</strong>
+                            누적 갱신 회원의 지속적 추가로 시간이 갈수록 기하급수적으로 이익률 상승
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Bar Chart -->
-                <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 280px; margin-top: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem; width: 100%;">
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-gold); font-weight: 800; font-size: 1.8rem;">1.57억</span>
-                        <div class="bar-fill" style="width: 110px; height: 40px; background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2026 (도입기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 5곳 / 유료회원 350명</p>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-peach); font-weight: 800; font-size: 1.8rem;">6.56억</span>
-                        <div class="bar-fill" style="width: 110px; height: 120px; background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2027 (성장기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 갱신 포함 1,575명</p>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-blue); font-weight: 800; font-size: 1.8rem;">16.9억</span>
-                        <div class="bar-fill" style="width: 110px; height: 260px; background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2028 (확장기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 50곳 / 갱신 포함 4,287명</p>
-                    </div>
-                </div>
-
-                <!-- Simulation Basis Details -->
-                <div style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); font-size: 1.05rem; color: var(--text-secondary); width: 100%; box-sizing: border-box; margin-top: auto;">
-                    <div style="width: 33%;">
-                        <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;">📊 산출 근거 (Basis)</strong>
-                        반려동물 추모공원 납골당 평균 안치 1,600건 기준, 잠재 고객 30%(500명) 타겟팅
-                    </div>
-                    <div style="width: 33%;">
-                        <strong class="highlight-peach" style="display: block; margin-bottom: 0.3rem;">🔄 유료 전환율 (Conversion)</strong>
-                        체험 고객 중 35% 연회원 전환 가정 (Basic 30만 원 / Premium 50만 원 구성)
-                    </div>
-                    <div style="width: 33%;">
-                        <strong class="highlight-blue" style="display: block; margin-bottom: 0.3rem;">📈 갱신 및 재구독 (Renewal)</strong>
-                        누적 갱신 회원의 지속적 추가로 시간이 갈수록 기하급수적으로 이익률 상승
-                    </div>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -786,31 +1061,46 @@
         <section class="slide bg-gradient-3">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 02</h3>
-                <h2 style="color: var(--accent-gold); margin-top: 0.5rem; margin-bottom: 2rem;">웨딩 메모리얼 서비스 (Wedding Memorial)</h2>
-                <div class="grid-2">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <img src="wedding_hologram_memorial.png" alt="Wedding Memorial Hologram" class="slide-img tall" style="border: 2px solid var(--accent-gold); box-shadow: 0 15px 40px rgba(229, 192, 123, 0.2);">
-                        <p style="margin-top: 1rem; font-size: 1.15rem; color: var(--accent-gold); font-style: italic; text-align: center;">웨딩홀 로비의 MBOX 홀로그램으로 완성되는 생생하고 아름다운 러브스토리</p>
-                    </div>
-                    <div>
-                        <div class="info-card blue" style="margin-bottom: 1.5rem;">
-                            <h4 class="highlight-blue" style="margin-bottom: 0.5rem; font-size: 1.2rem;">CONCEPT (공간 경험의 혁신)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">웨딩홀 로비에서 하객들이 대기하는 <strong>지루한 약 30분의 시간</strong>을 H30 입체 홀로그램 디스플레이를 활용한 '두 사람의 가장 아름답고 눈부신 러브스토리 시청의 순간'으로 재창조하여 결혼식 품격을 높합니다.</p>
+                <div class="glass-card animate-on-scroll">
+                    <h3 style="color: var(--accent-gold); letter-spacing: 2px;">USE CASE 02</h3>
+                    <h2 style="color: var(--accent-gold); margin-top: 0.5rem; margin-bottom: 2rem;">웨딩 메모리얼 서비스 (Wedding
+                        Memorial)</h2>
+                    <div class="grid-2">
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <img src="wedding_hologram_memorial.png" alt="Wedding Memorial Hologram"
+                                class="slide-img tall"
+                                style="border: 2px solid var(--accent-gold); box-shadow: 0 15px 40px rgba(229, 192, 123, 0.2);">
+                            <p
+                                style="margin-top: 1rem; font-size: 1.15rem; color: var(--accent-gold); font-style: italic; text-align: center;">
+                                웨딩홀 로비의 MBOX 홀로그램으로 완성되는 생생하고 아름다운 러브스토리</p>
                         </div>
-                        <div class="info-card peach" style="margin-bottom: 1.5rem;">
-                            <h4 class="highlight-peach" style="margin-bottom: 0.5rem; font-size: 1.2rem;">CONTENT CREATION (완전 자동화)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">신랑신부가 제출한 20~40장의 일반 평면 스마트폰 사진을 MBOX AI 엔진이 1024×1024 포맷의 3D 입체 에셋으로 변환하여, 각 사진당 3~5초의 부드러운 트랜지션과 입체 배경을 합성한 <strong>30분 분량의 로비 대기 특화 재생 목록</strong>을 즉시 생성합니다.</p>
-                        </div>
-                        <div class="info-card gold">
-                            <h4 class="highlight-gold" style="margin-bottom: 0.5rem; font-size: 1.2rem;">BUSINESS VALUE (비즈니스적 윈윈)</h4>
-                            <p style="font-size: 1.55rem; margin-bottom: 0;">웨딩홀 파트너는 추가 인력이나 별도 편집 수고 없이 무인으로 시스템을 운영하며, MBOX와의 50:50 수익 배분을 통해 <strong>연간 약 5천만 원 이상의 개별 고부가가치 부가 수익</strong>을 창출하는 완벽한 윈윈 비즈니스를 실현합니다.</p>
+                        <div>
+                            <div class="info-card blue" style="margin-bottom: 1.5rem;">
+                                <h4 class="highlight-blue" style="margin-bottom: 0.5rem; font-size: 1.2rem;">CONCEPT (공간
+                                    경험의 혁신)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">웨딩홀 로비에서 하객들이 대기하는 <strong>지루한 약 30분의
+                                        시간</strong>을 H30 입체 홀로그램 디스플레이를 활용한 '두 사람의 가장 아름답고 눈부신 러브스토리 시청의 순간'으로 재창조하여 결혼식
+                                    품격을 높합니다.</p>
+                            </div>
+                            <div class="info-card peach" style="margin-bottom: 1.5rem;">
+                                <h4 class="highlight-peach" style="margin-bottom: 0.5rem; font-size: 1.2rem;">CONTENT
+                                    CREATION (완전 자동화)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">신랑신부가 제출한 20~40장의 일반 평면 스마트폰 사진을 MBOX
+                                    AI 엔진이 1024×1024 포맷의 3D 입체 에셋으로 변환하여, 각 사진당 3~5초의 부드러운 트랜지션과 입체 배경을 합성한 <strong>30분
+                                        분량의 로비 대기 특화 재생 목록</strong>을 즉시 생성합니다.</p>
+                            </div>
+                            <div class="info-card gold">
+                                <h4 class="highlight-gold" style="margin-bottom: 0.5rem; font-size: 1.2rem;">BUSINESS
+                                    VALUE (비즈니스적 윈윈)</h4>
+                                <p style="font-size: 1.55rem; margin-bottom: 0;">웨딩홀 파트너는 추가 인력이나 별도 편집 수고 없이 무인으로 시스템을
+                                    운영하며, MBOX와의 50:50 수익 배분을 통해 <strong>연간 약 5천만 원 이상의 개별 고부가가치 부가 수익</strong>을 창출하는
+                                    완벽한 윈윈 비즈니스를 실현합니다.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -818,54 +1108,75 @@
         <section class="slide bg-gradient-3">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
-                    <div>
-                        <h3 style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">GO-TO-MARKET</h3>
-                        <h2 style="margin: 0;">Wedding Memorial B2B2C 수익 시뮬레이션</h2>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; box-sizing: border-box; padding: 2rem 3rem; gap: 1.5rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                GO-TO-MARKET</h3>
+                            <h2 style="margin: 0;">Wedding Memorial B2B2C 수익 시뮬레이션</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;"></p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;"></p>
+
+                    <!-- Bar Chart -->
+                    <div
+                        style="display: flex; align-items: flex-end; justify-content: space-around; height: 420px; margin-top: 0.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; width: 100%;">
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-gold); font-weight: 800; font-size: 2.2rem;">1.8억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 65px; background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2026 (도입기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 연간 1,200건
+                            </p>
+                        </div>
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-peach); font-weight: 800; font-size: 2.2rem;">7.2억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 190px; background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2027 (성장기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 60곳 / 연간 4,800건
+                            </p>
+                        </div>
+                        <div
+                            style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
+                            <span style="color: var(--accent-blue); font-weight: 800; font-size: 2.2rem;">18.0억</span>
+                            <div class="bar-fill"
+                                style="width: 140px; height: 390px; background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0;">
+                            </div>
+                            <h4 style="margin-top: 0.8rem; font-size: 1.4rem; font-weight: 800;">2028 (확장기)</h4>
+                            <p style="font-size: 1.15rem; margin:0; color: var(--text-secondary);">파트너 150곳 / 연간 12,000건
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Basis Details -->
+                    <div
+                        style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); padding: 1.5rem 2rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); font-size: 1.25rem; color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+                        <div style="width: 33%;">
+                            <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;"> 산출 근거
+                                (Basis)</strong>
+                            전국 웨딩홀 평균 예식 수 연 320건 기준, 대기 하객 대상 MBOX 패키지 30%(96건) 도입 타겟
+                        </div>
+                        <div style="width: 33%;">
+                            <strong class="highlight-peach" style="display: block; margin-bottom: 0.3rem;"> 수익 배분 모델
+                                (Split)</strong>
+                            예식당 30만 원 패키지 적용 시, 웨딩홀 파트너와 MBOX 간의 **50:50 수익 정산 모델** 수립
+                        </div>
+                        <div style="width: 33%;">
+                            <strong class="highlight-blue" style="display: block; margin-bottom: 0.3rem;"> 확장 시너지
+                                (Synergy)</strong>
+                            전국 733개 웨딩홀 network로 신속한 락인(Lock-in) 효과 발생 및 플랫폼 기반 웨딩 생태계 확장
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Bar Chart -->
-                <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 280px; margin-top: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem; width: 100%;">
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-gold); font-weight: 800; font-size: 1.8rem;">1.8억</span>
-                        <div class="bar-fill" style="width: 110px; height: 45px; background: linear-gradient(to top, rgba(229,192,123,0.1), var(--accent-gold)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2026 (도입기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 20곳 / 연간 1,200건</p>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-peach); font-weight: 800; font-size: 1.8rem;">7.2억</span>
-                        <div class="bar-fill" style="width: 110px; height: 125px; background: linear-gradient(to top, rgba(255,183,178,0.1), var(--accent-peach)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2027 (성장기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 60곳 / 연간 4,800건</p>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 30%;">
-                        <span style="color: var(--accent-blue); font-weight: 800; font-size: 1.8rem;">18.0억</span>
-                        <div class="bar-fill" style="width: 110px; height: 260px; background: linear-gradient(to top, rgba(164,187,214,0.1), var(--accent-blue)); border-radius: 8px 8px 0 0;"></div>
-                        <h4 style="margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800;">2028 (확장기)</h4>
-                        <p style="font-size: 0.95rem; margin:0; color: var(--text-secondary);">파트너 150곳 / 연간 12,000건</p>
-                    </div>
-                </div>
-
-                <!-- Simulation Basis Details -->
-                <div style="display: flex; justify-content: space-between; gap: 1.5rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); font-size: 1.05rem; color: var(--text-secondary); width: 100%; box-sizing: border-box; margin-top: auto;">
-                    <div style="width: 33%;">
-                        <strong class="highlight-gold" style="display: block; margin-bottom: 0.3rem;">📊 산출 근거 (Basis)</strong>
-                        전국 웨딩홀 평균 예식 수 연 320건 기준, 대기 하객 대상 MBOX 패키지 30%(96건) 도입 타겟
-                    </div>
-                    <div style="width: 33%;">
-                        <strong class="highlight-peach" style="display: block; margin-bottom: 0.3rem;">🔄 수익 배분 모델 (Split)</strong>
-                        예식당 30만 원 패키지 적용 시, 웨딩홀 파트너와 MBOX 간의 **50:50 수익 정산 모델** 수립
-                    </div>
-                    <div style="width: 33%;">
-                        <strong class="highlight-blue" style="display: block; margin-bottom: 0.3rem;">📈 확장 시너지 (Synergy)</strong>
-                        전국 733개 웨딩홀 network로 신속한 락인(Lock-in) 효과 발생 및 플랫폼 기반 웨딩 생태계 확장
-                    </div>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -873,37 +1184,40 @@
         <section class="slide bg-gradient-2">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h2>Core Technology</h2>
-                <div class="grid-3">
-                    <div class="info-card">
-                        <h3 class="highlight-gold">3D Hologram H30</h3>
-                        <ul style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
-                            <li>1024×1024 고해상도</li>
-                            <li>24fps H.264 High + AAC</li>
-                            <li>1:1 몰입형 홀로그램 경험</li>
-                            <li>HoloVision H30 전용 디바이스</li>
-                        </ul>
-                    </div>
-                    <div class="info-card">
-                        <h3 class="highlight-blue">Local-First AI</h3>
-                        <ul style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
-                            <li>Whisper.cpp (STT) + Llama.cpp / Ollama (LLM)</li>
-                            <li>On-device 처리로 데이터 유출 제로</li>
-                            <li>프라이버시 최우선 (Privacy-first) 배포</li>
-                        </ul>
-                    </div>
-                    <div class="info-card">
-                        <h3 class="highlight-peach">12-Emotion Routing</h3>
-                        <ul style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
-                            <li>12가지 세밀한 감정선 분석</li>
-                            <li>즉각적이고 개인화된 재생</li>
-                            <li>맥락(Context) 기반 감성 상호작용</li>
-                        </ul>
+                <div class="glass-card animate-on-scroll">
+                    <h2>Core Technology</h2>
+                    <div class="grid-3">
+                        <div class="info-card">
+                            <h3 class="highlight-gold">3D Hologram H30</h3>
+                            <ul
+                                style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>1024×1024 고해상도</li>
+                                <li>24fps H.264 High + AAC</li>
+                                <li>1:1 몰입형 홀로그램 경험</li>
+                                <li>HoloVision H30 전용 디바이스</li>
+                            </ul>
+                        </div>
+                        <div class="info-card">
+                            <h3 class="highlight-blue">Local-First AI</h3>
+                            <ul
+                                style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>Whisper.cpp (STT) + Llama.cpp / Ollama (LLM)</li>
+                                <li>On-device 처리로 데이터 유출 제로</li>
+                                <li>프라이버시 최우선 (Privacy-first) 배포</li>
+                            </ul>
+                        </div>
+                        <div class="info-card">
+                            <h3 class="highlight-peach">12-Emotion Routing</h3>
+                            <ul
+                                style="font-size: 1.55rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>12가지 세밀한 감정선 분석</li>
+                                <li>즉각적이고 개인화된 재생</li>
+                                <li>맥락(Context) 기반 감성 상호작용</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -911,40 +1225,44 @@
         <section class="slide bg-gradient-1">
             <div class="slide-content">
 
-            <div class="glass-card animate-on-scroll">
-                <h2>Core Engineering Expertise</h2>
-                <p>MBOX의 압도적인 기술력은 '검증된 엔지니어들의 전문 역량'에서 나옵니다. 단순한 아이디어 랩스나 학생 프로젝트가 아닌, 상용화 수준의 딥테크를 구현하는 기술자 조직입니다.</p>
-                <div class="grid-3" style="margin-top: 2rem;">
-                    <div class="info-card blue">
-                        <h3 class="highlight-blue">AI Vision Lab</h3>
-                        <p style="font-size: 1.55rem;"><strong>Generative AI & LLM Experts</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>단순 API 연동이 아닌 로컬(Local-first) 모델 자체 경량화/최적화</li>
-                            <li>1024×1024 고해상도 피사체 분리 및 3D 배경 합성 기술 내재화</li>
-                            <li>12-감정 라우팅 독자 알고리즘 구축</li>
-                        </ul>
-                    </div>
-                    <div class="info-card gold">
-                        <h3 class="highlight-gold">Media Engine Team</h3>
-                        <p style="font-size: 1.55rem;"><strong>3D Rendering & Video Processing</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>Zero-latency 영상 자동화 파이프라인</li>
-                            <li>24fps H.264 High 인코딩 자동화</li>
-                            <li>대용량 홀로그램 미디어 서버 및 CDN 멀티채널 배포 아키텍처 설계</li>
-                        </ul>
-                    </div>
-                    <div class="info-card peach">
-                        <h3 class="highlight-peach">Hardware Infra</h3>
-                        <p style="font-size: 1.55rem;"><strong>IoT & Embedded Systems</strong></p>
-                        <ul style="font-size: 1.35rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.7;">
-                            <li>HoloVision H30 전용 하드웨어 설계</li>
-                            <li>납골당/웨딩홀 24시간 무인 운영을 위한 무결점 시스템 제어 로직</li>
-                            <li>원격 모니터링 및 OTA 펌웨어 업데이트</li>
-                        </ul>
+                <div class="glass-card animate-on-scroll">
+                    <h2>Core Engineering Expertise</h2>
+                    <p>MBOX의 압도적인 기술력은 '검증된 엔지니어들의 전문 역량'에서 나옵니다. 단순한 아이디어 랩스나 학생 프로젝트가 아닌, 상용화 수준의 딥테크를 구현하는 기술자 조직입니다.
+                    </p>
+                    <div class="grid-3" style="margin-top: 2rem;">
+                        <div class="info-card blue">
+                            <h3 class="highlight-blue">AI Vision Lab</h3>
+                            <p style="font-size: 1.55rem;"><strong>Generative AI & LLM Experts</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>단순 API 연동이 아닌 로컬(Local-first) 모델 자체 경량화/최적화</li>
+                                <li>1024×1024 고해상도 피사체 분리 및 3D 배경 합성 기술 내재화</li>
+                                <li>12-감정 라우팅 독자 알고리즘 구축</li>
+                            </ul>
+                        </div>
+                        <div class="info-card gold">
+                            <h3 class="highlight-gold">Media Engine Team</h3>
+                            <p style="font-size: 1.55rem;"><strong>3D Rendering & Video Processing</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>Zero-latency 영상 자동화 파이프라인</li>
+                                <li>24fps H.264 High 인코딩 자동화</li>
+                                <li>대용량 홀로그램 미디어 서버 및 CDN 멀티채널 배포 아키텍처 설계</li>
+                            </ul>
+                        </div>
+                        <div class="info-card peach">
+                            <h3 class="highlight-peach">Hardware Infra</h3>
+                            <p style="font-size: 1.55rem;"><strong>IoT & Embedded Systems</strong></p>
+                            <ul
+                                style="font-size: 1.15rem; color: var(--text-secondary); margin-left: 1rem; margin-top: 1rem; line-height: 1.6;">
+                                <li>HoloVision H30 전용 하드웨어 설계</li>
+                                <li>납골당/웨딩홀 24시간 무인 운영을 위한 무결점 시스템 제어 로직</li>
+                                <li>원격 모니터링 및 OTA 펌웨어 업데이트</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </div>
-        
+
             </div>
         </section>
 
@@ -952,74 +1270,108 @@
         <section class="slide bg-gradient-2">
             <div class="slide-content">
 
-            <style>
-                @keyframes pulseGlow {
-                    0% { transform: scale(1); box-shadow: 0 0 15px rgba(229,192,123,0.4); }
-                    100% { transform: scale(1.03); box-shadow: 0 0 25px rgba(229,192,123,0.7), 0 0 10px rgba(255,183,178,0.5); }
-                }
-            </style>
-            <div class="glass-card animate-on-scroll" style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
-                    <div>
-                        <h3 style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">COOPERATION & ECOSYSTEM</h3>
-                        <h2 style="margin: 0;">BI Center × MBOX × HoloVision Synergy</h2>
+                <style>
+                    @keyframes pulseGlow {
+                        0% {
+                            transform: scale(1);
+                            box-shadow: 0 0 15px rgba(229, 192, 123, 0.4);
+                        }
+
+                        100% {
+                            transform: scale(1.03);
+                            box-shadow: 0 0 25px rgba(229, 192, 123, 0.7), 0 0 10px rgba(255, 183, 178, 0.5);
+                        }
+                    }
+                </style>
+                <div class="glass-card animate-on-scroll"
+                    style="height: 100%; min-height: 880px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 2rem 3rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem; margin-bottom: 0.8rem;">
+                        <div>
+                            <h3
+                                style="color: var(--accent-gold); letter-spacing: 2px; font-size: 1.1rem; margin: 0 0 0.3rem 0;">
+                                COOPERATION & ECOSYSTEM</h3>
+                            <h2 style="margin: 0;">BI Center × MBOX × HoloVision Synergy</h2>
+                        </div>
+                        <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">산학
+                            협력을 통한 R&D 기술 고도화 및 미래 AI 서비스 확장 생태계</p>
                     </div>
-                    <p style="margin: 0; font-size: 1.55rem; color: var(--text-secondary); text-align: right;">산학 협력을 통한 R&D 기술 고도화 및 미래 AI 서비스 확장 생태계</p>
+
+                    <div class="grid-2"
+                        style="margin-top: auto; margin-bottom: auto; align-items: center; gap: 2rem; width: 100%;">
+                        <!-- Left: CSS Venn Diagram -->
+                        <div style="display: flex; justify-content: center; align-items: center;">
+                            <div style="position: relative; width: 420px; height: 420px;">
+                                <!-- Circle 1: BI Center (Top) -->
+                                <div
+                                    style="position: absolute; top: 5px; left: 95px; width: 250px; height: 250px; border-radius: 50%; border: 2px solid var(--accent-gold); background: rgba(229,192,123,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-start; align-items: center; z-index: 1; padding-top: 1.5rem; box-sizing: border-box;">
+                                    <span
+                                        style="font-size: 1.05rem; font-weight: 800; color: var(--accent-gold); letter-spacing: 1px;">BI
+                                        Center</span>
+                                </div>
+                                <!-- Circle 2: HoloVision (Bottom Left) -->
+                                <div
+                                    style="position: absolute; bottom: 5px; left: 5px; width: 250px; height: 250px; border-radius: 50%; border: 2px solid var(--accent-blue); background: rgba(164,187,214,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 1; padding-bottom: 2rem; padding-right: 1.5rem; box-sizing: border-box;">
+                                    <span
+                                        style="font-size: 1.05rem; font-weight: 800; color: var(--accent-blue); letter-spacing: 1px;">HoloVision</span>
+                                </div>
+                                <!-- Circle 3: MBOX (Bottom Right) -->
+                                <div
+                                    style="position: absolute; bottom: 5px; right: 5px; width: 250px; height: 250px; border-radius: 50%; border: 2px solid var(--accent-peach); background: rgba(255,183,178,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 1; padding-bottom: 2rem; padding-left: 1.5rem; box-sizing: border-box;">
+                                    <span
+                                        style="font-size: 1.05rem; font-weight: 800; color: var(--accent-peach); letter-spacing: 1px;">MBOX</span>
+                                </div>
+
+                                <!-- Overlapping Center Synergy (Intersection area) -->
+                                <div
+                                    style="position: absolute; top: 105px; left: 105px; width: 200px; height: 200px; border-radius: 50%; background: linear-gradient(135deg, rgba(229,192,123,0.3), rgba(255,183,178,0.3)); border: 2px solid #fff; box-shadow: 0 0 15px rgba(229,192,123,0.5); z-index: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0.5rem; animation: pulseGlow 3s infinite alternate; box-sizing: border-box;">
+                                    <strong
+                                        style="font-size: 0.85rem; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); line-height: 1.2;">MBOX
+                                        × BI CENTER × HOLOVISION<br><span
+                                            style="color: var(--accent-gold); font-size: 1.05rem; font-weight: 900; letter-spacing: 1px;">SYNERGY</span></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Content Lists -->
+                        <div style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
+                            <!-- AS-IS Collaboration Card -->
+                            <div class="info-card gold"
+                                style="padding: 1.5rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
+                                <h3 class="highlight-gold"
+                                    style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
+                                    AS-IS COLLABORATION (현재 협력)
+                                </h3>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0 1.2rem; font-size: 1.25rem; padding: 0;">
+                                    <li style="margin-bottom: 0.2rem;"><strong>HoloVision Partnership:</strong> 3D 홀로그램
+                                        제어 모듈 공동 개발 및 실증 테스트</li>
+                                    <li><strong>Student Talent:</strong> 한신대 학생과의 AI 자동화 파이프라인 제어 툴 협업을 통한 실무 기여</li>
+                                </ul>
+                            </div>
+
+                            <!-- TO-BE Expansion Card -->
+                            <div class="info-card peach"
+                                style="padding: 1.5rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
+                                <h3 class="highlight-peach"
+                                    style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
+                                    TO-BE EXPANSION VISION (미래 비전)
+                                </h3>
+                                <ul
+                                    style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0 1.2rem; font-size: 1.25rem; padding: 0;">
+                                    <li style="margin-bottom: 0.2rem;"><strong>Revenue Foundation:</strong> 초기 MBOX 솔루션
+                                        조기 상용화를 통한 신속한 비즈니스 궤도 진입</li>
+                                    <li style="margin-bottom: 0.2rem;"><strong>AI Service Expansion:</strong> MBOX CCTV
+                                        (어린이집), MBOX 3D 영상통화 (시니어) 등 10개 이상 서비스 생태계 구축</li>
+                                    <li style="margin-bottom: 0.2rem;"><strong>University Collaboration:</strong> BI 센터
+                                        교수진과의 공동 R&D를 통한 독보적 원천 기술 내재화</li>
+                                    <li><strong>Priority Hiring:</strong> 한신대학교 우수한 지역 인재 우선 채용 연계를 통한 상생 발전</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid-2" style="margin-top: auto; margin-bottom: auto; align-items: center; gap: 2rem; width: 100%;">
-                    <!-- Left: CSS Venn Diagram -->
-                    <div style="display: flex; justify-content: center; align-items: center;">
-                        <div style="position: relative; width: 390px; height: 390px;">
-                            <!-- Circle 1: BI Center (Top) -->
-                            <div style="position: absolute; top: 5px; left: 75px; width: 190px; height: 190px; border-radius: 50%; border: 2px solid var(--accent-gold); background: rgba(229,192,123,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-start; align-items: center; z-index: 1; padding-top: 1rem; box-sizing: border-box;">
-                                <span style="font-size: 1.05rem; font-weight: 800; color: var(--accent-gold); letter-spacing: 1px;">BI Center</span>
-                            </div>
-                            <!-- Circle 2: HoloVision (Bottom Left) -->
-                            <div style="position: absolute; bottom: 5px; left: 5px; width: 190px; height: 190px; border-radius: 50%; border: 2px solid var(--accent-blue); background: rgba(164,187,214,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 1; padding-bottom: 1.5rem; padding-right: 1rem; box-sizing: border-box;">
-                                <span style="font-size: 1.05rem; font-weight: 800; color: var(--accent-blue); letter-spacing: 1px;">HoloVision</span>
-                            </div>
-                            <!-- Circle 3: MBOX (Bottom Right) -->
-                            <div style="position: absolute; bottom: 5px; right: 5px; width: 190px; height: 190px; border-radius: 50%; border: 2px solid var(--accent-peach); background: rgba(255,183,178,0.03); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 1; padding-bottom: 1.5rem; padding-left: 1rem; box-sizing: border-box;">
-                                <span style="font-size: 1.05rem; font-weight: 800; color: var(--accent-peach); letter-spacing: 1px;">MBOX</span>
-                            </div>
-                            
-                            <!-- Overlapping Center Synergy (Intersection area) -->
-                            <div style="position: absolute; top: 100px; left: 100px; width: 140px; height: 140px; border-radius: 50%; background: linear-gradient(135deg, rgba(229,192,123,0.3), rgba(255,183,178,0.3)); border: 2px solid #fff; box-shadow: 0 0 15px rgba(229,192,123,0.5); z-index: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0.3rem; animation: pulseGlow 3s infinite alternate; box-sizing: border-box;">
-                                <strong style="font-size: 0.85rem; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); line-height: 1.2;">MBOX × BI CENTER × HOLOVISION<br><span style="color: var(--accent-gold); font-size: 1.05rem; font-weight: 900; letter-spacing: 1px;">SYNERGY</span></strong>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right: Content Lists -->
-                    <div style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
-                        <!-- AS-IS Collaboration Card -->
-                        <div class="info-card gold" style="padding: 1.2rem 1.6rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
-                            <h3 class="highlight-gold" style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
-                                🤝 AS-IS COLLABORATION (현재 협력)
-                            </h3>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 1.18rem; padding: 0; line-height: 1.7;">
-                                <li style="margin-bottom: 0.2rem;"><strong>HoloVision Partnership:</strong> 3D 홀로그램 제어 모듈 공동 개발 및 실증 테스트</li>
-                                <li><strong>Student Talent:</strong> 한신대 유준석 학생과의 AI 자동화 파이프라인 제어 툴 협업을 통한 실무 기여</li>
-                            </ul>
-                        </div>
-
-                        <!-- TO-BE Expansion Card -->
-                        <div class="info-card peach" style="padding: 1.2rem 1.6rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
-                            <h3 class="highlight-peach" style="margin: 0 0 0.4rem 0; font-size: 1.55rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 800;">
-                                🚀 TO-BE EXPANSION VISION (미래 비전)
-                            </h3>
-                            <ul style="color: var(--text-secondary); line-height: 1.4; margin: 0 0 0 1.2rem; font-size: 1.18rem; padding: 0; line-height: 1.7;">
-                                <li style="margin-bottom: 0.2rem;"><strong>Revenue Foundation:</strong> 초기 MBOX 솔루션 조기 상용화를 통한 신속한 비즈니스 궤도 진입</li>
-                                <li style="margin-bottom: 0.2rem;"><strong>AI Service Expansion:</strong> MBOX CCTV (어린이집), MBOX 3D 영상통화 (시니어) 등 10개 이상 서비스 생태계 구축</li>
-                                <li style="margin-bottom: 0.2rem;"><strong>University Collaboration:</strong> BI 센터 교수진과의 공동 R&D를 통한 독보적 원천 기술 내재화</li>
-                                <li><strong>Priority Hiring:</strong> 한신대학교 우수한 지역 인재 우선 채용 연계를 통한 상생 발전</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        
             </div>
         </section>
 
@@ -1045,14 +1397,14 @@
             const baseWidth = 1920;
             const baseHeight = 1080;
             const slides = document.querySelectorAll('.slide-content');
-            
+
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
-            
+
             const scaleX = windowWidth / baseWidth;
             const scaleY = windowHeight / baseHeight;
             const scale = Math.min(scaleX, scaleY);
-            
+
             slides.forEach(slide => {
                 slide.style.transform = `scale(${scale})`;
             });
@@ -1068,4 +1420,5 @@
         setTimeout(resizeSlides, 100);
     </script>
 </body>
+
 </html>
