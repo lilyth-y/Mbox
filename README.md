@@ -82,6 +82,24 @@ python scripts/verify_metrics.py
 python scripts/verify_crop_bounds.py
 ```
 
+## cs5 참조 에셋 (Git LFS)
+
+Videohive 원본(`cs5/`, ~1.2GB)은 **Git LFS**로 버전 관리됩니다. 런타임은 이미 커밋된 `apps/web/public/cs5/`를 사용하며, 원본을 수정·재동기화할 때만 아래 절차가 필요합니다.
+
+```bash
+# 최초 clone (LFS 포함)
+git lfs install
+git clone <repo-url>
+git lfs pull
+
+# public/cs5 재생성 (VoluMax, box-logo, confetti 등)
+npm run sync:cs5
+```
+
+- **원본**: `cs5/` — AE 프로젝트, PNG/MOV 등 전체 소스
+- **배포용**: `apps/web/public/cs5/` — 웹에서 `/cs5/...`로 로드되는 서브셋
+- LFS 없이 clone하면 `cs5/` 포인터만 받아집니다. `sync:cs5` 전에 `git lfs pull`을 실행하세요.
+
 ## 문서
 
 - [docs/goals.md](docs/goals.md)
