@@ -271,7 +271,7 @@ export function CubeFocusPanel({
                 ))}
                 {settings.cs5ConfettiEnabled ? (
                   <div className="grid grid-cols-5 gap-1 pl-5">
-                    {[1, 2, 3, 4, 5].map((v) => {
+                    {Array.from({ length: 15 }, (_, i) => i + 1).map((v) => {
                       const selected = settings.cs5ConfettiVariant === v;
                       return (
                         <button

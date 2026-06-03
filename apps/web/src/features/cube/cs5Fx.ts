@@ -27,8 +27,10 @@ export interface Cs5FxRig {
   dispose: () => void;
 }
 
+const CONFETTI_VARIANT_MAX = 15;
+
 function clampConfettiVariant(v: number): number {
-  return Math.min(5, Math.max(1, Math.floor(v) || 1));
+  return Math.min(CONFETTI_VARIANT_MAX, Math.max(1, Math.floor(v) || 1));
 }
 
 function createSpriteLayer(

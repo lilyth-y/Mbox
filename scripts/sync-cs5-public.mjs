@@ -61,8 +61,8 @@ for (const name of ["DIRT.png", "Particles1.png", "Particles2.png", "Particles3.
   copy(path.join(volumax, "Dust&Dirt", name), path.join(pub, "volumax", "dust-dirt", name));
 }
 
-// Confetti pack (1–5 for UI variants)
-for (let i = 1; i <= 5; i += 1) {
+// Confetti pack (1–15 for UI variants)
+for (let i = 1; i <= 15; i += 1) {
   copy(
     path.join(confettiSrc, `${i}.mov`),
     path.join(pub, "confetti-pack", `confetti_${String(i).padStart(2, "0")}.mov`)
