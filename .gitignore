@@ -9,9 +9,18 @@ apps/web/.env.production.local
 .DS_Store
 Thumbs.db
 experiments/outputs/
+.cache/
+# Office temp lock files
+~$*.pptx
+# Local demo renders (do not commit)
+/scratch/
+/album_*.mp4
+/book_*.mp4
+/cube_focus*.mp4
+/orbit_*.mp4
+/turntable*.mp4
 apps/web/dist/
 apps/api/dist/
-.cache/
 data/workspaces/
 __pycache__/
 *.py[cod]

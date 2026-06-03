@@ -29,6 +29,7 @@ routesRouter.post("/analyze", async (req, res) => {
     const metadata = await analyzeImage(body.imageBase64, body.mimeType, body.focusTarget);
     res.json({ metadata });
   } catch (error) {
+    console.error("Analyze API error:", error);
     const message = error instanceof Error ? error.message : "Analyze request failed.";
     res.status(500).json({ error: message });
   }
@@ -86,6 +87,7 @@ routesRouter.post("/edit", async (req, res) => {
     );
     res.json(result);
   } catch (error) {
+    console.error("Edit API error:", error);
     const message = error instanceof Error ? error.message : "Edit request failed.";
     res.status(500).json({ error: message });
   }

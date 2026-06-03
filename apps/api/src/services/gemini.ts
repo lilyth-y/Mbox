@@ -123,8 +123,12 @@ async function fetchWithRetry<T>(
   throw lastError instanceof Error ? lastError : new Error("Vertex request failed.");
 }
 
-async function vertexGenerateContent<T>(model: string, body: Record<string, unknown>): Promise<T> {
-  const config = getVertexConfig();
+async function vertexGenerateContent<T>(
+  model: string,
+  body: Record<string, unknown>,
+  configOverride?: VertexConfig
+): Promise<T> {
+  const config = configOverride ?? getVertexConfig();
   const token = await getVertexAccessToken();
 
   return fetchWithRetry<T>(buildVertexUrl(model, config), {
@@ -445,21 +449,30 @@ export async function editImageWithVertex(
       ? buildRemoveBackgroundPrompt(label)
       : buildEditPrompt(label, bgPrompt);
 
-  const config = getVertexConfig();
+  const baseConfig = getVertexConfig();
+  const config =
+    baseConfig.location === "asia-northeast3"
+      ? { ...baseConfig, location: "us-central1" }
+      : baseConfig;
+
   let result: VertexGenerateResponse;
   try {
-    result = await vertexGenerateContent<VertexGenerateResponse>(EDIT_MODEL, {
-    contents: [
+    result = await vertexGenerateContent<VertexGenerateResponse>(
+      EDIT_MODEL,
       {
-        role: "user",
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType, data: imageBase64 } },
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType, data: imageBase64 } },
+            ],
+          },
         ],
+        generationConfig: { responseModalities: ["IMAGE"] },
       },
-    ],
-      generationConfig: { responseModalities: ["IMAGE"] },
-    });
+      config
+    );
   } catch (error) {
     throw formatVertexImageEditError(error, config.location);
   }

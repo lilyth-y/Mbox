@@ -1,4 +1,14 @@
-# TODO
+## Entrance hologram (EHI experiment 2026-06-02)
+
+- [x] EHI baseline + iterative tuning — **PASS** EHI=1.0124 (`npm run measure:entrance-ehi`)
+- [x] RSI rotation sweep — **PASS** RSI=1.0 @ `yaw_cw` (`npm run measure:rotation-rsi`)
+- [x] Ralph loop EHI+RSI — **done** (`npm run ralph:entrance-hologram`)
+- [ ] Field A/B: guest satisfaction vs EHI proxy at real wedding entrance
+- [ ] Optional cutout path for hero couple silhouette (`applyBackgroundRemoval` toggle in wedding UI)
+- [ ] Entrance BGM (`Bridal Chorus`) in React wedding dashboard
+- [ ] Turntable template exposure in `WeddingSimpleDashboard` (post-EHI separate KPI)
+- [ ] Merge or remove orphan `WeddingHallDashboard.tsx`
+- [ ] Visual swim check on flat photos without depth map at export parallax $\times 0.50$
 
 ## Verified later
 

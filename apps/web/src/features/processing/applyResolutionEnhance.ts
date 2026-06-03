@@ -1,12 +1,16 @@
 import type { ResolutionEnhanceScale } from "@mbox/shared";
 import type { ProcessedImage } from "../../shared/types";
-import { createBackgroundPlateDataUrl } from "../../shared/lib/backgroundPlate";
+import {
+  createBackgroundPlateDataUrl,
+  createFaceCompositeDataUrl,
+} from "../../shared/lib/backgroundPlate";
 import { estimateDataUrlBytes } from "../../shared/lib/mediaLimits";
 import { upscaleImageDataUrl } from "./upscaleImage";
 
 export interface ApplyResolutionEnhanceOptions {
   scale?: ResolutionEnhanceScale;
   onProgress?: (current: number, total: number, message: string) => void;
+  backgroundPlateTheme?: import("../../shared/lib/backgroundPlate").BackgroundPlateTheme;
 }
 
 export async function applyResolutionEnhance(
@@ -25,8 +29,15 @@ export async function applyResolutionEnhance(
   const plateSource = image.preCropSourceUrl ?? image.originalUrl;
   if (plateSource) {
     const upscaledPlateSource = await upscaleImageDataUrl(plateSource, scale);
-    backgroundPlateUrl = await createBackgroundPlateDataUrl(upscaledPlateSource);
+    backgroundPlateUrl = await createBackgroundPlateDataUrl(upscaledPlateSource, {
+      theme: options.backgroundPlateTheme,
+    });
   }
+
+  const faceCompositeUrl =
+    backgroundPlateUrl != null
+      ? await createFaceCompositeDataUrl(upscaledUrl, backgroundPlateUrl)
+      : image.faceCompositeUrl;
 
   return {
     ...image,
@@ -36,10 +47,12 @@ export async function applyResolutionEnhance(
       ? await upscaleImageDataUrl(image.preCropSourceUrl, scale)
       : image.preCropSourceUrl,
     backgroundPlateUrl,
+    faceCompositeUrl,
     resolutionEnhanceScale: scale,
     byteSize:
       estimateDataUrlBytes(upscaledUrl) +
       estimateDataUrlBytes(backgroundPlateUrl ?? "") +
+      estimateDataUrlBytes(faceCompositeUrl ?? "") +
       estimateDataUrlBytes(image.preCropSourceUrl ?? ""),
   };
 }

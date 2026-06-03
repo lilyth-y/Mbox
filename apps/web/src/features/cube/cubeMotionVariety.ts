@@ -1,8 +1,19 @@
 import type { ProcessedImage } from "../../shared/types";
 import type { PresentationEffectId } from "./presentationEffects";
 import {
+  PHOTO_SLIDESHOW_DOLLY_MS,
+  PHOTO_SLIDESHOW_FLY_IN_MS,
+  PHOTO_SLIDESHOW_FLY_OUT_MS,
+  PHOTO_SLIDESHOW_SHOWCASE_MS,
+  getPhotoSlideshow3dStepSegmentMs,
+} from "./photoSlideshow3dTimeline";
+import {
+  FAN_LOOP_BRIDGE_MS,
+  getFanStepSegmentMs,
+  type FanTimelineProfile,
+} from "./cubeFanTimeline";
+import {
   CUBE_RESET_MS,
-  LOOP_BRIDGE_MS,
   RESET_MS,
   ROTATE_MS,
   TRAVEL_OUT_MS,
@@ -15,7 +26,7 @@ export function getLoopBridgeMs(
   if (effect !== "cube_focus" || presentationCount < 2) {
     return 0;
   }
-  return LOOP_BRIDGE_MS;
+  return FAN_LOOP_BRIDGE_MS;
 }
 
 /** Per-step timing / orbit tweaks (cube rotation ignores orbit fields). */
@@ -78,6 +89,14 @@ export function getStepPhaseTiming(
   const variety = getStepMotionVariety(seed, step);
   const isLinkedCube = effect === "cube_focus";
   const isLastStep = step + 1 >= presentationCount;
+  if (effect === "photo_slideshow_3d") {
+    return {
+      rotateMs: PHOTO_SLIDESHOW_FLY_IN_MS,
+      zoomMs: PHOTO_SLIDESHOW_DOLLY_MS,
+      parallaxMs: PHOTO_SLIDESHOW_SHOWCASE_MS,
+      resetMs: PHOTO_SLIDESHOW_FLY_OUT_MS,
+    };
+  }
   return {
     rotateMs: isLinkedCube
       ? step === 0
@@ -102,8 +121,16 @@ export function getStepSegmentMs(
   zoomMs: number,
   parallaxMs: number,
   effect: PresentationEffectId = "cube_focus",
-  presentationCount = 1
+  presentationCount = 1,
+  fanTimelineProfile: FanTimelineProfile = "wedding_default"
 ): number {
+  if (effect === "cube_focus") {
+    return getFanStepSegmentMs(step, fanTimelineProfile);
+  }
+  if (effect === "photo_slideshow_3d") {
+    return getPhotoSlideshow3dStepSegmentMs(step);
+  }
+
   const timing = getStepPhaseTiming(
     seed,
     step,

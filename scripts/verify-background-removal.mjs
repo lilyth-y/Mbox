@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { waitForApiReady } from "./lib/wait-for-api.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "experiments", "outputs", "bg_removal_verify");
@@ -16,6 +17,7 @@ const WEB_URL = process.env.WEB_URL ?? "http://localhost:5173";
 const API_URL = process.env.API_URL ?? "http://localhost:8787";
 const SAMPLE_COUNT = Number(process.env.MBOX_SAMPLE_COUNT ?? "2");
 const REMOVAL_TIMEOUT_MS = Number(process.env.REMOVAL_TIMEOUT_MS ?? 900_000);
+const API_READY_TIMEOUT_MS = Number(process.env.API_READY_TIMEOUT_MS ?? 120_000);
 const assetDir = join(root, "data", "asset", "temp_1778692001076.-1818431043");
 
 mkdirSync(outDir, { recursive: true });
@@ -40,10 +42,8 @@ async function check(name, fn) {
   }
 }
 
-const health = await fetch(`${API_URL}/health`);
 await check("api /health", async () => {
-  if (!health.ok) throw new Error(String(health.status));
-  return await health.text();
+  return await waitForApiReady(API_URL, API_READY_TIMEOUT_MS);
 });
 
 const jpgs = existsSync(assetDir)
@@ -74,9 +74,13 @@ page.on("request", (req) => {
   }
 });
 page.on("console", (msg) => {
+  log(`[BROWSER CONSOLE] [${msg.type()}] ${msg.text()}`);
   if (msg.type() === "error") {
     consoleErrors.push(msg.text());
   }
+});
+page.on("pageerror", (err) => {
+  log(`[BROWSER ERROR] ${err.message}`);
 });
 
 try {
@@ -92,6 +96,11 @@ try {
       throw new Error("web is pointing at cloud API — use apps/web/.env with localhost:8787");
     }
     return page.url();
+  });
+
+  await check("switch to upload tab", async () => {
+    await page.getByRole("button", { name: "프로세싱" }).click();
+    return "upload tab active";
   });
 
   await check("upload sample images", async () => {

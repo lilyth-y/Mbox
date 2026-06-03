@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, SlidersHorizontal, Upload } from "lucide-react";
+import { Box, SlidersHorizontal, Sparkles, Upload } from "lucide-react";
 import { CategoryPanel } from "../features/gallery/CategoryPanel";
 import { GalleryPanel } from "../features/gallery/GalleryPanel";
 import { processDataAssetBatch } from "../features/processing/processAssetBatch";
@@ -13,6 +13,7 @@ import { hasSubjectCutout } from "../shared/lib/cutoutPresentation";
 import { BackgroundGenerationPanel } from "../features/background/BackgroundGenerationPanel";
 import { UploadPanel } from "../features/upload/UploadPanel";
 import { CubeView } from "../features/cube/CubeView";
+import { WeddingSimpleDashboard } from "../features/wedding-simple/WeddingSimpleDashboard";
 import { AfterEffectsPanel, DEFAULT_POST_PROCESSING } from "../features/postprocess/AfterEffectsPanel";
 import {
   applyPostProcessingToImage,
@@ -81,7 +82,7 @@ export default function App() {
   const [backgroundCustomPrompt, setBackgroundCustomPrompt] = useState("");
   const [postProcessingSettings, setPostProcessingSettings] =
     useState<PostProcessingSettings>(DEFAULT_POST_PROCESSING);
-  const [activeTab, setActiveTab] = useState<AppTab>("upload");
+  const [activeTab, setActiveTab] = useState<AppTab>("wedding_hall");
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = loadCategoryCatalog();
     return saved && saved.length > 0 ? saved : [...DEFAULT_IMAGE_CATEGORIES];
@@ -710,6 +711,17 @@ export default function App() {
 
         <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
           <button
+            onClick={() => setActiveTab("wedding_hall")}
+            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all font-semibold ${
+              activeTab === "wedding_hall"
+                ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/20"
+                : "hover:bg-slate-800 text-rose-300"
+            }`}
+          >
+            <Sparkles size={18} /> 결혼식장 간편 모드
+          </button>
+          <div className="w-[1px] bg-slate-800 my-1 mx-1" />
+          <button
             onClick={() => setActiveTab("upload")}
             className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${
               activeTab === "upload" ? "bg-blue-600 text-white shadow-lg" : "hover:bg-slate-800"
@@ -840,6 +852,10 @@ export default function App() {
               onApplyAiRecommendedFocus={handleApplyAiRecommendedFocus}
             />
           </>
+        ) : activeTab === "wedding_hall" ? (
+          <div className="lg:col-span-12">
+            <WeddingSimpleDashboard active={activeTab === "wedding_hall"} />
+          </div>
         ) : (
           <CubeView
             active={activeTab === "cube"}

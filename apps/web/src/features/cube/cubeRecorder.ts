@@ -63,7 +63,29 @@ export async function looksLikeIsoMp4(blob: Blob): Promise<boolean> {
   return boxType === "ftyp";
 }
 
+/** Set by Playwright E2E (`__MBOX_E2E_EXPORT__`) when anchor downloads are unreliable. */
+export interface MboxE2eExportPayload {
+  bytes: number;
+  filename: string;
+  mimeType: string;
+}
+
+declare global {
+  interface Window {
+    __MBOX_E2E_EXPORT__?: boolean;
+    __MBOX_LAST_EXPORT__?: MboxE2eExportPayload;
+  }
+}
+
 export function downloadBlob(blob: Blob, filename: string): void {
+  if (typeof window !== "undefined" && window.__MBOX_E2E_EXPORT__) {
+    window.__MBOX_LAST_EXPORT__ = {
+      bytes: blob.size,
+      filename,
+      mimeType: blob.type,
+    };
+  }
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -84,12 +106,12 @@ export class CubeVideoRecorder {
   private stream: MediaStream | null = null;
   private chunks: BlobPart[] = [];
 
-  start(stream: MediaStream, mimeType: string): void {
+  start(stream: MediaStream, mimeType: string, videoBitsPerSecond = DEFAULT_VIDEO_BITS_PER_SECOND): void {
     this.chunks = [];
     this.stream = stream;
     this.recorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: DEFAULT_VIDEO_BITS_PER_SECOND,
+      videoBitsPerSecond,
     });
     this.recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {

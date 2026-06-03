@@ -38,6 +38,25 @@ npm run dev
 
 4. 브라우저에서 `http://localhost:5173`을 엽니다. `VITE_LOCALHOST_DEMO=true`이면 헤더에 Localhost Demo 배지가 표시됩니다.
 
+## 결혼식장 간편 모드 / Wedding Simple
+
+- **React 통합 탭**: `http://localhost:5173` → **결혼식장 간편 모드** (업로드 → AI 처리 → `marriage.mp4` 내보내기)
+- **정적 단독 UI**: `http://localhost:5173/wedding-simple/index.html` (`apps/web/public/wedding-simple/`)
+- 로컬 루트 `wedding-simple/` 폴더는 프로토타입 복사본이며, 배포 기준은 `apps/web/public/wedding-simple/`입니다.
+
+### 로컬 검증 (API + web dev 서버 필요)
+
+```bash
+npm run dev
+# 다른 터미널:
+npm run verify:bg-removal      # 프로세싱 탭 → 배경 제거
+npm run verify:cube-frames     # 3D 큐브 프레임 + MP4
+npm run verify:wedding-simple  # /wedding-simple/ → marriage.mp4
+npm run verify:local           # 위 3종 일괄
+```
+
+검증 스크립트는 API `/health`가 준비될 때까지 최대 120초 대기합니다 (`API_READY_TIMEOUT_MS`로 조정 가능).
+
 ## 스테이징 / 프로덕션
 
 | 용도 | 문서 |
@@ -67,4 +86,5 @@ python scripts/verify_crop_bounds.py
 
 - [docs/goals.md](docs/goals.md)
 - [docs/architecture.md](docs/architecture.md)
+- [docs/modes.md](docs/modes.md)
 - [TODO.md](TODO.md)

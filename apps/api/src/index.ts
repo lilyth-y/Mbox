@@ -39,11 +39,27 @@ function isLocalDevOrigin(origin: string): boolean {
   }
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+const allowNullOrigin =
+  !isProduction || process.env.CORS_ALLOW_NULL_ORIGIN?.trim().toLowerCase() === "true";
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || corsOrigins.includes(origin) || isLocalDevOrigin(origin)) {
-        callback(null, origin ?? true);
+      if (!origin) {
+        callback(null, allowNullOrigin);
+        return;
+      }
+      if (origin === "null") {
+        if (allowNullOrigin) {
+          callback(null, true);
+        } else {
+          callback(new Error("CORS blocked origin: null"));
+        }
+        return;
+      }
+      if (corsOrigins.includes(origin) || (!isProduction && isLocalDevOrigin(origin))) {
+        callback(null, origin);
         return;
       }
       callback(new Error(`CORS blocked origin: ${origin}`));

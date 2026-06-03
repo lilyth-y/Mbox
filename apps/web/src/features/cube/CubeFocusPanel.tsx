@@ -7,6 +7,9 @@ import {
   type CubeFramePresetDefinition,
 } from "./cubeFramePresets";
 import { CUBE_BGM_TRACKS, probeBgmAvailability } from "./bgm/bgmTracks";
+import type { ParticleThemeId } from "./cubeParticles";
+import type { CubeRotationMode } from "./cubeTransitionRotation";
+import type { PresentationEffectId } from "./presentationEffects";
 
 export interface CubeFocusSettings {
   framePresetId: CubeFramePresetId;
@@ -14,7 +17,31 @@ export interface CubeFocusSettings {
   bgmTrackId: CubeBgmTrackId;
   bgmCustomUrl: string | null;
   bgmVolume: number;
+  hologramMode: boolean;
+  particleTheme: ParticleThemeId;
+  voluMaxFxEnabled: boolean;
+  voluMaxFxIntensity: "soft" | "medium" | "strong";
+  cs5BoxLogoEnabled: boolean;
+  cs5FlareEnabled: boolean;
+  cs5CloudsEnabled: boolean;
+  cs5DirtEnabled: boolean;
+  cs5DustEnabled: boolean;
+  cs5ConfettiEnabled: boolean;
+  cs5ConfettiVariant: number;
+  cubeRotationMode: CubeRotationMode;
+  gradientColorCycle: boolean;
 }
+
+const CUBE_ROTATION_OPTIONS: { id: CubeRotationMode; label: string }[] = [
+  { id: "auto", label: "자동 (단계별 혼합)" },
+  { id: "mixed", label: "혼합 스타일" },
+  { id: "yaw_cw", label: "좌→우 회전" },
+  { id: "yaw_ccw", label: "우→좌 회전" },
+  { id: "pitch_up", label: "위로 기울기" },
+  { id: "pitch_down", label: "아래로 기울기" },
+  { id: "roll", label: "롤 회전" },
+  { id: "corner_swing", label: "코너 스윙" },
+];
 
 export const DEFAULT_CUBE_FOCUS_SETTINGS: CubeFocusSettings = {
   framePresetId: DEFAULT_CUBE_FRAME_PRESET_ID,
@@ -22,10 +49,25 @@ export const DEFAULT_CUBE_FOCUS_SETTINGS: CubeFocusSettings = {
   bgmTrackId: "cinematic_romantic",
   bgmCustomUrl: null,
   bgmVolume: 0.82,
+  hologramMode: false,
+  particleTheme: "none",
+  voluMaxFxEnabled: true,
+  voluMaxFxIntensity: "medium",
+  cs5BoxLogoEnabled: false,
+  cs5FlareEnabled: false,
+  cs5CloudsEnabled: false,
+  cs5DirtEnabled: false,
+  cs5DustEnabled: false,
+  cs5ConfettiEnabled: false,
+  cs5ConfettiVariant: 1,
+  cubeRotationMode: "auto",
+  gradientColorCycle: false,
 };
 
 interface CubeFocusPanelProps {
   settings: CubeFocusSettings;
+  /** When set and not cube_focus, cube rotation controls are disabled (fan-only). */
+  presentationEffectId?: PresentationEffectId;
   onSettingsChange: (settings: CubeFocusSettings) => void;
   disabled?: boolean;
   isEnhancingResolution?: boolean;
@@ -36,6 +78,7 @@ interface CubeFocusPanelProps {
 
 export function CubeFocusPanel({
   settings,
+  presentationEffectId = "cube_focus",
   onSettingsChange,
   disabled = false,
   isEnhancingResolution = false,
@@ -66,6 +109,8 @@ export function CubeFocusPanel({
   const patch = (partial: Partial<CubeFocusSettings>) => {
     onSettingsChange({ ...settings, ...partial });
   };
+
+  const rotationControlsEnabled = presentationEffectId === "cube_focus";
 
   const handleCustomBgm = (file: File | null) => {
     if (settings.bgmCustomUrl?.startsWith("blob:")) {
@@ -109,6 +154,195 @@ export function CubeFocusPanel({
             );
           })}
         </div>
+      </section>
+
+      <section className="border-t border-rose-500/20 pt-4">
+        <div className="flex items-center gap-2 text-rose-300">
+          <Sparkles size={16} />
+          <h3 className="text-sm font-bold text-slate-100">3D 홀로그램 팬 최적화 (결혼식/전시장)</h3>
+        </div>
+        <div className="mt-3 space-y-3">
+          <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.hologramMode}
+              disabled={disabled}
+              onChange={(event) => patch({ hologramMode: event.target.checked })}
+              className="rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-500"
+            />
+            <span>
+              3D 홀로그램 팬 모드 (1:1 · 원형 디스크 마스크 — 팬블레이드 실제 표시 영역)
+            </span>
+          </label>
+          {settings.hologramMode ? (
+            <div className="pl-5 space-y-2">
+              <label className="block text-[11px] font-semibold text-slate-400">
+                웨딩 파티클 필터 효과
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "none", label: "없음" },
+                  { id: "gold_dust", label: "금가루 (Gold)" },
+                  { id: "white_petals", label: "꽃잎 (Petal)" },
+                  { id: "floating_hearts", label: "하트 (Heart)" },
+                  { id: "confetti", label: "컨페티 (Confetti)" },
+                ].map((themeOption) => {
+                  const selected = settings.particleTheme === themeOption.id;
+                  return (
+                    <button
+                      key={themeOption.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => patch({ particleTheme: themeOption.id as ParticleThemeId })}
+                      className={`rounded-lg border py-1.5 text-center text-xs transition ${
+                        selected
+                          ? "border-rose-400/50 bg-rose-500/10 text-rose-200"
+                          : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {themeOption.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.voluMaxFxEnabled}
+                    disabled={disabled}
+                    onChange={(event) => patch({ voluMaxFxEnabled: event.target.checked })}
+                    className="rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-500"
+                  />
+                  <span>VoluMax 무드 FX (스캔 링 · 글로우)</span>
+                </label>
+                {settings.voluMaxFxEnabled ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "soft", label: "Soft" },
+                      { id: "medium", label: "Medium" },
+                      { id: "strong", label: "Strong" },
+                    ].map((opt) => {
+                      const selected = settings.voluMaxFxIntensity === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => patch({ voluMaxFxIntensity: opt.id as "soft" | "medium" | "strong" })}
+                          className={`rounded-lg border py-1.5 text-center text-xs transition ${
+                            selected
+                              ? "border-rose-400/50 bg-rose-500/10 text-rose-200"
+                              : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] font-semibold text-slate-400">CS5 레퍼런스 에셋 (VoluMax · Box Logo · Confetti)</p>
+                {[
+                  { key: "cs5BoxLogoEnabled" as const, label: "Box Logo — Lens / 바" },
+                  { key: "cs5FlareEnabled" as const, label: "VoluMax — Flare (FLARE.png)" },
+                  { key: "cs5CloudsEnabled" as const, label: "VoluMax — Clouds" },
+                  { key: "cs5DirtEnabled" as const, label: "VoluMax — Dirt" },
+                  { key: "cs5DustEnabled" as const, label: "VoluMax — Dust particles" },
+                  { key: "cs5ConfettiEnabled" as const, label: "Confetti Pack — 비디오 오버레이" },
+                ].map((row) => (
+                  <label
+                    key={row.key}
+                    className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings[row.key]}
+                      disabled={disabled}
+                      onChange={(event) => patch({ [row.key]: event.target.checked })}
+                      className="rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-500"
+                    />
+                    <span>{row.label}</span>
+                  </label>
+                ))}
+                {settings.cs5ConfettiEnabled ? (
+                  <div className="grid grid-cols-5 gap-1 pl-5">
+                    {[1, 2, 3, 4, 5].map((v) => {
+                      const selected = settings.cs5ConfettiVariant === v;
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => patch({ cs5ConfettiVariant: v })}
+                          className={`rounded border py-1 text-center text-[10px] transition ${
+                            selected
+                              ? "border-rose-400/50 bg-rose-500/10 text-rose-200"
+                              : "border-slate-800 bg-slate-950/40 text-slate-500 hover:border-slate-700"
+                          }`}
+                        >
+                          #{v}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                <p className="text-[10px] leading-relaxed text-slate-500">
+                  cs5 원본 PNG·MOV를 그대로 로드합니다. 기본값 OFF — 기존 연출 유지.
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="border-t border-slate-800 pt-4">
+        <div className="flex items-center gap-2 text-violet-300/90">
+          <Sparkles size={16} />
+          <h3 className="text-sm font-bold text-slate-100">큐브 회전 방향</h3>
+        </div>
+        {!rotationControlsEnabled ? (
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+            정육면체(팬) 연출에서만 적용됩니다. 다른 베타 템플릿은 자체 회전 타임라인을 사용합니다.
+          </p>
+        ) : null}
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {CUBE_ROTATION_OPTIONS.map((option) => {
+            const selected = settings.cubeRotationMode === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                disabled={disabled || !rotationControlsEnabled}
+                onClick={() => patch({ cubeRotationMode: option.id })}
+                className={`rounded-lg border py-2 px-2 text-center text-[11px] font-semibold transition ${
+                  selected
+                    ? "border-violet-400/50 bg-violet-500/15 text-violet-100"
+                    : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-600"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="border-t border-slate-800 pt-4">
+        <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.gradientColorCycle}
+            disabled={disabled}
+            onChange={(event) => patch({ gradientColorCycle: event.target.checked })}
+            className="rounded border-slate-700 bg-slate-950 text-violet-500 focus:ring-violet-500"
+          />
+          <span>액자·장면 색상 그라데이션 순환 (연속 변화)</span>
+        </label>
       </section>
 
       <section>

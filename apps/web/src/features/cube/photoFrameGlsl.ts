@@ -38,7 +38,7 @@ vec3 frameAccentColor(vec2 uv, float preset) {
   return frameRoyalNavy(uv);
 }
 
-vec3 frameMatColor(float preset) {
+vec3 frameMatColor(float preset, float hologramMode) {
   if (preset < 0.5) return vec3(1.0, 0.965, 0.94);
   if (preset < 1.5) return vec3(0.98, 0.98, 0.99);
   if (preset < 2.5) return vec3(0.22, 0.21, 0.20);
@@ -61,9 +61,14 @@ float frameCornerAccent(vec2 uv, float inset) {
   return corner * nearCorner;
 }
 
-vec4 applyPhotoFrame(vec4 photo, vec2 uv, float preset) {
-  const float photoInset = 0.088;
-  const float matInset = 0.062;
+/** Rectangular mat + accent frame on every face (hologram uses same path, slightly wider border). */
+vec4 applyPhotoFrame(vec4 photo, vec2 uv, float preset, float hologramMode) {
+  // Frame should sit at the cube face edge (uv 0..1). Keep photo nearly full-bleed
+  // so the outer frame aligns with the cube's boundary without a large black gutter.
+  // Hologram preview needs a clearly visible border on black. We keep it modest,
+  // but allow the frame line to overlay the photo edge so the cube reads as a cube.
+  const float photoInset = hologramMode > 0.5 ? 0.055 : 0.036;
+  const float matInset = hologramMode > 0.5 ? 0.030 : 0.022;
 
   vec2 edge = min(uv, 1.0 - uv);
   float edgeDist = min(edge.x, edge.y);
@@ -71,25 +76,41 @@ vec4 applyPhotoFrame(vec4 photo, vec2 uv, float preset) {
   float photoMask = smoothstep(photoInset, photoInset + 0.014, edgeDist);
   float matMask =
     smoothstep(matInset, matInset + 0.01, edgeDist) * (1.0 - photoMask);
-  float frameMask = 1.0 - smoothstep(0.003, 0.016, edgeDist);
-  frameMask *= 1.0 - photoMask;
+  float frameWidth = hologramMode > 0.5 ? 0.042 : 0.016;
+  float frameMask = 1.0 - smoothstep(0.003, frameWidth, edgeDist);
+  if (hologramMode <= 0.5) {
+    frameMask *= 1.0 - photoMask;
+  }
 
   float accentLine = 1.0 - smoothstep(0.0015, 0.0045, abs(edgeDist - photoInset));
-  accentLine *= 1.0 - photoMask;
+  if (hologramMode <= 0.5) {
+    accentLine *= 1.0 - photoMask;
+  }
 
-  float corner = frameCornerAccent(uv, 0.36) * frameMask;
+  float corner = frameCornerAccent(uv, 0.36) * frameMask * 0.45;
 
-  vec3 matCol = frameMatColor(preset);
+  vec3 matCol = frameMatColor(preset, hologramMode);
   vec3 frameCol = frameAccentColor(uv, preset);
   vec3 lineCol = frameLineColor(preset);
 
   vec3 rgb = photo.rgb;
-  rgb = mix(rgb, matCol, matMask * 0.94);
-  rgb = mix(rgb, frameCol, frameMask * 0.96);
-  rgb += lineCol * accentLine * 0.55;
-  rgb += lineCol * corner * 0.22;
+  if (hologramMode > 0.5) {
+    float a = clamp(photo.a, 0.0, 1.0);
+    // Cutout PNGs carry alpha; JPEG/originals are opaque. For opaque sources,
+    // still mix in a bit of mat so the cube reads on black.
+    float blend = a < 0.999 ? a : 0.92;
+    rgb = mix(matCol, photo.rgb, blend);
+  }
+  float matMix = hologramMode > 0.5 ? 0.97 : 0.94;
+  float frameMix = hologramMode > 0.5 ? 0.98 : 0.96;
+  rgb = mix(rgb, matCol, matMask * matMix);
+  rgb = mix(rgb, frameCol, frameMask * frameMix);
+  rgb += lineCol * accentLine * (hologramMode > 0.5 ? 0.62 : 0.55);
+  rgb += lineCol * corner * (hologramMode > 0.5 ? 0.16 : 0.12);
 
-  float alpha = max(photo.a, max(frameMask, matMask * 0.98));
+  float alpha = hologramMode > 0.5
+    ? max(max(photoMask, frameMask), matMask * 0.98)
+    : max(photo.a, max(frameMask, matMask * 0.98));
   return vec4(rgb, alpha);
 }
 `;

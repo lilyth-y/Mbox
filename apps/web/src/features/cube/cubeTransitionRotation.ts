@@ -41,20 +41,60 @@ function accentWaypoint(
   return mid;
 }
 
+export type CubeRotationMode =
+  | "auto"
+  | "mixed"
+  | "yaw_cw"
+  | "yaw_ccw"
+  | "pitch_up"
+  | "pitch_down"
+  | "roll"
+  | "corner_swing";
+
+export function resolveCubeTransitionStyle(
+  step: number,
+  mode: CubeRotationMode = "auto"
+): { style: CubeTransitionStyle; reverseYaw: boolean } {
+  switch (mode) {
+    case "yaw_cw":
+      return { style: "yaw_arc", reverseYaw: false };
+    case "yaw_ccw":
+      return { style: "yaw_arc", reverseYaw: true };
+    case "pitch_up":
+      return { style: "pitch_lift", reverseYaw: false };
+    case "pitch_down":
+      return { style: "pitch_drop", reverseYaw: false };
+    case "roll":
+      return { style: "roll_tilt", reverseYaw: false };
+    case "corner_swing":
+      return { style: "corner_swing", reverseYaw: false };
+    case "mixed":
+    case "auto":
+    default:
+      return {
+        style: STYLES[step % STYLES.length] ?? "yaw_arc",
+        reverseYaw: false,
+      };
+  }
+}
+
 /** Two-segment slerp via a styled midpoint — richer than pure left-right yaw. */
 export function slerpCubeTransition(
   from: THREE.Euler,
   to: THREE.Euler,
   alpha: number,
-  step: number
+  step: number,
+  mode: CubeRotationMode = "auto"
 ): THREE.Euler {
-  const style = STYLES[step % STYLES.length] ?? "yaw_arc";
+  const { style, reverseYaw } = resolveCubeTransitionStyle(step, mode);
   const clamped = Math.min(1, Math.max(0, alpha));
-  const via = accentWaypoint(from, to, style);
+  const fromEuler = reverseYaw ? to : from;
+  const toEuler = reverseYaw ? from : to;
+  const via = accentWaypoint(fromEuler, toEuler, style);
   if (clamped <= 0.5) {
-    return slerpEuler(from, via, clamped * 2);
+    return slerpEuler(fromEuler, via, clamped * 2);
   }
-  return slerpEuler(via, to, (clamped - 0.5) * 2);
+  return slerpEuler(via, toEuler, (clamped - 0.5) * 2);
 }
 
 export function getCubeEntryRotation(step: number): THREE.Euler {

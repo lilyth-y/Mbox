@@ -4,7 +4,8 @@ export type PresentationEffectId =
   | "book_spread"
   | "turntable"
   | "orbit_gallery"
-  | "album_flip";
+  | "album_flip"
+  | "photo_slideshow_3d";
 
 export interface PresentationEffectDefinition {
   id: PresentationEffectId;
@@ -38,6 +39,12 @@ export const PRESENTATION_EFFECTS: PresentationEffectDefinition[] = [
     id: "album_flip",
     label: "5. 앨범 넘김",
     description: "앨범을 넘기듯 다음 장면으로 이어집니다. 누끼 컷만 분리 연출됩니다.",
+  },
+  {
+    id: "photo_slideshow_3d",
+    label: "6. 3D 슬라이드쇼",
+    description:
+      "cs5 Photo Slideshow 3D 레퍼런스 — 카드가 깊이에서 날아와 전면 쇼케이스 후 다음 장면으로 넘어갑니다.",
   },
 ];
 

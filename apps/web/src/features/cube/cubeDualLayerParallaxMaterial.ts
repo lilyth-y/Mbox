@@ -26,6 +26,10 @@ uniform float uPortraitBoost;
 uniform vec4 uSubjectBounds;
 uniform vec2 uFocus;
 uniform float uFramePreset;
+uniform float uHologramMode;
+uniform float uFocusPulse;
+uniform float uGradientShift;
+uniform float uGradientEnabled;
 varying vec2 vUv;
 
 float subjectMask(vec2 uv) {
@@ -64,8 +68,20 @@ vec2 warpForeground(vec2 uv, float amount) {
 
 vec2 warpBackground(vec2 uv, float amount) {
   vec2 delta = uv - uFocus;
-  float scale = 1.0 + amount * uBgParallaxMul * ${DEPTH_EMPHASIS.toFixed(2)};
+  // Base parallax recession + extra push-back at focus peak
+  float bgPush = 1.0 + uFocusPulse * 0.07;
+  float scale = (1.0 + amount * uBgParallaxMul * ${DEPTH_EMPHASIS.toFixed(2)}) * bgPush;
   return uFocus + delta * scale;
+}
+
+// Returns a scale factor: subject pixels are pulled 9% inward (toward uFocus).
+// originalUv is used only to determine if this pixel is inside the subject bounds.
+vec2 warpSubjectPulse(vec2 warpedUv, vec2 originalUv) {
+  float inSubject = subjectMask(originalUv);
+  if (inSubject < 0.5) return warpedUv;
+  vec2 delta = warpedUv - uFocus;
+  float pull = 1.0 - uFocusPulse * 0.09;
+  return uFocus + delta * pull;
 }
 
 ${PHOTO_FRAME_GLSL}
@@ -73,8 +89,13 @@ ${PHOTO_FRAME_GLSL}
 void main() {
   float parallaxNorm = clamp(uParallax / ${PARALLAX_MAX.toFixed(4)}, 0.0, 1.0);
 
-  vec2 bgUv = warpBackground(vUv, uParallax);
-  vec2 fgUv = warpForeground(vUv, uParallax);
+  vec2 fanUv = vUv;
+  vec2 bgUv = warpBackground(fanUv, uParallax);
+  vec2 fgUv = warpForeground(fanUv, uParallax);
+  // Apply subject-forward pulse on top of parallax warp
+  if (uFocusPulse > 0.001) {
+    fgUv = warpSubjectPulse(fgUv, fanUv);
+  }
   vec4 bg = texture2D(uBgTexture, bgUv);
   vec4 fg = texture2D(uFgTexture, fgUv);
 
@@ -94,7 +115,20 @@ void main() {
   float lift = 1.0 + parallaxNorm * 0.035;
   composed = mix(composed, composed * lift, fg.a * parallaxNorm * 0.35);
 
-  gl_FragColor = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset);
+  vec4 framed = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset, uHologramMode);
+  if (uHologramMode > 0.5) {
+    framed.a = 1.0;
+  }
+  if (uGradientEnabled > 0.5) {
+    float wave = 0.5 + 0.5 * sin(uGradientShift);
+    vec3 tint = vec3(
+      0.82 + 0.12 * sin(uGradientShift),
+      0.58 + 0.16 * sin(uGradientShift + 2.1),
+      0.64 + 0.14 * sin(uGradientShift + 4.2)
+    );
+    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.22);
+  }
+  gl_FragColor = framed;
 }
 `;
 
@@ -122,6 +156,7 @@ export interface DualLayerParallaxOptions {
   subjectBounds?: SubjectBounds;
   bgParallaxMul?: number;
   framePresetId?: CubeFramePresetId;
+  hologramMode?: boolean;
 }
 
 export function createDualLayerParallaxMaterial(
@@ -143,6 +178,7 @@ export function createDualLayerParallaxMaterial(
       uFgTexture: { value: foregroundTexture },
       uDepthMap: { value: depthTexture },
       uParallax: { value: 0 },
+      uFocusPulse: { value: 0 },
       uBgParallaxMul: { value: options.bgParallaxMul ?? 0.62 },
       uSubjectDepth: { value: subjectDepth },
       uUseDepthMap: { value: useDepthMap ? 1 : 0 },
@@ -153,6 +189,9 @@ export function createDualLayerParallaxMaterial(
           : new THREE.Vector4(0, 0, 1, 1),
       },
       uFocus: { value: toFocusVector(center) },
+      uHologramMode: { value: options.hologramMode ? 1.0 : 0.0 },
+      uGradientShift: { value: 0 },
+      uGradientEnabled: { value: 0 },
       ...createFramePresetUniform(framePresetId),
     },
     vertexShader,
@@ -193,6 +232,12 @@ export function updateDualLayerParallaxMaterial(
     : new THREE.Vector4(0, 0, 1, 1);
   material.uniforms.uBgParallaxMul.value = options.bgParallaxMul ?? 0.62;
   material.uniforms.uParallax.value = Math.min(PARALLAX_MAX, Math.max(0, amount));
+  if (material.uniforms.uFocusPulse) {
+    material.uniforms.uFocusPulse.value = 0;
+  }
+  if (material.uniforms.uHologramMode) {
+    material.uniforms.uHologramMode.value = options.hologramMode ? 1.0 : 0.0;
+  }
   if (options.framePresetId) {
     setFramePresetUniform(
       material.uniforms as { uFramePreset: { value: number } },
@@ -211,6 +256,9 @@ export function setDualLayerFramePreset(
   );
 }
 
-export function setDualLayerParallaxAmount(material: DualLayerParallaxMaterial, amount: number): void {
+export function setDualLayerParallaxAmount(material: DualLayerParallaxMaterial, amount: number, focusPulse: number = 0): void {
   material.uniforms.uParallax.value = Math.min(PARALLAX_MAX, Math.max(0, amount));
+  if (material.uniforms.uFocusPulse) {
+    material.uniforms.uFocusPulse.value = Math.min(1, Math.max(0, focusPulse));
+  }
 }

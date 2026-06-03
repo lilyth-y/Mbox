@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>웨딩 홀로그램 오퍼레이터 · Mbox</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#dfb386',
+            rosegold: '#e5b3b3',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Three.js Global UMD Library CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- RoundedBoxGeometry Global Addon CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+
+  <!-- Standalone Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="relative">
+  <!-- Decorative ambient lighting glows -->
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+
+  <div class="wedding-container min-h-screen flex flex-col justify-between">
+    
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 pb-8 mb-10 gap-6">
+      <div>
+        <h1 class="serif-title text-4xl metallic-text mb-2">MBOX WEDDING</h1>
+        <p class="text-xs uppercase tracking-[0.25em] text-gold/60 font-semibold">Hologram Fan 3D Video Builder</p>
+      </div>
+
+      <!-- Progression Steps -->
+      <div class="flex items-center gap-4 bg-black/45 px-5 py-2.5 rounded-2xl border border-gold/10 backdrop-blur-md">
+        <div class="flex items-center gap-2">
+          <span id="dot-1" class="step-dot active">1</span>
+          <span id="label-1" class="text-xs font-bold text-gold">사진 등록</span>
+        </div>
+        <div class="w-4 h-[1px] bg-white/10"></div>
+        <div class="flex items-center gap-2">
+          <span id="dot-2" class="step-dot">2</span>
+          <span id="label-2" class="text-xs font-bold text-white/30">AI 변환</span>
+        </div>
+        <div class="w-4 h-[1px] bg-white/10"></div>
+        <div class="flex items-center gap-2">
+          <span id="dot-3" class="step-dot">3</span>
+          <span id="label-3" class="text-xs font-bold text-white/30">다운로드</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN BODY -->
+    <main class="flex-grow flex items-center justify-center">
+      
+      <!-- STEP 1: UPLOAD -->
+      <section id="step-1-view" class="w-full glass-panel fade-in-slide space-y-6">
+        <div id="drop-zone" class="drop-zone">
+          <input type="file" id="file-input" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+          <div class="flex flex-col items-center justify-center">
+            <div class="drop-zone-icon">
+              <i data-lucide="upload-cloud" class="w-9 h-9"></i>
+            </div>
+            <h3 class="serif-title text-2xl text-white mb-2">웨딩 이미지 등록</h3>
+            <p class="text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
+              식장에 전시할 고해상도 인물 사진을 <strong class="text-gold/90">3~20장</strong> 선택하거나 이 영역으로 드래그 앤 드롭 하세요.
+            </p>
+          </div>
+        </div>
+
+        <!-- Image Selection Thumbnails -->
+        <div id="selected-images-wrap" class="hidden space-y-5 animate-fade-in-up">
+          <div class="flex items-center justify-between border-b border-white/5 pb-2">
+            <h4 class="text-xs font-bold text-white/50 uppercase tracking-widest">선택된 이미지 목록 (<span id="photo-count">0</span>/20)</h4>
+            <button id="clear-all-btn" class="text-xs text-rosegold hover:underline font-bold">전체 삭제</button>
+          </div>
+          
+          <div id="thumbnails-grid" class="grid grid-cols-3 sm:grid-cols-6 gap-4">
+            <!-- Dynamically populated thumbnails -->
+          </div>
+
+          <button id="start-ai-btn" disabled class="w-full py-5 rounded-2xl gold-btn flex items-center justify-center gap-2 mt-8 shadow-xl">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            AI 원클릭 자동 보정 시작 (배경 유지)
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 2: AI PROCESSING -->
+      <section id="step-2-view" class="hidden w-full max-w-md glass-panel text-center py-16 space-y-8 fade-in-slide">
+        <div class="relative flex items-center justify-center mx-auto w-28 h-28">
+          <div class="absolute inset-0 rounded-full border-4 border-gold/10 border-t-gold spin-wrap"></div>
+          <i data-lucide="heart" class="w-10 h-10 text-rosegold fill-rosegold/30 animate-pulse"></i>
+        </div>
+        
+        <div class="space-y-2">
+          <h3 class="serif-title text-2xl text-white">AI 3D 홀로그램 분석 중</h3>
+          <p id="processing-status" class="text-xs text-gold/70 font-mono tracking-widest uppercase">Initializing AI models...</p>
+        </div>
+
+        <div class="w-full max-w-xs mx-auto bg-black/60 border border-white/5 h-2.5 rounded-full overflow-hidden shadow-inner">
+          <div id="progress-bar" class="bg-gradient-to-r from-gold via-rosegold to-purple-400 h-full w-0 transition-all duration-300"></div>
+        </div>
+        
+        <span id="progress-indicator" class="progress-text">0 / 0 COMPLETED</span>
+      </section>
+
+      <!-- STEP 3: PREVIEW & CUSTOM CONFIG -->
+      <section id="step-3-view" class="hidden w-full grid grid-cols-1 lg:grid-cols-12 gap-10 fade-in-slide">
+        
+        <!-- Viewport Part -->
+        <div class="lg:col-span-6 flex flex-col justify-center space-y-4">
+          <div class="hologram-outer-wrap">
+            <div id="canvas-container" class="hologram-screen flex items-center justify-center">
+              <!-- Three.js Canvas will be mounted here -->
+              <div class="absolute top-5 left-5 pointer-events-none z-10">
+                <span class="px-3.5 py-1.5 rounded-xl bg-black/80 border border-gold/25 text-[9px] text-gold font-bold tracking-widest uppercase flex items-center gap-1.5 shadow-lg">
+                  <i data-lucide="play" class="w-2.5 h-2.5 fill-gold stroke-none"></i>
+                  3D HOLOGRAM FAN SIMULATION
+                </span>
+              </div>
+            </div>
+          </div>
+          <p class="text-center text-[10px] text-white/30 tracking-wider">마우스 드래그를 이용해 입체 회전을 제어할 수 있습니다.</p>
+        </div>
+
+        <!-- Configuration & Output Part -->
+        <div class="lg:col-span-6 flex flex-col justify-between space-y-6">
+          <div class="glass-panel space-y-6">
+            
+            <!-- Effect Preset selection -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                <i data-lucide="video" class="w-4 h-4 text-gold"></i>3D 연출 (심플 · 정육면체 팬)
+              </label>
+              <p class="text-[10px] text-white/35 leading-relaxed">
+                멀리서 회전하며 다가온 뒤 사진별로 감상합니다. 배경은 원본 그대로, AI 초점만 적용합니다.
+              </p>
+              <div class="preset-grid">
+                <button type="button" data-effect="cube_focus" class="opt-btn active">정육면체 팬 연출</button>
+                <button type="button" data-effect="turntable" class="opt-btn">원판 회전 (베타)</button>
+                <button type="button" data-effect="album_flip" class="opt-btn">앨범 넘김 (베타)</button>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                <i data-lucide="rotate-3d" class="w-4 h-4 text-gold"></i>회전 방향
+              </label>
+              <div class="preset-grid">
+                <button type="button" data-rotation="auto" class="opt-btn active">자동 혼합</button>
+                <button type="button" data-rotation="yaw_cw" class="opt-btn">좌→우</button>
+                <button type="button" data-rotation="yaw_ccw" class="opt-btn">우→좌</button>
+                <button type="button" data-rotation="pitch_up" class="opt-btn">위로 기울기</button>
+                <button type="button" data-rotation="pitch_down" class="opt-btn">아래로 기울기</button>
+                <button type="button" data-rotation="corner_swing" class="opt-btn">코너 스윙</button>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2">
+                  <i data-lucide="gauge" class="w-4 h-4 text-gold"></i>연출 속도
+                </span>
+                <span id="fan-speed-label" class="text-gold font-mono text-[10px]">1.0×</span>
+              </label>
+              <input
+                id="fan-speed-range"
+                type="range"
+                min="0.6"
+                max="1.6"
+                step="0.05"
+                value="1"
+                class="w-full accent-rose-400"
+              />
+            </div>
+
+            <!-- Frame Preset selection -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                  <i data-lucide="layout" class="w-4 h-4 text-gold"></i>액자 프레임 디자인
+                </label>
+                <!-- Custom Color Picker -->
+                <div class="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/5">
+                  <span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">커스텀 색상</span>
+                  <input type="color" id="frame-color-picker" value="#dfb386" class="w-6 h-6 rounded bg-transparent border-none cursor-pointer p-0">
+                </div>
+              </div>
+              <div class="preset-grid">
+                <button type="button" data-preset="rose_gold" class="opt-btn active">
+                  <div class="swatch-bar swatch-gold"></div>Rose Gold
+                </button>
+                <button type="button" data-preset="silver_crystal" class="opt-btn">
+                  <div class="swatch-bar swatch-silver"></div>Silver Crystal
+                </button>
+                <button type="button" data-preset="antique_bronze" class="opt-btn">
+                  <div class="swatch-bar swatch-bronze"></div>Bronze Metal
+                </button>
+              </div>
+            </div>
+
+            <!-- Background Theme selection -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                <i data-lucide="image" class="w-4 h-4 text-gold"></i>배경 자동합성 테마
+              </label>
+              <div class="particle-grid">
+                <button type="button" data-bg-theme="original" class="opt-btn active">원본 배경</button>
+                <button type="button" data-bg-theme="original_blurred" class="opt-btn">기본 블러 배경</button>
+                <button type="button" data-bg-theme="classic_hall" class="opt-btn">클래식 웨딩홀</button>
+                <button type="button" data-bg-theme="romantic_garden" class="opt-btn">로맨틱 가든</button>
+                <button type="button" data-bg-theme="starry_night" class="opt-btn">은하수 밤하늘</button>
+              </div>
+            </div>
+
+            <!-- Particle Preset selection -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-gold"></i>웨딩 파티클 필터
+              </label>
+              <div class="particle-grid">
+                <button type="button" data-particle="none" class="opt-btn">파티클 없음</button>
+                <button type="button" data-particle="gold_dust" class="opt-btn">럭셔리 금가루</button>
+                <button type="button" data-particle="white_petals" class="opt-btn">로맨틱 벚꽃</button>
+                <button type="button" data-particle="floating_hearts" class="opt-btn active font-bold">보석 결정 하트</button>
+                <button type="button" data-particle="confetti" class="opt-btn">축하 컨페티</button>
+              </div>
+            </div>
+
+            <!-- BGM track selection -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold text-white/50 uppercase tracking-widest flex items-center gap-2">
+                <i data-lucide="music" class="w-4 h-4 text-gold"></i>배경 음악 (BGM)
+              </label>
+              <div class="particle-grid">
+                <button type="button" data-bgm="none" class="opt-btn">BGM 없음</button>
+                <button type="button" id="bgm-wedding-btn" data-bgm="romantic_wedding" class="opt-btn active">Canon (클래식)</button>
+                <button type="button" data-bgm="bridal_chorus" class="opt-btn">Bridal Chorus (입장)</button>
+                <button type="button" data-bgm="wedding_march" class="opt-btn">Wedding March (행진)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action buttons and messages -->
+          <div class="space-y-4">
+            <div id="recording-status" class="hidden p-4 rounded-2xl bg-gold/10 border border-gold/20 text-xs text-gold/90 flex items-center gap-2.5 shadow-md">
+              <div class="w-4 h-4 rounded-full border-2 border-gold/20 border-t-gold spin-wrap"></div>
+              <span id="recording-text" class="font-bold">비디오 렌더링 및 오디오 믹싱 중...</span>
+            </div>
+
+            <div class="flex gap-4">
+              <button type="button" id="reset-btn" class="secondary-btn flex items-center justify-center shadow-lg active:scale-95" title="다시 만들기">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+              </button>
+              <button type="button" id="export-btn" class="flex-1 emerald-btn flex items-center justify-center gap-2.5 shadow-lg">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                marriage.mp4 동영상 만들기
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center text-white/20 text-xs gap-4">
+      <p>© 2026 mbox hologram. All rights reserved.</p>
+      <div class="flex gap-6">
+        <span class="text-gold/30">System Status: Operational</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Standalone Scripts -->
+  <script src="fanMotion.js"></script>
+  <script src="app.js"></script>
+
+  <script>
+    // Initialize lucide icons at load
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

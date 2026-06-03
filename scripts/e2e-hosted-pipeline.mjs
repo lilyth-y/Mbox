@@ -1,19 +1,25 @@
 /**
- * Browser E2E: hosted mbox — upload → analyze/crop → 3D cube → MP4 download.
+ * Browser E2E: hosted mbox — wedding hall (default) or classic upload pipeline.
  * Usage (from repo root, playwright installed):
  *   node scripts/e2e-hosted-pipeline.mjs
+ *   MBOX_E2E_MODE=classic node scripts/e2e-hosted-pipeline.mjs
+ *
+ * Timeouts (defaults): MBOX_ANALYZE_TIMEOUT_MS=480000, MBOX_RECORD_TIMEOUT_MS=180000
  */
-import { existsSync, statSync } from "node:fs";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { loadEnvLocal } from "./lib/load-env-local.mjs";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+loadEnvLocal(root);
 
 const WEB_URL =
   process.env.MBOX_WEB_URL ??
   "https://mbox-web-newmedia-496107.storage.googleapis.com/index.html";
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const E2E_MODE = process.env.MBOX_E2E_MODE ?? "wedding";
 const testImage =
   process.env.MBOX_TEST_IMAGE ??
   join(root, "experiments/assets/web-varied/web-portrait-tall.jpg");
@@ -23,15 +29,23 @@ if (!existsSync(testImage)) {
   process.exit(1);
 }
 
-const ANALYZE_TIMEOUT_MS = Number(process.env.MBOX_ANALYZE_TIMEOUT_MS ?? 180_000);
-const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 120_000);
+/** Hosted bg-removal + analyze often exceeds 3 min for 3 images on Cloud Run. */
+const ANALYZE_TIMEOUT_MS = Number(process.env.MBOX_ANALYZE_TIMEOUT_MS ?? 480_000);
+/** Fan timeline ~6s/step + encoder flush; allow headless BGM + MediaRecorder slack. */
+const RECORD_TIMEOUT_MS = Number(
+  process.env.MBOX_RECORD_TIMEOUT_MS ?? Math.max(240_000, 60_000 + 6_000 * 3 + 900 + 5_000),
+);
 const SKIP_MP4 = process.env.MBOX_SKIP_MP4 === "1";
+const DISABLE_BGM = process.env.MBOX_E2E_DISABLE_BGM !== "0";
 
 const browser = await chromium.launch({
   headless: process.env.MBOX_HEADED !== "1",
   args: ["--use-gl=angle", "--ignore-gpu-blocklist", "--enable-webgl"],
 });
 const context = await browser.newContext({ acceptDownloads: true });
+await context.addInitScript(() => {
+  window.__MBOX_E2E_EXPORT__ = true;
+});
 const page = await context.newPage();
 
 const consoleErrors = [];
@@ -44,18 +58,74 @@ const fail = (message) => {
   throw new Error(message);
 };
 
-try {
-  const response = await page.goto(WEB_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  if (!response?.ok()) fail(`Web load failed: ${response?.status()}`);
+async function runWeddingFlow() {
+  await page.getByText("웨딩 홀로그램 오퍼레이터").waitFor({ timeout: 30_000 });
 
-  const bodyText = await page.locator("body").innerText();
-  if (/localhost\s*demo/i.test(bodyText)) {
-    fail('Page still shows "Localhost Demo" badge');
-  }
-  if (/data\/asset\s*배치/i.test(bodyText)) {
-    fail("Dev asset batch button visible in production UI");
+  await page.locator('input[type="file"]').first().setInputFiles([testImage, testImage, testImage]);
+  await page
+    .getByRole("button", { name: /AI 원클릭 자동 보정.*시작/ })
+    .click();
+
+  const exportBtn = page.getByRole("button", { name: /marriage\.mp4 동영상 파일 내보내기/ });
+  await exportBtn.waitFor({ timeout: ANALYZE_TIMEOUT_MS });
+
+  let suggested = null;
+  let size = 0;
+  if (DISABLE_BGM) {
+    const noneBgm = page.getByRole("button", { name: /^없음$/ }).first();
+    if (await noneBgm.isVisible().catch(() => false)) {
+      await noneBgm.click();
+    }
   }
 
+  if (!SKIP_MP4) {
+    const downloadPromise = page
+      .waitForEvent("download", { timeout: RECORD_TIMEOUT_MS })
+      .then((download) => ({ kind: "download", download }))
+      .catch(() => null);
+    const exportDonePromise = page
+      .waitForFunction(
+        () => {
+          const payload = window.__MBOX_LAST_EXPORT__;
+          return payload != null && payload.bytes > 1024;
+        },
+        undefined,
+        { timeout: RECORD_TIMEOUT_MS },
+      )
+      .then(() => ({ kind: "e2e_hook" }));
+
+    await exportBtn.click();
+
+    const outcome = await Promise.race([downloadPromise, exportDonePromise]);
+    if (!outcome) {
+      fail(`Export timed out (${RECORD_TIMEOUT_MS}ms)`);
+    }
+
+    if (outcome.kind === "download") {
+      suggested = outcome.download.suggestedFilename();
+      const outDir = mkdtempSync(join(tmpdir(), "mbox-e2e-"));
+      const outPath = join(outDir, suggested);
+      await outcome.download.saveAs(outPath);
+      size = statSync(outPath).size;
+    } else {
+      const payload = await page.evaluate(() => window.__MBOX_LAST_EXPORT__);
+      suggested = payload?.filename ?? "marriage.e2e";
+      size = payload?.bytes ?? 0;
+    }
+
+    if (!/\.(webm|mp4)$/i.test(suggested)) {
+      fail(`Unexpected download filename: ${suggested}`);
+    }
+    if (size < 1024) {
+      fail(`Download too small (${size} bytes): ${suggested}`);
+    }
+  }
+
+  return { suggested, size };
+}
+
+async function runClassicFlow() {
+  await page.getByRole("button", { name: /프로세싱/ }).click();
   await page.locator('input[type="file"]').setInputFiles(testImage);
   await page.getByRole("button", { name: /분석·크롭 시작/ }).click();
 
@@ -67,7 +137,6 @@ try {
 
   await page.getByRole("button", { name: /3D 큐브/ }).click();
   await page.getByText("3D VISUALIZATION").waitFor({ timeout: 30_000 });
-
   await page.getByRole("button", { name: /연출 적용/ }).first().click();
 
   const mp4Button = page.getByRole("button", { name: /MP4 생성/ }).first();
@@ -100,6 +169,24 @@ try {
     }
   }
 
+  return { suggested, size };
+}
+
+try {
+  const response = await page.goto(WEB_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  if (!response?.ok()) fail(`Web load failed: ${response?.status()}`);
+
+  const bodyText = await page.locator("body").innerText();
+  if (/localhost\s*demo/i.test(bodyText)) {
+    fail('Page still shows "Localhost Demo" badge');
+  }
+  if (/data\/asset\s*배치/i.test(bodyText)) {
+    fail("Dev asset batch button visible in production UI");
+  }
+
+  const result =
+    E2E_MODE === "classic" ? await runClassicFlow() : await runWeddingFlow();
+
   const blocking = consoleErrors.filter((line) =>
     /cors|failed to fetch|invalid api key|401|403/i.test(line),
   );
@@ -111,11 +198,12 @@ try {
     JSON.stringify(
       {
         ok: true,
+        mode: E2E_MODE,
         webUrl: WEB_URL,
         testImage,
         skipMp4: SKIP_MP4,
-        downloadFile: suggested,
-        downloadBytes: size,
+        downloadFile: result.suggested,
+        downloadBytes: result.size,
         consoleErrorCount: consoleErrors.length,
       },
       null,

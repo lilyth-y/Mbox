@@ -1,8 +1,38 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+
+/** imgly WASM needs COEP on the main app; wedding-simple CDN scripts need COEP relaxed. */
+function conditionalCrossOriginIsolation(): Plugin {
+  const applyHeaders = (
+    req: { url?: string },
+    res: { setHeader: (name: string, value: string) => void },
+    next: () => void,
+  ) => {
+    const pathname = (req.url ?? "").split("?")[0];
+    const isWeddingSimple =
+      pathname === "/wedding-simple" || pathname.startsWith("/wedding-simple/");
+
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader(
+      "Cross-Origin-Embedder-Policy",
+      isWeddingSimple ? "unsafe-none" : "require-corp",
+    );
+    next();
+  };
+
+  return {
+    name: "conditional-cross-origin-isolation",
+    configureServer(server) {
+      server.middlewares.use(applyHeaders);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(applyHeaders);
+    },
+  };
+}
 
 const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const sharedRoot = path.resolve(webRoot, "../../packages/shared");
@@ -23,7 +53,7 @@ export default defineConfig(({ mode }) => {
   // GCS / subdirectory hosting: absolute "/assets/..." breaks on
   // https://storage.googleapis.com/BUCKET/index.html (resolves to host root).
   base: "./",
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), conditionalCrossOriginIsolation()],
   resolve: {
     alias: {
       "@mbox/shared": path.resolve(sharedRoot, "src/index.ts"),
@@ -34,17 +64,9 @@ export default defineConfig(({ mode }) => {
     fs: {
       allow: [webRoot, sharedRoot],
     },
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
   },
   preview: {
     port: 4173,
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
   },
   optimizeDeps: {
     exclude: ["@imgly/background-removal"],

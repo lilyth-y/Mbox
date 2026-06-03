@@ -52,6 +52,8 @@ export interface ProcessedImage {
   preCropSourceUrl?: string;
   /** Blurred plate from pre-cutout source; used as the slow parallax layer in 3D. */
   backgroundPlateUrl?: string;
+  /** BG plate + cutout FG baked for cube face surface (fan mode). */
+  faceCompositeUrl?: string;
   label: string;
   userCategory?: string;
   aiSuggestedCategory: string;
@@ -72,7 +74,7 @@ export interface ProcessedImage {
   resolutionEnhanceScale?: ResolutionEnhanceScale;
 }
 
-export type AppTab = "upload" | "postprocess" | "cube";
+export type AppTab = "upload" | "postprocess" | "cube" | "wedding_hall";
 
 export interface HoloEvent {
   id: string;

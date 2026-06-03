@@ -1,7 +1,11 @@
 import type { ProcessedImage } from "../../shared/types";
 import { cropImage } from "../../shared/lib/cropImage";
 import { estimateDataUrlBytes } from "../../shared/lib/mediaLimits";
-import { createBackgroundPlateDataUrl } from "../../shared/lib/backgroundPlate";
+import {
+  createBackgroundPlateDataUrl,
+  createFaceCompositeDataUrl,
+  type BackgroundPlateTheme,
+} from "../../shared/lib/backgroundPlate";
 import {
   prepareBackgroundRemovalEngine,
   removeBackgroundForImage,
@@ -9,11 +13,13 @@ import {
 
 interface ApplyBackgroundRemovalOptions {
   onStatus?: (message: string) => void;
+  backgroundPlateTheme?: BackgroundPlateTheme;
 }
 
 interface ApplyBackgroundRemovalBatchOptions extends ApplyBackgroundRemovalOptions {
   onProgress?: (current: number, total: number, message: string) => void;
   concurrency?: number;
+  backgroundPlateTheme?: BackgroundPlateTheme;
 }
 
 /** After WASM preload, 2 parallel removals balance speed and GPU memory. */
@@ -27,24 +33,56 @@ export async function applyBackgroundRemoval(
   const sourceUrl = image.preCropSourceUrl ?? image.originalUrl;
 
   onStatus?.(`[${image.label}] 배경 플레이트 생성 중...`);
-  const backgroundPlateUrl = await createBackgroundPlateDataUrl(sourceUrl);
+  const backgroundPlateUrl = await createBackgroundPlateDataUrl(sourceUrl, {
+    theme: options.backgroundPlateTheme,
+  });
 
-  const editResult = await removeBackgroundForImage(image, sourceUrl, onStatus);
+  try {
+    const editResult = await removeBackgroundForImage(image, sourceUrl, onStatus);
 
-  onStatus?.(`[${image.label}] 배경 제거 결과를 1024x1024로 맞추는 중...`);
-  const editedUrl = `data:${editResult.mimeType};base64,${editResult.imageBase64}`;
-  const cropped = await cropImage(editedUrl, image.center, image.focus);
+    onStatus?.(`[${image.label}] 배경 제거 결과를 1024x1024로 맞추는 중...`);
+    const editedUrl = `data:${editResult.mimeType};base64,${editResult.imageBase64}`;
+    const cropped = await cropImage(editedUrl, image.center, image.focus);
+    const faceCompositeUrl = await createFaceCompositeDataUrl(cropped, backgroundPlateUrl);
 
-  return {
-    ...image,
-    preCropSourceUrl: editedUrl,
-    preparedUrl: cropped,
-    url: cropped,
-    backgroundPlateUrl,
-    preprocessMode: "background_removed",
-    byteSize:
-      estimateDataUrlBytes(cropped) + estimateDataUrlBytes(backgroundPlateUrl),
-  };
+    return {
+      ...image,
+      preCropSourceUrl: editedUrl,
+      preparedUrl: cropped,
+      url: cropped,
+      backgroundPlateUrl,
+      faceCompositeUrl,
+      preprocessMode: "background_removed",
+      byteSize:
+        estimateDataUrlBytes(cropped) +
+        estimateDataUrlBytes(backgroundPlateUrl) +
+        estimateDataUrlBytes(faceCompositeUrl),
+    };
+  } catch (error) {
+    // IMPORTANT: "누끼가 엎어도" 프로세싱 전체가 멈추지 않도록 안전 폴백.
+    // 누끼 실패 시에도 배경 플레이트 + (원본 기반) face composite는 만들어
+    // 홀로그램/미리보기 파이프라인을 계속 진행할 수 있게 한다.
+    const reason = error instanceof Error ? error.message : String(error);
+    onStatus?.(`[${image.label}] 배경 제거 실패 — 원본으로 계속 진행합니다. (${reason})`);
+
+    onStatus?.(`[${image.label}] 원본을 1024x1024로 맞추는 중...`);
+    const cropped = await cropImage(sourceUrl, image.center, image.focus);
+    const faceCompositeUrl = await createFaceCompositeDataUrl(cropped, backgroundPlateUrl);
+
+    return {
+      ...image,
+      preCropSourceUrl: sourceUrl,
+      preparedUrl: cropped,
+      url: cropped,
+      backgroundPlateUrl,
+      faceCompositeUrl,
+      preprocessMode: "original",
+      byteSize:
+        estimateDataUrlBytes(cropped) +
+        estimateDataUrlBytes(backgroundPlateUrl) +
+        estimateDataUrlBytes(faceCompositeUrl),
+    };
+  }
 }
 
 export async function applyBackgroundRemovalBatch(
@@ -87,10 +125,24 @@ export async function applyBackgroundRemovalBatch(
       }
 
       report(`[${completed + 1}/${pending.length}] ${image.label} 배경 제거(누끼) 중...`);
-      const updated = await applyBackgroundRemoval(image, { onStatus: options.onStatus });
-      byId.set(updated.id, updated);
-      completed += 1;
-      report(`[${completed}/${pending.length}] ${image.label} 배경 제거 완료`);
+      try {
+        const updated = await applyBackgroundRemoval(image, {
+          onStatus: options.onStatus,
+          backgroundPlateTheme: options.backgroundPlateTheme,
+        });
+        byId.set(updated.id, updated);
+        completed += 1;
+        report(
+          `[${completed}/${pending.length}] ${image.label} ${
+            updated.preprocessMode === "background_removed" ? "배경 제거 완료" : "원본 폴백 완료"
+          }`
+        );
+      } catch (error) {
+        // applyBackgroundRemoval 자체도 실패할 수 있는 예외(캔버스/메모리 등)까지 잡고 계속 진행.
+        const reason = error instanceof Error ? error.message : String(error);
+        completed += 1;
+        report(`[${completed}/${pending.length}] ${image.label} 처리 실패 — 건너뜁니다. (${reason})`);
+      }
     }
   };
 

@@ -90,16 +90,33 @@ export async function removeBackgroundWithImgly(
   const { removeBackground } = await loadImglyModule();
   let lastError: unknown;
 
+  // Try GPU first for all models
   for (const model of IMGLY_SEGMENTATION_MODEL_FALLBACKS) {
     try {
-      const blob = await removeBackground(source, buildConfig(model, onProgress));
+      const config = buildConfig(model, onProgress);
+      config.device = "gpu";
+      const blob = await removeBackground(source, config);
       return { blob, model };
     } catch (error) {
       lastError = error;
+      console.warn(`[imgly] GPU background removal failed for model ${model}:`, error);
+    }
+  }
+
+  // Fallback to CPU for all models
+  for (const model of IMGLY_SEGMENTATION_MODEL_FALLBACKS) {
+    try {
+      const config = buildConfig(model, onProgress);
+      config.device = "cpu";
+      const blob = await removeBackground(source, config);
+      return { blob, model };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[imgly] CPU background removal failed for model ${model}:`, error);
     }
   }
 
   throw lastError instanceof Error
     ? lastError
-    : new Error("Browser background removal failed for all segmentation models.");
+    : new Error("Browser background removal failed for all segmentation models on both GPU and CPU.");
 }

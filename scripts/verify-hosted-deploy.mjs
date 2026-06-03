@@ -3,10 +3,15 @@
  *
  *   node scripts/verify-hosted-deploy.mjs
  *   MBOX_SKIP_BROWSER=1 node scripts/verify-hosted-deploy.mjs
+ *
+ * Browser subprocess: MBOX_E2E_TIMEOUT_MS=720000 (spawn), MBOX_ANALYZE_TIMEOUT_MS=480000 (Playwright)
  */
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEnvLocal } from "./lib/load-env-local.mjs";
+
+loadEnvLocal(join(dirname(fileURLToPath(import.meta.url)), ".."));
 
 const WEB_URL =
   process.env.MBOX_WEB_URL ??
@@ -85,12 +90,14 @@ try {
         {
           cwd: root,
           encoding: "utf8",
-          timeout: Number(process.env.MBOX_E2E_TIMEOUT_MS ?? 360_000),
+          timeout: Number(process.env.MBOX_E2E_TIMEOUT_MS ?? 720_000),
           env: {
             ...process.env,
             MBOX_SKIP_MP4: "1",
+            MBOX_E2E_MODE: process.env.MBOX_E2E_MODE ?? "wedding",
             MBOX_WEB_URL: WEB_URL,
-            MBOX_ANALYZE_TIMEOUT_MS: process.env.MBOX_ANALYZE_TIMEOUT_MS ?? "240000",
+            MBOX_ANALYZE_TIMEOUT_MS: process.env.MBOX_ANALYZE_TIMEOUT_MS ?? "480000",
+            MBOX_RECORD_TIMEOUT_MS: process.env.MBOX_RECORD_TIMEOUT_MS ?? "180000",
           },
         },
       );

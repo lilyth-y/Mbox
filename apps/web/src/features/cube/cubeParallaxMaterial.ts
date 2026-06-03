@@ -25,6 +25,7 @@ uniform float uDepthGain;
 uniform vec4 uSubjectBounds;
 uniform vec2 uFocus;
 uniform float uFramePreset;
+uniform float uHologramMode;
 varying vec2 vUv;
 
 ${PHOTO_FRAME_GLSL}
@@ -58,9 +59,14 @@ void main() {
   float portraitMul = mix(1.75, mix(3.45, 3.05, background), uPortraitBoost);
   float separation = depthWeight * uParallax * portraitMul * uDepthGain;
   float scale = 1.0 - separation;
-  vec2 warped = uFocus + delta * scale;
+  vec2 baseUv = vUv;
+  vec2 warped = uFocus + (baseUv - uFocus) * scale;
   vec4 tex = texture2D(uTexture, warped);
-  gl_FragColor = applyPhotoFrame(tex, vUv, uFramePreset);
+  vec4 framed = applyPhotoFrame(tex, vUv, uFramePreset, uHologramMode);
+  if (uHologramMode > 0.5) {
+    framed.a = 1.0;
+  }
+  gl_FragColor = framed;
 }
 `;
 
@@ -87,6 +93,7 @@ export interface ParallaxMaterialOptions {
   portraitBoost?: boolean;
   subjectBounds?: SubjectBounds;
   framePresetId?: CubeFramePresetId;
+  hologramMode?: boolean;
 }
 
 export function createParallaxMaterial(
@@ -113,6 +120,7 @@ export function createParallaxMaterial(
           : new THREE.Vector4(0, 0, 1, 1),
       },
       uFocus: { value: toFocusVector(center) },
+      uHologramMode: { value: options.hologramMode ? 1.0 : 0.0 },
       ...createFramePresetUniform(framePresetId),
     },
     vertexShader,
@@ -152,6 +160,9 @@ export function updateParallaxMaterial(
     : new THREE.Vector4(0, 0, 1, 1);
   material.uniforms.uDepthGain.value = DEPTH_EMPHASIS;
   material.uniforms.uParallax.value = Math.min(PARALLAX_MAX, Math.max(0, amount));
+  if (material.uniforms.uHologramMode) {
+    material.uniforms.uHologramMode.value = options.hologramMode ? 1.0 : 0.0;
+  }
   if (options.framePresetId) {
     setFramePresetUniform(
       material.uniforms as { uFramePreset: { value: number } },

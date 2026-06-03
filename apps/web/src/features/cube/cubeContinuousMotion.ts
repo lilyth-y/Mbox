@@ -7,6 +7,7 @@ import {
   getCubeEntryRotation,
   getCubeExitRotation,
   slerpCubeTransition,
+  type CubeRotationMode,
 } from "./cubeTransitionRotation";
 import { getFaceRotation } from "./cubeSequence";
 
@@ -81,7 +82,8 @@ export function resolveCubeRotation(
   step: number,
   sample: CubeMotionSample,
   currentFace: number,
-  presentationCount: number
+  presentationCount: number,
+  rotationMode: CubeRotationMode = "auto"
 ): THREE.Euler {
   const faceRotation = getFaceRotation(currentFace);
 
@@ -94,7 +96,8 @@ export function resolveCubeRotation(
       faceRotation,
       getCubeExitRotation(step, presentationCount),
       sample.alpha,
-      step + 1
+      step + 1,
+      rotationMode
     );
   }
 
@@ -102,6 +105,7 @@ export function resolveCubeRotation(
     getCubeEntryRotation(step),
     faceRotation,
     sample.alpha,
-    step
+    step,
+    rotationMode
   );
 }

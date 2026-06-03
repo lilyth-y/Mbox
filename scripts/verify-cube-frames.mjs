@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { waitForApiReady } from "./lib/wait-for-api.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "experiments", "outputs", "cube_frame_verify");
@@ -19,7 +20,11 @@ const WEB_URL = process.env.WEB_URL ?? "http://localhost:5173";
 const API_URL = process.env.API_URL ?? "http://127.0.0.1:8787";
 const SAMPLE_COUNT = Number(process.env.MBOX_SAMPLE_COUNT ?? "2");
 const SKIP_MP4 = process.env.SKIP_MP4 === "1";
+const API_READY_TIMEOUT_MS = Number(process.env.API_READY_TIMEOUT_MS ?? 120_000);
 const FRAME_LABELS = ["로즈골드", "펄 화이트", "클래식 블랙", "세이지 가든", "로열 네이비"];
+// NOTE: cube_focus ("1. 정육면체") is the default effect and is NOT shown in the beta template list.
+// We verify cube_focus implicitly (first canvas paint check + MP4), and verify 2..5 via beta buttons.
+const BETA_EFFECT_LABELS = ["2. 책 펼침", "3. 원판 회전", "4. 궤도 갤러리", "5. 앨범 넘김", "6. 3D 슬라이드쇼"];
 
 mkdirSync(shotsDir, { recursive: true });
 
@@ -29,6 +34,7 @@ const result = {
   ok: false,
   frames: [],
   mp4: null,
+  effects: [],
 };
 
 function slug(label) {
@@ -36,10 +42,7 @@ function slug(label) {
 }
 
 async function main() {
-  const health = await fetch(`${API_URL}/health`);
-  if (!health.ok) {
-    throw new Error(`API not ready: ${API_URL} (${health.status})`);
-  }
+  await waitForApiReady(API_URL, API_READY_TIMEOUT_MS);
 
   const assetDir = join(root, "data", "asset", "temp_1778692001076.-1818431043");
   const jpgs = readdirSync(assetDir)
@@ -63,8 +66,54 @@ async function main() {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
+  const measureCanvasPaint = async () => {
+    return await page.evaluate(() => {
+      const canvas = document.querySelector("canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        return { ok: false, reason: "missing canvas" };
+      }
+      const w = Math.max(1, Math.floor(canvas.width));
+      const h = Math.max(1, Math.floor(canvas.height));
+      const tmp = document.createElement("canvas");
+      tmp.width = w;
+      tmp.height = h;
+      const ctx = tmp.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        return { ok: false, reason: "no 2d ctx" };
+      }
+      ctx.drawImage(canvas, 0, 0);
+      const img = ctx.getImageData(0, 0, w, h).data;
+      const step = Math.max(1, Math.floor(Math.min(w, h) / 64));
+      let n = 0;
+      let nonBlack = 0;
+      let sum = 0;
+      let sum2 = 0;
+      for (let y = 0; y < h; y += step) {
+        for (let x = 0; x < w; x += step) {
+          const i = (y * w + x) * 4;
+          const r = img[i] ?? 0;
+          const g = img[i + 1] ?? 0;
+          const b = img[i + 2] ?? 0;
+          const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          sum += l;
+          sum2 += l * l;
+          if (l > 8) nonBlack += 1;
+          n += 1;
+        }
+      }
+      const mean = sum / Math.max(1, n);
+      const varL = sum2 / Math.max(1, n) - mean * mean;
+      const nonBlackRatio = nonBlack / Math.max(1, n);
+      const ok = nonBlackRatio > 0.01;
+      return { ok, w, h, mean: +mean.toFixed(2), varL: +varL.toFixed(2), nonBlackRatio: +nonBlackRatio.toFixed(4) };
+    });
+  };
+
   try {
     await page.goto(WEB_URL, { waitUntil: "domcontentloaded", timeout: 120_000 });
+
+    // Navigate to the upload (processing) tab first since activeTab defaults to wedding_hall
+    await page.getByRole("button", { name: "프로세싱" }).click();
 
     await page.locator('input[type="file"]').setInputFiles(jpgs);
     await page.getByRole("button", { name: /분석·크롭 시작/ }).click();
@@ -76,12 +125,78 @@ async function main() {
 
     await page.getByRole("button", { name: /3D 큐브/ }).click();
     await page.getByText(new RegExp(`재생 ${SAMPLE_COUNT}장`)).waitFor({ timeout: 60_000 });
+
+    // Enable hologram fan preview mode (1:1 + particles) to match operator usage.
+    const holoToggle = page.getByRole("checkbox", { name: /3D 홀로그램 팬 모드/ });
+    await holoToggle.waitFor({ state: "visible", timeout: 15_000 });
+    if (!(await holoToggle.isChecked().catch(() => false))) {
+      await holoToggle.check();
+      await page.waitForTimeout(750);
+    }
+
+    // Ensure a visible particle theme (matches hologram fan operator expectations).
+    const goldDust = page.getByRole("button", { name: /금가루|Gold/ }).first();
+    await goldDust.waitFor({ state: "visible", timeout: 15_000 });
+    await goldDust.click();
+    await page.waitForTimeout(750);
+
+    // Enable VoluMax mood FX if present.
+    const voluMaxToggle = page.getByRole("checkbox", { name: /VoluMax 무드 FX/ });
+    if (await voluMaxToggle.count().catch(() => 0)) {
+      await voluMaxToggle.first().check().catch(() => {});
+      await page.getByRole("button", { name: /^Medium$/ }).first().click().catch(() => {});
+      await page.waitForTimeout(750);
+    }
+
+    // Enable CS5 reference assets (VoluMax PNG + confetti MOV) when toggles exist.
+    for (const label of [
+      /Box Logo — Lens/,
+      /VoluMax — Flare/,
+      /VoluMax — Clouds/,
+      /VoluMax — Dirt/,
+      /VoluMax — Dust/,
+      /Confetti Pack/,
+    ]) {
+      const toggle = page.getByRole("checkbox", { name: label });
+      if (await toggle.count().catch(() => 0)) {
+        await toggle.first().check().catch(() => {});
+      }
+    }
+    await page.waitForTimeout(500);
+
     await page.getByRole("button", { name: /연출 적용/ }).first().click();
     const canvas = page.locator("canvas").first();
     await canvas.waitFor({ state: "visible", timeout: 30_000 });
     await page.waitForTimeout(6_000);
+    const paint = await measureCanvasPaint();
+    if (!paint.ok) {
+      throw new Error(`Canvas appears blank/unpainted: ${JSON.stringify(paint)}`);
+    }
 
     await page.screenshot({ path: join(outDir, "00_cube_tab.png"), fullPage: true });
+
+    // Ensure all effect buttons are visible (some are behind "베타 템플릿" toggle).
+    const showBeta = page.getByRole("button", { name: /베타 템플릿 숨기기|다른 연출 템플릿/ }).first();
+    if (await showBeta.isVisible().catch(() => false)) {
+      await showBeta.click().catch(() => {});
+      await page.waitForTimeout(750);
+    }
+
+    // Verify all built-in effects render (non-blank canvas).
+    for (const effectLabel of BETA_EFFECT_LABELS) {
+      const btn = page.getByRole("button", { name: new RegExp(effectLabel) }).first();
+      await btn.waitFor({ state: "visible", timeout: 15_000 });
+      await btn.click();
+      await page.waitForTimeout(750);
+      await page.getByRole("button", { name: /연출 적용/ }).first().click();
+      await page.waitForTimeout(2_500);
+      const p = await measureCanvasPaint();
+      const ok = Boolean(p.ok);
+      result.effects.push({ effectLabel, ok, paint: p });
+      if (!ok) {
+        throw new Error(`Effect render blank: ${effectLabel} ${JSON.stringify(p)}`);
+      }
+    }
 
     for (const label of FRAME_LABELS) {
       const btn = page.getByRole("button", { name: new RegExp(label) }).first();
@@ -133,6 +248,8 @@ async function main() {
     result.ok =
       result.frames.length === FRAME_LABELS.length &&
       result.frames.every((f) => f.ok) &&
+      result.effects.length === BETA_EFFECT_LABELS.length &&
+      result.effects.every((e) => e.ok) &&
       (SKIP_MP4 || result.mp4?.ok === true);
     result.errors = errors.slice(0, 8);
   } finally {

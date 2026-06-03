@@ -13,9 +13,14 @@ import {
   resolvePresentationTimeline,
   sumSegmentDurations,
 } from "./cubeMotionVariety";
-import { computeCubeLoopBridgeFrame, computePresentationFrame } from "./presentationFrame";
+import {
+  computePresentationFrame,
+  computePresentationLoopBridgeFrame,
+} from "./presentationFrame";
+import { getGradientShift } from "./presentationGradient";
 import { PRESENTATION_EFFECTS, type PresentationEffectId } from "./presentationEffects";
 import { createPresentationScene } from "./presentationScene";
+import { cs5FxOptionsFromSettings } from "./cs5Fx";
 import {
   constrainPresentationImages,
   formatPresentationBytes,
@@ -32,6 +37,14 @@ import {
   resolveRecordingMimeType,
 } from "./cubeRecorder";
 import {
+  applyExportRendererSize,
+  restoreRendererLayout,
+  resolveCubeExportPixelSize,
+  resolveVideoBitsPerSecond,
+  snapshotRendererLayout,
+  waitForRendererFrames,
+} from "./cubeExportCapture";
+import {
   CubeFocusPanel,
   DEFAULT_CUBE_FOCUS_SETTINGS,
   type CubeFocusSettings,
@@ -41,6 +54,13 @@ import { resolveBgmSource } from "./bgm/bgmTracks";
 import { startBgmRecordingSession } from "./bgm/compositeStreamWithBgm";
 import { applyResolutionEnhanceBatch } from "../processing/applyResolutionEnhance";
 import type { PresentationScene } from "./presentationScene";
+import {
+  aimCameraAtCubeOrigin,
+  applyHologramPreviewScale,
+  clearCubeMount,
+  disposeCubeRenderer,
+  syncRendererToContainer,
+} from "./cubeSceneLifecycle";
 
 interface CubeViewProps {
   active: boolean;
@@ -55,6 +75,17 @@ export function CubeView({
 }: CubeViewProps) {
   const cubeContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRuntimeRef = useRef<{
+    renderer: THREE.WebGLRenderer;
+    camera: THREE.PerspectiveCamera;
+    container: HTMLDivElement;
+    scene: THREE.Scene;
+  } | null>(null);
+  const texturesRef = useRef<{
+    textures: THREE.Texture[];
+    plateTextures: Array<THREE.Texture | null>;
+    faceCompositeTextures: Array<THREE.Texture | null>;
+  } | null>(null);
   const requestRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
   const timelineStartRef = useRef(performance.now());
@@ -115,29 +146,48 @@ export function CubeView({
     [segmentMsByStep]
   );
   const presentationDurationMs = contentDurationMs + loopBridgeMs;
+  const selectedEffectMeta = useMemo(
+    () => PRESENTATION_EFFECTS.find((effect) => effect.id === selectedEffect),
+    [selectedEffect]
+  );
+
+  const handleSelectEffect = (effectId: PresentationEffectId) => {
+    if (isRecording || effectId === selectedEffect) {
+      return;
+    }
+    setSelectedEffect(effectId);
+    setPresentationKey((value) => value + 1);
+    setCurrentStep(0);
+    const label = PRESENTATION_EFFECTS.find((effect) => effect.id === effectId)?.label;
+    setRecordingMessage(
+      label ? `${label} 연출로 처음부터 다시 시작합니다.` : "연출 템플릿을 변경했습니다."
+    );
+    window.setTimeout(() => setRecordingMessage(""), 4000);
+  };
+
   useEffect(() => {
     if (!active || !cubeContainerRef.current || presentationCount === 0) {
       return;
     }
 
     const container = cubeContainerRef.current;
-    if (rendererRef.current) {
-      container.removeChild(rendererRef.current.domElement);
-    }
-
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    disposeCubeRenderer(container, rendererRef.current);
+    clearCubeMount(container);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(framePreset.sceneBackground);
+    scene.background = cubeSettings.hologramMode
+      ? new THREE.Color(0x000000)
+      : new THREE.Color(framePreset.sceneBackground);
 
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
     camera.position.z = 5;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 1.0);
     container.appendChild(renderer.domElement);
+    syncRendererToContainer(renderer, camera, container);
     rendererRef.current = renderer;
+    sceneRuntimeRef.current = { renderer, camera, container, scene };
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.75));
     const pointLight = new THREE.PointLight(0xffffff, 1.1);
@@ -149,21 +199,42 @@ export function CubeView({
     const plateTextures = orderedImages.map((image) =>
       image.backgroundPlateUrl ? loader.load(image.backgroundPlateUrl) : null
     );
+    const faceCompositeTextures = orderedImages.map((image) =>
+      image.faceCompositeUrl ? loader.load(image.faceCompositeUrl) : null
+    );
+    texturesRef.current = { textures, plateTextures, faceCompositeTextures };
     const presentation = createPresentationScene(
       selectedEffect,
       orderedImages,
       textures,
       plateTextures,
-      cubeSettings.framePresetId
+      cubeSettings.framePresetId,
+      cubeSettings.hologramMode,
+      cubeSettings.particleTheme,
+      selectedEffect === "cube_focus" ? faceCompositeTextures : []
     );
     presentationRef.current = presentation;
     scene.add(presentation.root);
+    presentation.setVoluMaxFx(cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode, cubeSettings.voluMaxFxIntensity);
+    presentation.setCs5Fx(
+      cubeSettings.hologramMode ? cs5FxOptionsFromSettings(cubeSettings) : null
+    );
+    if (selectedEffect === "cube_focus") {
+      presentation.resetTextureCarousel?.();
+    }
 
     timelineStartRef.current = performance.now();
+    let lastTime = performance.now();
     const recordingDuration = presentationDurationMs;
     let appliedStep = -1;
 
     const animate = (now: number) => {
+      const deltaMs = now - lastTime;
+      lastTime = now;
+
+      // Update particle physics
+      presentation.updateParticles(deltaMs);
+
       const elapsed = now - timelineStartRef.current;
       const timeline =
         recordingRef.current || recordingDuration <= 0
@@ -172,6 +243,40 @@ export function CubeView({
       const resolved = resolvePresentationTimeline(timeline, segmentMsByStep, loopBridgeMs);
 
       if (resolved.kind === "loop_bridge") {
+        if (selectedEffect !== "cube_focus") {
+          // loopBridgeMs should be 0; hold last step until timeline wraps
+          const holdStep = resolved.lastStep;
+          const frame = computePresentationFrame(
+            selectedEffect,
+            holdStep,
+            0,
+            presentationCount,
+            getPresentationFace(holdStep),
+            {
+              timing: getStepPhaseTiming(
+                motionSeed,
+                holdStep,
+                ZOOM_MS,
+                PARALLAX_MS,
+                selectedEffect,
+                presentationCount
+              ),
+              variety: getStepMotionVariety(motionSeed, holdStep),
+              imageCenter: orderedImages[holdStep]?.center,
+              cubeRotationMode: cubeSettings.cubeRotationMode,
+              exportRecording: recordingRef.current,
+              motionSeed,
+            }
+          );
+          frame.applyRootTransform(presentation.root, holdStep, presentationCount);
+          camera.position.x = frame.cameraOffsetX ?? 0;
+          camera.position.y = frame.cameraOffsetY ?? 0;
+          camera.position.z = frame.cameraZ;
+          camera.fov = frame.fieldOfView;
+          camera.updateProjectionMatrix();
+          aimCameraAtCubeOrigin(camera);
+          presentation.setParallaxAmount(holdStep, frame.parallaxAmount, frame.focusPulse ?? 0);
+        } else {
         const textureStep =
           loopBridgeMs > 0 && resolved.bridgeElapsed >= loopBridgeMs * 0.82
             ? 0
@@ -181,18 +286,31 @@ export function CubeView({
           setCurrentStep(textureStep + 1);
           appliedStep = textureStep;
         }
-        const frame = computeCubeLoopBridgeFrame(
+        const frame = computePresentationLoopBridgeFrame(
+          selectedEffect,
           resolved.bridgeElapsed,
           loopBridgeMs,
           resolved.lastStep
         );
         frame.applyRootTransform(presentation.root, resolved.lastStep, presentationCount);
+        if (cubeSettings.hologramMode && !recordingRef.current) {
+          applyHologramPreviewScale(presentation.root);
+        }
+        presentation.setVoluMaxFx(
+          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode && !recordingRef.current,
+          cubeSettings.voluMaxFxIntensity
+        );
+        presentation.setCs5Fx(
+          cubeSettings.hologramMode ? cs5FxOptionsFromSettings(cubeSettings) : null
+        );
         camera.position.x = 0;
         camera.position.y = 0;
         camera.position.z = frame.cameraZ;
         camera.fov = frame.fieldOfView;
         camera.updateProjectionMatrix();
+        aimCameraAtCubeOrigin(camera);
         presentation.setParallaxAmount(resolved.lastStep, 0);
+        }
       } else {
         const { step, stepElapsed } = resolved;
         const currentFace = getPresentationFace(step);
@@ -212,39 +330,65 @@ export function CubeView({
           appliedStep = step;
         }
 
+        const stepCenter = orderedImages[step]?.center;
         const frame = computePresentationFrame(
           selectedEffect,
           step,
           stepElapsed,
           presentationCount,
           currentFace,
-          { timing: stepTiming, variety: stepVariety }
+          {
+            timing: stepTiming,
+            variety: stepVariety,
+            imageCenter: cubeSettings.hologramMode ? { x: 50, y: 50 } : stepCenter,
+            cubeRotationMode: cubeSettings.cubeRotationMode,
+            exportRecording: recordingRef.current,
+            motionSeed,
+            hologramMode: cubeSettings.hologramMode,
+          }
         );
         frame.applyRootTransform(presentation.root, step, presentationCount);
+        if (cubeSettings.hologramMode && !recordingRef.current) {
+          applyHologramPreviewScale(presentation.root);
+        }
+        presentation.setVoluMaxFx(
+          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode && !recordingRef.current,
+          cubeSettings.voluMaxFxIntensity
+        );
+        presentation.setCs5Fx(
+          cubeSettings.hologramMode ? cs5FxOptionsFromSettings(cubeSettings) : null
+        );
         camera.position.x = frame.cameraOffsetX ?? 0;
         camera.position.y = frame.cameraOffsetY ?? 0;
         camera.position.z = frame.cameraZ;
         camera.fov = frame.fieldOfView;
         camera.updateProjectionMatrix();
-        presentation.setParallaxAmount(step, frame.parallaxAmount);
+        aimCameraAtCubeOrigin(camera);
+        presentation.setParallaxAmount(step, frame.parallaxAmount, frame.focusPulse ?? 0);
       }
+      if (selectedEffect === "cube_focus" && presentation.updateTextureCarousel) {
+        presentation.updateTextureCarousel(presentation.root.rotation.y);
+      }
+      presentation.setGradientShift(
+        getGradientShift(elapsed),
+        cubeSettings.gradientColorCycle
+      );
 
       renderer.render(scene, camera);
       requestRef.current = requestAnimationFrame(animate);
     };
 
     const handleResize = () => {
-      const nextWidth = container.clientWidth;
-      const nextHeight = container.clientHeight;
-      renderer.setSize(nextWidth, nextHeight);
-      camera.aspect = nextWidth / nextHeight;
-      camera.updateProjectionMatrix();
+      syncRendererToContainer(renderer, camera, container);
     };
 
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
     window.addEventListener("resize", handleResize);
     requestRef.current = requestAnimationFrame(animate);
 
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener("resize", handleResize);
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
@@ -253,8 +397,11 @@ export function CubeView({
       presentation.dispose();
       textures.forEach((texture) => texture.dispose());
       plateTextures.forEach((texture) => texture?.dispose());
-      renderer.dispose();
+      faceCompositeTextures.forEach((texture) => texture?.dispose());
+      disposeCubeRenderer(container, renderer);
       rendererRef.current = null;
+      sceneRuntimeRef.current = null;
+      texturesRef.current = null;
     };
   }, [
     active,
@@ -269,6 +416,10 @@ export function CubeView({
     selectedEffect,
     cubeSettings.framePresetId,
     framePreset.sceneBackground,
+    cubeSettings.hologramMode,
+    cubeSettings.particleTheme,
+    cubeSettings.cubeRotationMode,
+    cubeSettings.gradientColorCycle,
   ]);
 
   const handleApplyPresentation = () => {
@@ -304,29 +455,86 @@ export function CubeView({
   };
 
   const handleDownloadVideo = async () => {
-    const renderer = rendererRef.current;
-    if (!renderer || presentationCount === 0 || isRecording) {
+    const runtime = sceneRuntimeRef.current;
+    if (!runtime || presentationCount === 0 || isRecording) {
       return;
     }
+    const { renderer, camera, container, scene } = runtime;
 
     const recordDurationMs = presentationDurationMs + RECORD_ENCODER_FLUSH_MS;
+    const maxEnhanceScale = processedImages.some((img) => img.resolutionEnhanceScale === 2) ? 2 : 1;
+    const exportSize = resolveCubeExportPixelSize("standard", maxEnhanceScale);
+    const layout = snapshotRendererLayout(renderer, camera);
+
     const bgmUrl =
       cubeSettings.bgmEnabled && cubeSettings.bgmTrackId !== "none"
         ? resolveBgmSource(cubeSettings.bgmTrackId, cubeSettings.bgmCustomUrl)
         : null;
-    const withAudio = Boolean(bgmUrl);
+    const withAudio = Boolean(bgmUrl) && !window.__MBOX_E2E_EXPORT__;
 
     setIsRecording(true);
     setRecordingMessage(
-      withAudio ? "MP4 + BGM 합성 중입니다..." : "선택한 연출을 MP4로 생성하는 중입니다..."
+      withAudio
+        ? `MP4 + BGM 합성 중 (${exportSize}px)...`
+        : `선택한 연출을 ${exportSize}px MP4로 생성하는 중입니다...`
     );
 
     let bgmSession: Awaited<ReturnType<typeof startBgmRecordingSession>> | null = null;
 
     try {
+      presentationRef.current?.resetTextureCarousel?.();
+      applyExportRendererSize(renderer, camera, exportSize);
+
+      // Warm up before recording:
+      // - Wait for textures to finish loading
+      // - Compile shaders at export resolution
+      // - Render a few stable frames so recording doesn't start during compilation/loading
+      const texturesSnapshot = texturesRef.current;
+      if (texturesSnapshot) {
+        const all = [
+          ...texturesSnapshot.textures,
+          ...texturesSnapshot.plateTextures.filter(Boolean),
+          ...texturesSnapshot.faceCompositeTextures.filter(Boolean),
+        ] as THREE.Texture[];
+        const deadline = performance.now() + 15_000;
+        while (performance.now() < deadline) {
+          const pending = all.some((t) => {
+            const img = (t as unknown as { image?: HTMLImageElement | ImageBitmap }).image;
+            // ImageBitmap doesn't have complete; treat as ready if present.
+            if (!img) return true;
+            if (typeof ImageBitmap !== "undefined" && img instanceof ImageBitmap) return false;
+            const el = img as HTMLImageElement;
+            return !(el.complete && el.naturalWidth > 0);
+          });
+          if (!pending) break;
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
+        }
+      }
+
+      // Compile at target resolution to avoid "first-frame stutter" in recordings.
+      renderer.compile(scene, camera);
+      await waitForRendererFrames(12);
+
       const { mimeType, extension } = resolveRecordingMimeType({ withAudio });
       const recorder = new CubeVideoRecorder();
-      const videoStream = renderer.domElement.captureStream(30);
+      // Force a deterministic 30fps capture by drawing into a recording canvas.
+      // (Some browsers ignore frameRate constraints on captureStream tracks and emit 60fps containers.)
+      const recordCanvas = document.createElement("canvas");
+      recordCanvas.width = renderer.domElement.width;
+      recordCanvas.height = renderer.domElement.height;
+      const recordCtx = recordCanvas.getContext("2d");
+      const drawIntervalMs = Math.round(1000 / 30);
+      let drawTimer: number | null = null;
+      if (recordCtx) {
+        drawTimer = window.setInterval(() => {
+          try {
+            recordCtx.drawImage(renderer.domElement, 0, 0, recordCanvas.width, recordCanvas.height);
+          } catch {
+            // ignore
+          }
+        }, drawIntervalMs);
+      }
+      const videoStream = recordCanvas.captureStream(30);
       if (withAudio && bgmUrl) {
         bgmSession = await startBgmRecordingSession({
           videoStream,
@@ -336,30 +544,35 @@ export function CubeView({
         });
       }
       const recordStream = bgmSession?.compositeStream ?? videoStream;
+      recordingRef.current = true;
+
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
 
       timelineStartRef.current = performance.now();
-      recordingRef.current = true;
-      recorder.start(recordStream, mimeType);
+      recorder.start(recordStream, mimeType, resolveVideoBitsPerSecond(exportSize));
 
       await new Promise<void>((resolve) => {
         window.setTimeout(resolve, recordDurationMs);
       });
 
       let blob = normalizeRecordingBlob(await recorder.stop(), extension);
+      if (drawTimer != null) {
+        window.clearInterval(drawTimer);
+      }
       bgmSession?.stop();
 
+      let outExtension = extension;
       if (extension === "mp4" && !(await looksLikeIsoMp4(blob))) {
-        throw new Error(
-          "MP4 container validation failed (file may be truncated or WebM). Try Chrome/Edge or use WebM export."
-        );
+        outExtension = "webm";
+        blob = normalizeRecordingBlob(blob, "webm");
       }
       const suffix = withAudio ? "-bgm" : "";
-      downloadBlob(blob, `mbox-cube_focus${suffix}.${extension}`);
+      downloadBlob(blob, `mbox-cube_focus${suffix}.${outExtension}`);
       setRecordingMessage(
         withAudio
-          ? "BGM이 합성된 MP4가 준비되었습니다."
+          ? `BGM이 합성된 ${exportSize}px MP4가 준비되었습니다.`
           : extension === "mp4"
-            ? "MP4 생성 파일이 준비되었습니다."
+            ? `${exportSize}px MP4 생성 파일이 준비되었습니다.`
             : "브라우저가 MP4를 지원하지 않아 WebM으로 저장했습니다."
       );
     } catch (error) {
@@ -368,6 +581,7 @@ export function CubeView({
       setRecordingMessage(`영상 저장에 실패했습니다: ${message}`);
     } finally {
       recordingRef.current = false;
+      restoreRendererLayout(renderer, camera, container, layout);
       setIsRecording(false);
     }
   };
@@ -388,6 +602,7 @@ export function CubeView({
         <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4">
           <CubeFocusPanel
             settings={cubeSettings}
+            presentationEffectId={selectedEffect}
             onSettingsChange={setCubeSettings}
             disabled={isRecording || isEnhancingResolution}
             isEnhancingResolution={isEnhancingResolution}
@@ -404,7 +619,7 @@ export function CubeView({
           {showBetaTemplates ? "베타 템플릿 숨기기" : "다른 연출 템플릿 (베타) 보기"}
         </button>
         {showBetaTemplates ? (
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {PRESENTATION_EFFECTS.filter((effect) => effect.id !== "cube_focus").map((effect) => {
             const selected = effect.id === selectedEffect;
             return (
@@ -412,7 +627,7 @@ export function CubeView({
                 key={effect.id}
                 type="button"
                 disabled={isRecording}
-                onClick={() => setSelectedEffect(effect.id)}
+                onClick={() => handleSelectEffect(effect.id)}
                 className={`rounded-2xl border px-4 py-3 text-left transition ${
                   selected
                     ? "border-blue-500/60 bg-blue-500/10"
@@ -451,16 +666,22 @@ export function CubeView({
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col items-center justify-center">
         <div
           ref={cubeContainerRef}
-          className="w-full h-[600px] cursor-grab active:cursor-grabbing"
+          className={`w-full cursor-grab active:cursor-grabbing ${
+            cubeSettings.hologramMode ? "aspect-square max-w-[600px]" : "h-[600px]"
+          }`}
         />
 
         <div className="absolute top-6 left-6 pointer-events-none max-w-[420px]">
-          <h3 className="text-2xl font-black text-white/90">3D VISUALIZATION</h3>
+          <h3 className="text-2xl font-black text-white/90">
+            {cubeSettings.hologramMode ? "3D HOLOGRAM FAN" : "3D VISUALIZATION"}
+          </h3>
           <p className="text-blue-400 text-sm leading-relaxed">
-            {framePreset.label} 프레임 · 누끼 {cutoutCount}/{presentationCount}장 분리 · 2× {enhancedCount}장
+            {selectedEffectMeta?.label ?? "연출"} · {framePreset.label} 프레임 ·{" "}
+            {cubeSettings.hologramMode ? `홀로그램 모드 (1:1)` : `누끼 ${cutoutCount}/${presentationCount}장 분리`} · 2×{" "}
+            {enhancedCount}장
           </p>
         </div>
 
