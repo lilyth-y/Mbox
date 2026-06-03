@@ -97,7 +97,7 @@ npm run sync:cs5
 ```
 
 - **원본**: `cs5/` — AE 프로젝트, PNG/MOV 등 전체 소스
-- **배포용**: `apps/web/public/cs5/` — 웹에서 `/cs5/...`로 로드되는 서브셋
+- **배포용**: `apps/web/public/cs5/` — 웹에서 `/cs5/...`로 로드되는 서브셋 (confetti `.mov`는 LFS)
 - LFS 없이 clone하면 `cs5/` 포인터만 받아집니다. `sync:cs5` 전에 `git lfs pull`을 실행하세요.
 
 ## 문서
