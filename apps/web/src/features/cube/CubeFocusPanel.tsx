@@ -21,6 +21,8 @@ export interface CubeFocusSettings {
   particleTheme: ParticleThemeId;
   voluMaxFxEnabled: boolean;
   voluMaxFxIntensity: "soft" | "medium" | "strong";
+  /** VoluMax dual-layer depth split (fg/bg shader) on cube faces */
+  voluMaxDepthEnabled: boolean;
   cs5BoxLogoEnabled: boolean;
   cs5FlareEnabled: boolean;
   cs5CloudsEnabled: boolean;
@@ -49,10 +51,11 @@ export const DEFAULT_CUBE_FOCUS_SETTINGS: CubeFocusSettings = {
   bgmTrackId: "cinematic_romantic",
   bgmCustomUrl: null,
   bgmVolume: 0.82,
-  hologramMode: false,
-  particleTheme: "none",
+  hologramMode: true,
+  particleTheme: "gold_dust",
   voluMaxFxEnabled: true,
   voluMaxFxIntensity: "medium",
+  voluMaxDepthEnabled: true,
   cs5BoxLogoEnabled: false,
   cs5FlareEnabled: false,
   cs5CloudsEnabled: false,
@@ -60,7 +63,7 @@ export const DEFAULT_CUBE_FOCUS_SETTINGS: CubeFocusSettings = {
   cs5DustEnabled: false,
   cs5ConfettiEnabled: false,
   cs5ConfettiVariant: 1,
-  cubeRotationMode: "auto",
+  cubeRotationMode: "yaw_cw",
   gradientColorCycle: false,
 };
 
@@ -207,6 +210,16 @@ export function CubeFocusPanel({
               </div>
 
               <div className="mt-3 space-y-2">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.voluMaxDepthEnabled}
+                    disabled={disabled}
+                    onChange={(event) => patch({ voluMaxDepthEnabled: event.target.checked })}
+                    className="rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-500"
+                  />
+                  <span>VoluMax 깊이 분리 (인물·배경 시차 · AI depth)</span>
+                </label>
                 <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"

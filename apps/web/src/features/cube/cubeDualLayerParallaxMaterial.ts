@@ -39,6 +39,32 @@ float subjectMask(vec2 uv) {
     * step(uv.y, uSubjectBounds.w);
 }
 
+float subjectMaskSoft(vec2 uv) {
+  vec4 b = uSubjectBounds;
+  float mx = smoothstep(b.x - 0.035, b.x + 0.025, uv.x)
+    * smoothstep(b.z + 0.025, b.z - 0.035, uv.x);
+  float my = smoothstep(b.y - 0.035, b.y + 0.025, uv.y)
+    * smoothstep(b.w + 0.025, b.w - 0.035, uv.y);
+  return mx * my;
+}
+
+/** JPEG originals have fg.a=1; use AI bounds + depth for VoluMax fg/bg split. */
+float foregroundAlpha(vec2 uv, float fgAlphaSample) {
+  if (fgAlphaSample < 0.95) {
+    return fgAlphaSample;
+  }
+  if (uPortraitBoost < 0.5) {
+    return 1.0;
+  }
+  float matte = subjectMaskSoft(uv);
+  if (uUseDepthMap > 0.5) {
+    float sceneDepth = texture2D(uDepthMap, uv).r;
+    float depthMatte = smoothstep(uSubjectDepth + 0.1, uSubjectDepth - 0.06, sceneDepth);
+    matte = max(matte, depthMatte * 0.92);
+  }
+  return clamp(matte, 0.0, 1.0);
+}
+
 vec2 warpForeground(vec2 uv, float amount) {
   float depthWeight;
   if (uUseDepthMap > 0.5) {
@@ -99,21 +125,23 @@ void main() {
   vec4 bg = texture2D(uBgTexture, bgUv);
   vec4 fg = texture2D(uFgTexture, fgUv);
 
+  float fgBlend = foregroundAlpha(fanUv, fg.a);
+
   vec2 shadowUv = fgUv + vec2(parallaxNorm * 0.022, -parallaxNorm * 0.016);
   float shadowSample = texture2D(uFgTexture, shadowUv).a;
-  float shadow = (1.0 - fg.a) * shadowSample * parallaxNorm * 0.42;
+  float shadow = (1.0 - fgBlend) * shadowSample * parallaxNorm * 0.42;
   bg.rgb *= 1.0 - shadow * 0.55;
 
-  vec3 composed = mix(bg.rgb, fg.rgb, fg.a);
+  vec3 composed = mix(bg.rgb, fg.rgb, fgBlend);
 
   float edgeL = texture2D(uFgTexture, fgUv + vec2(0.003, 0.0)).a;
   float edgeR = texture2D(uFgTexture, fgUv - vec2(0.003, 0.0)).a;
   float edgeU = texture2D(uFgTexture, fgUv + vec2(0.0, 0.003)).a;
-  float rim = fg.a * (1.0 - min(min(edgeL, edgeR), edgeU));
+  float rim = fgBlend * (1.0 - min(min(edgeL, edgeR), edgeU));
   composed += vec3(1.0, 0.93, 0.88) * rim * parallaxNorm * 0.65;
 
   float lift = 1.0 + parallaxNorm * 0.035;
-  composed = mix(composed, composed * lift, fg.a * parallaxNorm * 0.35);
+  composed = mix(composed, composed * lift, fgBlend * parallaxNorm * 0.35);
 
   vec4 framed = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset, uHologramMode);
   if (uHologramMode > 0.5) {
@@ -122,11 +150,11 @@ void main() {
   if (uGradientEnabled > 0.5) {
     float wave = 0.5 + 0.5 * sin(uGradientShift);
     vec3 tint = vec3(
-      0.82 + 0.12 * sin(uGradientShift),
-      0.58 + 0.16 * sin(uGradientShift + 2.1),
-      0.64 + 0.14 * sin(uGradientShift + 4.2)
+      0.65 + 0.35 * sin(uGradientShift),
+      0.65 + 0.35 * sin(uGradientShift + 2.094),
+      0.65 + 0.35 * sin(uGradientShift + 4.188)
     );
-    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.22);
+    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.55);
   }
   gl_FragColor = framed;
 }
@@ -197,6 +225,7 @@ export function createDualLayerParallaxMaterial(
     vertexShader,
     fragmentShader,
     transparent: false,
+    side: THREE.DoubleSide,
   }) as DualLayerParallaxMaterial;
 
   material.userData.isDualLayerParallax = true;

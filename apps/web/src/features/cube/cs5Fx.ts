@@ -1,5 +1,11 @@
 import * as THREE from "three";
 
+function resolvePublicPath(path: string): string {
+  const base = import.meta.env.BASE_URL ?? "/";
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  return base.endsWith("/") ? `${base}${cleanPath}` : `${base}/${cleanPath}`;
+}
+
 export interface Cs5FxOptions {
   boxLogo: boolean;
   flare: boolean;
@@ -44,7 +50,8 @@ function createSpriteLayer(
     position?: THREE.Vector3;
   }
 ): { sprite: THREE.Sprite; texture: THREE.Texture; material: THREE.SpriteMaterial } {
-  const texture = loader.load(url);
+  const resolvedUrl = resolvePublicPath(url);
+  const texture = loader.load(resolvedUrl);
   texture.colorSpace = THREE.SRGBColorSpace;
   const material = new THREE.SpriteMaterial({
     map: texture,
@@ -181,7 +188,7 @@ export function createCs5FxRig(): Cs5FxRig {
     confettiVariantLoaded = v;
     const wasPlaying = !video.paused && options.confetti;
     video.pause();
-    video.src = `/cs5/confetti-pack/confetti_${String(v).padStart(2, "0")}.mov`;
+    video.src = resolvePublicPath(`/cs5/confetti-pack/confetti_${String(v).padStart(2, "0")}.mov`);
     video.load();
     if (wasPlaying) {
       video.play().catch(() => {});

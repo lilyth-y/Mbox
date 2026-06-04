@@ -28,6 +28,7 @@ import {
   MAX_PRESENTATION_BYTES,
 } from "../../shared/lib/mediaLimits";
 import { countSubjectCutouts } from "../../shared/lib/cutoutPresentation";
+import { applyPresentationPrepareBatch } from "../processing/applyPresentationPrepare";
 import {
   CubeVideoRecorder,
   RECORD_ENCODER_FLUSH_MS,
@@ -85,6 +86,7 @@ export function CubeView({
     textures: THREE.Texture[];
     plateTextures: Array<THREE.Texture | null>;
     faceCompositeTextures: Array<THREE.Texture | null>;
+    subjectForegroundTextures: Array<THREE.Texture | null>;
   } | null>(null);
   const requestRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
@@ -98,6 +100,7 @@ export function CubeView({
   const [cubeSettings, setCubeSettings] = useState<CubeFocusSettings>(DEFAULT_CUBE_FOCUS_SETTINGS);
   const [showBetaTemplates, setShowBetaTemplates] = useState(false);
   const [isEnhancingResolution, setIsEnhancingResolution] = useState(false);
+  const [isPreparingPlates, setIsPreparingPlates] = useState(false);
   const presentationRef = useRef<PresentationScene | null>(null);
 
   const orderedImages = useMemo(
@@ -105,6 +108,17 @@ export function CubeView({
     [processedImages]
   );
   const presentationCount = orderedImages.length;
+  const voluMaxFaceCount = useMemo(
+    () =>
+      orderedImages.filter(
+        (img) =>
+          img.voluMaxPrepared ||
+          (img.backgroundPlateUrl &&
+            img.subjectForegroundUrl &&
+            img.subjectForegroundUrl !== img.url)
+      ).length,
+    [orderedImages]
+  );
   const cutoutCount = useMemo(() => countSubjectCutouts(orderedImages), [orderedImages]);
   const enhancedCount = useMemo(
     () => processedImages.filter((image) => image.resolutionEnhanceScale === 2).length,
@@ -166,6 +180,44 @@ export function CubeView({
   };
 
   useEffect(() => {
+    if (!active || !onProcessedImagesChange || processedImages.length === 0 || isPreparingPlates) {
+      return;
+    }
+    const needsPlates = processedImages.some(
+      (image) => !image.backgroundPlateUrl || !image.subjectForegroundUrl
+    );
+    if (!needsPlates) {
+      return;
+    }
+    let cancelled = false;
+    setIsPreparingPlates(true);
+    setRecordingMessage("VoluMax 연출용 배경 플레이트 생성 중...");
+    void applyPresentationPrepareBatch(processedImages, { backgroundPlateTheme: "original_blurred" })
+      .then((prepared) => {
+        if (!cancelled) {
+          onProcessedImagesChange(prepared);
+          setPresentationKey((value) => value + 1);
+          setRecordingMessage("원본 배경 플레이트가 준비되었습니다.");
+          window.setTimeout(() => setRecordingMessage(""), 4000);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : String(error);
+          setRecordingMessage(`배경 플레이트 준비 실패: ${message}`);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsPreparingPlates(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, processedImages, onProcessedImagesChange, isPreparingPlates]);
+
+  useEffect(() => {
     if (!active || !cubeContainerRef.current || presentationCount === 0) {
       return;
     }
@@ -202,7 +254,10 @@ export function CubeView({
     const faceCompositeTextures = orderedImages.map((image) =>
       image.faceCompositeUrl ? loader.load(image.faceCompositeUrl) : null
     );
-    texturesRef.current = { textures, plateTextures, faceCompositeTextures };
+    const subjectForegroundTextures = orderedImages.map((image) =>
+      image.subjectForegroundUrl ? loader.load(image.subjectForegroundUrl) : null
+    );
+    texturesRef.current = { textures, plateTextures, faceCompositeTextures, subjectForegroundTextures };
     const presentation = createPresentationScene(
       selectedEffect,
       orderedImages,
@@ -211,7 +266,9 @@ export function CubeView({
       cubeSettings.framePresetId,
       cubeSettings.hologramMode,
       cubeSettings.particleTheme,
-      selectedEffect === "cube_focus" ? faceCompositeTextures : []
+      [],
+      cubeSettings.voluMaxDepthEnabled,
+      subjectForegroundTextures
     );
     presentationRef.current = presentation;
     scene.add(presentation.root);
@@ -290,14 +347,18 @@ export function CubeView({
           selectedEffect,
           resolved.bridgeElapsed,
           loopBridgeMs,
-          resolved.lastStep
+          resolved.lastStep,
+          {
+            cubeRotationMode: cubeSettings.cubeRotationMode,
+            motionSeed,
+          }
         );
         frame.applyRootTransform(presentation.root, resolved.lastStep, presentationCount);
         if (cubeSettings.hologramMode && !recordingRef.current) {
           applyHologramPreviewScale(presentation.root);
         }
         presentation.setVoluMaxFx(
-          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode && !recordingRef.current,
+          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode,
           cubeSettings.voluMaxFxIntensity
         );
         presentation.setCs5Fx(
@@ -352,7 +413,7 @@ export function CubeView({
           applyHologramPreviewScale(presentation.root);
         }
         presentation.setVoluMaxFx(
-          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode && !recordingRef.current,
+          cubeSettings.voluMaxFxEnabled && cubeSettings.hologramMode,
           cubeSettings.voluMaxFxIntensity
         );
         presentation.setCs5Fx(
@@ -368,6 +429,16 @@ export function CubeView({
       }
       if (selectedEffect === "cube_focus" && presentation.updateTextureCarousel) {
         presentation.updateTextureCarousel(presentation.root.rotation.y);
+      }
+      if (
+        selectedEffect === "cube_focus" &&
+        cubeSettings.voluMaxDepthEnabled &&
+        presentation.updateRotationParallax
+      ) {
+        presentation.updateRotationParallax(
+          presentation.root.rotation.y,
+          presentation.root.rotation.x
+        );
       }
       presentation.setGradientShift(
         getGradientShift(elapsed),
@@ -398,6 +469,7 @@ export function CubeView({
       textures.forEach((texture) => texture.dispose());
       plateTextures.forEach((texture) => texture?.dispose());
       faceCompositeTextures.forEach((texture) => texture?.dispose());
+      subjectForegroundTextures.forEach((texture) => texture?.dispose());
       disposeCubeRenderer(container, renderer);
       rendererRef.current = null;
       sceneRuntimeRef.current = null;
@@ -420,6 +492,9 @@ export function CubeView({
     cubeSettings.particleTheme,
     cubeSettings.cubeRotationMode,
     cubeSettings.gradientColorCycle,
+    cubeSettings.voluMaxDepthEnabled,
+    cubeSettings.voluMaxFxEnabled,
+    cubeSettings.voluMaxFxIntensity,
   ]);
 
   const handleApplyPresentation = () => {
@@ -680,8 +755,8 @@ export function CubeView({
           </h3>
           <p className="text-blue-400 text-sm leading-relaxed">
             {selectedEffectMeta?.label ?? "연출"} · {framePreset.label} 프레임 ·{" "}
-            {cubeSettings.hologramMode ? `홀로그램 모드 (1:1)` : `누끼 ${cutoutCount}/${presentationCount}장 분리`} · 2×{" "}
-            {enhancedCount}장
+            {cubeSettings.hologramMode ? `홀로그램 모드 (1:1)` : `누끼 ${cutoutCount}/${presentationCount}장 분리`} · 2×
+            업스케일 {enhancedCount}장
           </p>
         </div>
 
@@ -723,9 +798,32 @@ export function CubeView({
                 1GB 한도로 {omittedCount}장은 재생에서 제외되었습니다.
               </p>
             ) : null}
-            {presentationCount > 0 && cutoutCount === 0 ? (
+            {presentationCount > 0 && cutoutCount === 0 && isPreparingPlates ? (
+              <p className="mt-2 text-slate-400">VoluMax 연출용 원본 배경 플레이트 생성 중...</p>
+            ) : null}
+            {presentationCount > 0 &&
+            cutoutCount === 0 &&
+            !isPreparingPlates &&
+            voluMaxFaceCount > 0 ? (
+              <p className="mt-2 text-emerald-300/90">
+                VoluMax 적용 {voluMaxFaceCount}/{presentationCount}면 · 블러 배경 + 인물 matte 시차
+              </p>
+            ) : null}
+            {presentationCount > 0 &&
+            cutoutCount === 0 &&
+            !isPreparingPlates &&
+            voluMaxFaceCount === 0 &&
+            orderedImages.some((img) => img.backgroundPlateUrl) ? (
               <p className="mt-2 text-amber-300">
-                배경 제거(누끼)된 이미지가 없습니다. 프로세싱 탭에서 배경 제거를 적용하세요.
+                VoluMax matte 미생성 — 프로세싱 후 큐브 탭을 다시 열어 플레이트를 재생성하세요.
+              </p>
+            ) : null}
+            {presentationCount > 0 &&
+            cutoutCount === 0 &&
+            !isPreparingPlates &&
+            !orderedImages.some((img) => img.backgroundPlateUrl) ? (
+              <p className="mt-2 text-amber-300">
+                배경 플레이트를 준비 중입니다. 잠시 후 큐브 면에 사진이 표시됩니다.
               </p>
             ) : null}
             {presentationCount > 0 && cutoutCount > 0 && cutoutCount < presentationCount ? (

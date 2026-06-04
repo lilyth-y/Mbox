@@ -60,7 +60,8 @@ export function createPresentationMotionSeed(
 
 export function getStepMotionVariety(seed: number, step: number): StepMotionVariety {
   const random = mulberry32(seed + step * 9_973);
-  const orbitDirection: 1 | -1 = random() > 0.5 ? 1 : -1;
+  const directionRandom = mulberry32(seed);
+  const orbitDirection: 1 | -1 = directionRandom() > 0.5 ? 1 : -1;
 
   return {
     rotateMsScale: 0.97 + random() * 0.06,

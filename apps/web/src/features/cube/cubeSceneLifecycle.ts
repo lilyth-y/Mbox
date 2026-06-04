@@ -28,10 +28,11 @@ export function syncRendererToContainer(
 ): void {
   const width = Math.max(1, container.clientWidth);
   const height = Math.max(1, container.clientHeight);
+  const size = Math.min(width, height);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(dpr);
-  renderer.setSize(width, height, false);
-  camera.aspect = width / height;
+  renderer.setSize(size, size, false);
+  camera.aspect = 1.0;
   camera.updateProjectionMatrix();
 }
 
@@ -44,7 +45,7 @@ export function aimCameraAtCubeOrigin(camera: THREE.PerspectiveCamera): void {
 
 /** Slightly larger cube in live hologram preview (export/recording uses timeline scale only). */
 // Keep this conservative: too large makes the cube clip the viewport and look "missing".
-export const HOLOGRAM_PREVIEW_SCALE_MUL = 1.06;
+export const HOLOGRAM_PREVIEW_SCALE_MUL = 1.0;
 
 export function applyHologramPreviewScale(root: THREE.Object3D): void {
   const s = root.scale.x * HOLOGRAM_PREVIEW_SCALE_MUL;

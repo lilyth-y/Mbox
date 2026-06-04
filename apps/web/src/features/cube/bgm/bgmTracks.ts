@@ -1,5 +1,11 @@
 import type { CubeBgmTrackId } from "@mbox/shared";
 
+function resolvePublicPath(path: string): string {
+  const base = import.meta.env.BASE_URL ?? "/";
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  return base.endsWith("/") ? `${base}${cleanPath}` : `${base}/${cleanPath}`;
+}
+
 export interface CubeBgmTrackDefinition {
   id: Exclude<CubeBgmTrackId, "none" | "custom">;
   label: string;
@@ -33,6 +39,13 @@ export const CUBE_BGM_TRACKS: CubeBgmTrackDefinition[] = [
     publicPath: "/bgm/romantic-wedding.mp3",
     durationSec: 146,
   },
+  {
+    id: "bridal_chorus",
+    label: "바그너 결혼 행진곡 (입장곡)",
+    description: "결혼식 주인공 입장용 전통 클래식 BGM",
+    publicPath: "/bgm/bridal-chorus.mp3",
+    durationSec: 104,
+  },
 ];
 
 export function resolveBgmSource(
@@ -46,12 +59,13 @@ export function resolveBgmSource(
     return customObjectUrl;
   }
   const track = CUBE_BGM_TRACKS.find((entry) => entry.id === trackId);
-  return track?.publicPath ?? null;
+  return track ? resolvePublicPath(track.publicPath) : null;
 }
 
 export async function probeBgmAvailability(publicPath: string): Promise<boolean> {
   try {
-    const response = await fetch(publicPath, { method: "HEAD" });
+    const resolvedUrl = resolvePublicPath(publicPath);
+    const response = await fetch(resolvedUrl, { method: "HEAD" });
     return response.ok;
   } catch {
     return false;

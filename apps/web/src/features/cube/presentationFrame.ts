@@ -355,9 +355,17 @@ export interface PresentationMotionContext {
 export function computeCubeLoopBridgeFrame(
   bridgeElapsed: number,
   bridgeMs: number,
-  lastStep: number
+  lastStep: number,
+  motion: PresentationMotionContext = {}
 ): PresentationFrame {
-  const fan = computeFanLoopBridgeFrame(bridgeElapsed, bridgeMs, lastStep);
+  const fan = computeFanLoopBridgeFrame(
+    bridgeElapsed,
+    bridgeMs,
+    lastStep,
+    motion.motionSeed ?? 0,
+    motion.cubeRotationMode ?? "auto",
+    motion.fanTimelineProfile ?? "wedding_default"
+  );
   return {
     cameraZ: fan.cameraZ,
     fieldOfView: fan.fieldOfView,
@@ -375,12 +383,13 @@ export function computePresentationLoopBridgeFrame(
   effect: PresentationEffectId,
   bridgeElapsed: number,
   bridgeMs: number,
-  lastStep: number
+  lastStep: number,
+  motion: PresentationMotionContext = {}
 ): PresentationFrame {
   if (effect !== "cube_focus" || bridgeMs <= 0) {
-    return computePresentationFrame(effect, lastStep, 0, lastStep + 1, 0);
+    return computePresentationFrame(effect, lastStep, 0, lastStep + 1, 0, motion);
   }
-  return computeCubeLoopBridgeFrame(bridgeElapsed, bridgeMs, lastStep);
+  return computeCubeLoopBridgeFrame(bridgeElapsed, bridgeMs, lastStep, motion);
 }
 
 export function computePresentationFrame(

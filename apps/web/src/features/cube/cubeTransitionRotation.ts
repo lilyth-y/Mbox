@@ -20,22 +20,22 @@ function accentWaypoint(
   const mid = slerpEuler(from, to, 0.5);
   switch (style) {
     case "pitch_lift":
-      mid.x -= 0.42;
+      mid.x -= 0.26;
       break;
     case "pitch_drop":
-      mid.x += 0.38;
+      mid.x += 0.24;
       break;
     case "roll_tilt":
-      mid.z += 0.28 * (from.y < to.y ? 1 : -1);
+      mid.z += 0.17 * (from.y < to.y ? 1 : -1);
       break;
     case "corner_swing":
-      mid.x -= 0.22;
-      mid.y += 0.18 * Math.sign(to.y - from.y || 1);
-      mid.z += 0.14;
+      mid.x -= 0.14;
+      mid.y += 0.11 * Math.sign(to.y - from.y || 1);
+      mid.z += 0.09;
       break;
     case "yaw_arc":
     default:
-      mid.y += 0.12 * Math.sign(to.y - from.y || 1);
+      mid.y += 0.07 * Math.sign(to.y - from.y || 1);
       break;
   }
   return mid;

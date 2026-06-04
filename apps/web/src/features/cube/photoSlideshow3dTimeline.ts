@@ -147,6 +147,20 @@ export function samplePhotoSlideshow3dMotion(
       fromZ = prevEnd.position.z;
       fromScale = prevEnd.presentationScale;
       fromRotX = prevEnd.rotation.x;
+    } else if (presentationCount > 1) {
+      const lastStep = presentationCount - 1;
+      const prevEnd = samplePhotoSlideshow3dMotion(
+        lastStep,
+        getPhotoSlideshow3dStepSegmentMs(lastStep) - 1,
+        presentationCount,
+        motionSeed,
+        timing
+      );
+      fromYaw = prevEnd.rotation.y;
+      fromX = prevEnd.position.x;
+      fromZ = prevEnd.position.z;
+      fromScale = prevEnd.presentationScale;
+      fromRotX = prevEnd.rotation.x;
     }
     rotY = THREE.MathUtils.lerp(fromYaw, 0, alpha);
     rotX = THREE.MathUtils.lerp(fromRotX, 0.04, alpha);

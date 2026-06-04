@@ -32,11 +32,11 @@ void main() {
   if (uGradientEnabled > 0.5) {
     float wave = 0.5 + 0.5 * sin(uGradientShift);
     vec3 tint = vec3(
-      0.82 + 0.12 * sin(uGradientShift),
-      0.58 + 0.16 * sin(uGradientShift + 2.1),
-      0.64 + 0.14 * sin(uGradientShift + 4.2)
+      0.65 + 0.35 * sin(uGradientShift),
+      0.65 + 0.35 * sin(uGradientShift + 2.094),
+      0.65 + 0.35 * sin(uGradientShift + 4.188)
     );
-    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.22);
+    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.55);
   }
   gl_FragColor = framed;
 }

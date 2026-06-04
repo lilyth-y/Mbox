@@ -8,15 +8,15 @@ import {
   CUBE_EDGE_LENGTH,
   CUBE_FACE_COUNT,
   getPresentationFace,
+  PARALLAX_MAX,
 } from "./cubeSequence";
-import { canUseSubjectBackgroundSeparation } from "../../shared/lib/cutoutPresentation";
+import { canUseDualLayerParallax } from "../../shared/lib/cutoutPresentation";
 import { hasDepthSeparationBoost } from "../../shared/lib/subjectPortrait";
 import {
   createDualLayerParallaxMaterial,
   isDualLayerParallaxMaterial,
   setDualLayerFramePreset,
   setDualLayerParallaxAmount,
-  updateDualLayerParallaxMaterial,
   type DualLayerParallaxOptions,
 } from "./cubeDualLayerParallaxMaterial";
 import {
@@ -24,7 +24,6 @@ import {
   isParallaxMaterial,
   setParallaxAmount,
   setParallaxFramePreset,
-  updateParallaxMaterial,
   type ParallaxMaterialOptions,
 } from "./cubeParallaxMaterial";
 import {
@@ -52,6 +51,129 @@ function parallaxOptionsForImage(
 }
 
 const DEFAULT_FOCUS_CENTER = { x: 50, y: 50 } as const;
+
+/** wedding-simple과 동일: 면마다 PlaneGeometry + MeshBasicMaterial (RoundedBox 멀티머티리얼 셰이더 이슈 회피). */
+const CUBE_FACE_PLANE_SIZE = CUBE_EDGE_LENGTH * 1.02;
+const CUBE_FACE_HALF = CUBE_EDGE_LENGTH / 2 + 0.02;
+
+const CUBE_FACE_LAYOUT: Record<
+  number,
+  { position: THREE.Vector3Tuple; rotation: THREE.EulerTuple }
+> = {
+  4: { position: [0, 0, CUBE_FACE_HALF], rotation: [0, 0, 0] },
+  5: { position: [0, 0, -CUBE_FACE_HALF], rotation: [0, Math.PI, 0] },
+  0: { position: [CUBE_FACE_HALF, 0, 0], rotation: [0, Math.PI / 2, 0] },
+  1: { position: [-CUBE_FACE_HALF, 0, 0], rotation: [0, -Math.PI / 2, 0] },
+  2: { position: [0, CUBE_FACE_HALF, 0], rotation: [-Math.PI / 2, 0, 0] },
+  3: { position: [0, -CUBE_FACE_HALF, 0], rotation: [Math.PI / 2, 0, 0] },
+};
+
+const FRAME_OUTER_COLORS: Record<CubeFramePresetId, number> = {
+  rose_gold: 0xe5b3b3,
+  pearl_white: 0xe2e8f0,
+  classic_black: 0x3a3a3a,
+  sage_garden: 0x8aa882,
+  royal_navy: 0x2a4568,
+};
+
+interface CubeFaceRig {
+  faceIndex: number;
+  group: THREE.Group;
+  fgMesh: THREE.Mesh;
+  bgMesh: THREE.Mesh;
+  fgMaterial: THREE.MeshBasicMaterial;
+  bgMaterial: THREE.MeshBasicMaterial;
+  mode: "flat" | "volumax";
+  imageSlot: number;
+}
+
+function assignCubeFaceTextures(
+  rig: CubeFaceRig,
+  imageIndex: number,
+  image: ProcessedImage,
+  fgTexture: THREE.Texture,
+  plateTexture: THREE.Texture | null,
+  voluMaxDepthEnabled: boolean
+): void {
+  fgTexture.colorSpace = THREE.SRGBColorSpace;
+  rig.fgMaterial.map = fgTexture;
+  const hasMatte =
+    image.preprocessMode === "background_removed" ||
+    (Boolean(image.subjectForegroundUrl) &&
+      image.subjectForegroundUrl !== image.url &&
+      (image.voluMaxPrepared ?? image.subjectForegroundUrl?.startsWith("data:image/png") ?? false));
+  rig.fgMaterial.transparent = voluMaxDepthEnabled && hasMatte;
+  rig.fgMaterial.depthWrite = !rig.fgMaterial.transparent;
+  rig.fgMaterial.needsUpdate = true;
+
+  if (voluMaxDepthEnabled && plateTexture && canUseDualLayerParallax(image) && hasMatte) {
+    plateTexture.colorSpace = THREE.SRGBColorSpace;
+    rig.bgMaterial.map = plateTexture;
+    rig.bgMaterial.needsUpdate = true;
+    rig.bgMesh.visible = true;
+    rig.mode = "volumax";
+    rig.fgMesh.position.z = 0.39;
+    rig.bgMesh.position.z = -0.01;
+  } else {
+    rig.bgMesh.visible = false;
+    rig.mode = "flat";
+    rig.fgMesh.position.z = 0.06;
+    rig.bgMesh.position.z = -0.06;
+  }
+  rig.imageSlot = imageIndex;
+}
+
+interface CubeFaceRig {
+  faceIndex: number;
+  group: THREE.Group;
+  fgMesh: THREE.Mesh;
+  bgMesh: THREE.Mesh;
+  fgMaterial: THREE.MeshBasicMaterial;
+  bgMaterial: THREE.MeshBasicMaterial;
+  mode: "flat" | "volumax";
+  imageSlot: number;
+  lastParallax: number;
+  lastFocusPulse: number;
+}
+
+const CUBE_FACE_ROT_OFFSET: Record<number, number> = {
+  4: 0,
+  0: Math.PI / 2,
+  1: -Math.PI / 2,
+  5: Math.PI,
+  2: 0,
+  3: 0,
+};
+
+function syncCubeFaceMotion(
+  rig: CubeFaceRig,
+  amount: number,
+  focusPulse: number,
+  rotationY: number,
+  rotationX: number
+): void {
+  const norm = Math.min(1, Math.max(0, amount / PARALLAX_MAX));
+  // Keep displacements well within face boundary (face half-size ≈ 1.175 units).
+  // fgMul max ≈ 0.28+0.12=0.40, rotation-driven ≈ 0.10 → total fg X ≤ 0.50 (safe).
+  const fgMul = rig.mode === "volumax" ? 0.28 + focusPulse * 0.12 : 0.10 + focusPulse * 0.04;
+  const bgMul = rig.mode === "volumax" ? 0.18 + focusPulse * 0.06 : 0.05 + focusPulse * 0.02;
+  const baseZ = rig.mode === "volumax" ? 0.39 : 0.06;
+  const baseBgZ = rig.mode === "volumax" ? -0.01 : -0.06;
+  let fx = norm * fgMul;
+  let fy = norm * fgMul * 0.42;
+  let bx = -norm * bgMul;
+  let by = -norm * bgMul * 0.42;
+  if (rig.mode === "volumax") {
+    const angle = rotationY + (CUBE_FACE_ROT_OFFSET[rig.faceIndex] ?? 0);
+    fx += Math.sin(angle) * 0.10;
+    bx += -Math.sin(angle) * 0.07;
+    fy += Math.sin(rotationX) * 0.08;
+    by += -Math.sin(rotationX) * 0.06;
+  }
+  rig.fgMesh.position.set(fx, fy, baseZ + focusPulse * 0.06);
+  rig.bgMesh.position.set(bx, by, baseBgZ);
+}
+
 const PLANE_SIZE = 2.35;
 
 interface VoluMaxFxRig {
@@ -153,9 +275,9 @@ function createVoluMaxFxRig(
         const pulse = 0.88 + 0.14 * Math.sin(t * 1.4 + idx * 0.95);
         ring.scale.setScalar(pulse);
         ringMats[idx].opacity =
-          (0.06 + 0.06 * (0.5 + 0.5 * Math.sin(t * 1.6 + idx))) * mul;
+          (0.14 + 0.14 * (0.5 + 0.5 * Math.sin(t * 1.6 + idx))) * mul;
       });
-      flare.material.opacity = (0.10 + 0.11 * (0.5 + 0.5 * Math.sin(t * 2.1))) * mul;
+      flare.material.opacity = (0.18 + 0.16 * (0.5 + 0.5 * Math.sin(t * 2.1))) * mul;
       flare.scale.setScalar(1.75 + 0.2 * mul + 0.2 * Math.sin(t * 1.3));
     },
     dispose: () => {
@@ -245,11 +367,7 @@ function createPageMaterial(
   turntableDualLayer = false,
   parallaxOptions: ParallaxMaterialOptions = parallaxOptionsForImage(image, framePresetId, hologramMode)
 ): THREE.Material {
-  if (!canUseSubjectBackgroundSeparation(image)) {
-    return createFlatPresentationMaterial(texture, framePresetId, hologramMode);
-  }
-
-  if (plateTexture) {
+  if (plateTexture && canUseDualLayerParallax(image)) {
     return createDualLayerParallaxMaterial(
       texture,
       plateTexture,
@@ -262,6 +380,10 @@ function createPageMaterial(
         hologramMode,
       }
     );
+  }
+
+  if (!canUseDualLayerParallax(image)) {
+    return createFlatPresentationMaterial(texture, framePresetId, hologramMode);
   }
 
   const material = createParallaxMaterial(
@@ -313,6 +435,7 @@ export interface PresentationScene {
   setCs5Fx: (options: Cs5FxOptions | null) => void;
   updateParticles: (deltaMs: number) => void;
   updateTextureCarousel?: (rotationY: number) => void;
+  updateRotationParallax?: (rotationY: number, rotationX: number) => void;
   resetTextureCarousel?: () => void;
   setGradientShift: (shift: number, enabled: boolean) => void;
   dispose: () => void;
@@ -326,20 +449,18 @@ export function createPresentationScene(
   framePresetId: CubeFramePresetId = "rose_gold",
   hologramMode: boolean = false,
   particleTheme: ParticleThemeId = "none",
-  faceCompositeTextures: Array<THREE.Texture | null> = []
+  _faceCompositeTextures: Array<THREE.Texture | null> = [],
+  voluMaxDepthEnabled: boolean = true,
+  subjectForegroundTextures: Array<THREE.Texture | null> = []
 ): PresentationScene {
   const depthTextures = orderedImages.map((image) => getDepthTexture(image));
   const disposables: Array<THREE.Material | THREE.BufferGeometry | THREE.Texture> = [];
   const overlayObjects: THREE.Object3D[] = [];
   const isTurntableEffect = effect === "turntable";
-  const dualLayerOptions = (image: ProcessedImage) =>
-    toDualLayerOptions(image, framePresetId, isTurntableEffect, hologramMode);
 
   let currentHologramMode = hologramMode;
 
   const root = new THREE.Group();
-  const voluMaxFx = createVoluMaxFxRig(hologramMode, "medium");
-  root.add(voluMaxFx.group);
   const cs5FxRig = createCs5FxRig();
   root.add(cs5FxRig.group);
   const particles = createCubeParticles(particleTheme);
@@ -348,71 +469,156 @@ export function createPresentationScene(
     particles.points.visible = hologramMode;
   }
 
+  let voluMaxFx = createVoluMaxFxRig(hologramMode, "medium");
+  root.add(voluMaxFx.group);
+
   if (effect === "cube_focus") {
-    const materials: THREE.Material[] = Array.from(
-      { length: CUBE_FACE_COUNT },
-      () => new THREE.MeshBasicMaterial({ color: 0x334155 })
+    const cubeGroup = new THREE.Group();
+    const frameGeometry = new RoundedBoxGeometry(
+      CUBE_EDGE_LENGTH * 1.04,
+      CUBE_EDGE_LENGTH * 1.04,
+      CUBE_EDGE_LENGTH * 1.04,
+      6,
+      0.08
     );
+    const frameMaterial = new THREE.MeshStandardMaterial({
+      color: FRAME_OUTER_COLORS[framePresetId],
+      metalness: 0.92,
+      roughness: 0.16,
+      side: THREE.DoubleSide,
+    });
+    const frameMesh = new THREE.Mesh(frameGeometry, frameMaterial);
+    cubeGroup.add(frameMesh);
+    disposables.push(frameGeometry, frameMaterial);
+
+    const facePlaneGeometry = new THREE.PlaneGeometry(CUBE_FACE_PLANE_SIZE, CUBE_FACE_PLANE_SIZE);
+    disposables.push(facePlaneGeometry);
+
+    const faceRigs: Array<CubeFaceRig | null> = Array.from({ length: CUBE_FACE_COUNT }, () => null);
 
     for (let index = 0; index < Math.min(CUBE_FACE_COUNT, orderedImages.length); index += 1) {
       const faceIndex = getPresentationFace(index);
       const image = orderedImages[index];
-      if (!image) {
+      const texture = textures[index];
+      const plateTexture = plateTextures[index] ?? null;
+      const layout = CUBE_FACE_LAYOUT[faceIndex];
+      if (!image || !texture || !layout) {
         continue;
       }
-      const compositeTexture = faceCompositeTextures[index] ?? null;
-      materials[faceIndex] =
-        compositeTexture != null
-          ? createFramedFlatMaterial(compositeTexture, framePresetId, hologramMode)
-          : createPageMaterial(
-              textures[index],
-              image,
-              depthTextures[index],
-              plateTextures[index] ?? null,
-              framePresetId,
-              hologramMode
-            );
+
+      const group = new THREE.Group();
+      group.position.set(...layout.position);
+      group.rotation.set(...layout.rotation);
+
+      const bgMaterial = new THREE.MeshBasicMaterial({
+        side: THREE.DoubleSide,
+        color: 0x000000,
+      });
+      const bgMesh = new THREE.Mesh(facePlaneGeometry, bgMaterial);
+      bgMesh.position.z = -0.06;
+
+      const fgMaterial = new THREE.MeshBasicMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+      });
+      const fgMesh = new THREE.Mesh(facePlaneGeometry, fgMaterial);
+      fgMesh.position.z = 0.06;
+
+      group.add(bgMesh);
+      group.add(fgMesh);
+      cubeGroup.add(group);
+      disposables.push(bgMaterial, fgMaterial);
+
+      const fgTexture =
+        voluMaxDepthEnabled && subjectForegroundTextures[index]
+          ? subjectForegroundTextures[index]
+          : texture;
+
+      const rig: CubeFaceRig = {
+        faceIndex,
+        group,
+        fgMesh,
+        bgMesh,
+        fgMaterial,
+        bgMaterial,
+        mode: "flat",
+        imageSlot: index,
+        lastParallax: 0,
+        lastFocusPulse: 0,
+      };
+      assignCubeFaceTextures(
+        rig,
+        index,
+        image,
+        fgTexture ?? texture,
+        plateTexture,
+        voluMaxDepthEnabled
+      );
+      faceRigs[faceIndex] = rig;
     }
 
-    const geometry = new RoundedBoxGeometry(CUBE_EDGE_LENGTH, CUBE_EDGE_LENGTH, CUBE_EDGE_LENGTH, 6, 0.06);
-    const cube = new THREE.Mesh(geometry, materials);
-    root.add(cube);
-    disposables.push(geometry, ...materials);
+    root.add(cubeGroup);
 
-    // In hologram preview we need a visible silhouette even when textures are dark/transparent.
-    // This is a lightweight wireframe that makes "cube exists" obvious without changing export.
-    let holoShell: THREE.Mesh | null = null;
+    root.remove(voluMaxFx.group);
+    cubeGroup.add(voluMaxFx.group);
+    voluMaxFx.group.position.set(0, 0, 0);
+
+    const voluMaxHalo = new THREE.Mesh(
+      new THREE.RingGeometry(1.38, 1.42, 96),
+      new THREE.MeshBasicMaterial({
+        color: 0x9ed8ff,
+        transparent: true,
+        opacity: hologramMode ? 0.35 : 0.2,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    voluMaxHalo.position.z = 0.02;
+    cubeGroup.add(voluMaxHalo);
+    disposables.push(voluMaxHalo.geometry, voluMaxHalo.material as THREE.Material);
+
     let holoEdges: THREE.LineSegments | null = null;
     if (hologramMode) {
-      holoShell = new THREE.Mesh(
-        geometry,
-        new THREE.MeshBasicMaterial({
-          color: 0x2a2130,
-          transparent: true,
-          opacity: 0.14,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        })
-      );
-      holoShell.renderOrder = 1;
-      root.add(holoShell);
-      disposables.push(holoShell.material as THREE.Material);
-
-      const edgesGeo = new THREE.EdgesGeometry(geometry, 24);
+      const edgesGeo = new THREE.EdgesGeometry(frameGeometry, 24);
       const edgesMat = new THREE.LineBasicMaterial({
         color: 0xffd7a6,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.55,
       });
       holoEdges = new THREE.LineSegments(edgesGeo, edgesMat);
       holoEdges.renderOrder = 2;
-      root.add(holoEdges);
+      cubeGroup.add(holoEdges);
       disposables.push(edgesGeo, edgesMat);
     }
 
     let appliedStep = -1;
     let nextImageIndex = 6;
-    const canSwap = [true, true, true, true]; // Front(4), Right(0), Left(1), Back(5) 순서에 매핑
+    const canSwap = [true, true, true, true];
+    let rootRotY = 0;
+    let rootRotX = 0;
+
+    const updateFaceRigTextures = (faceIndex: number, imageIndex: number) => {
+      const rig = faceRigs[faceIndex];
+      const image = orderedImages[imageIndex];
+      const texture = textures[imageIndex];
+      const plateTexture = plateTextures[imageIndex] ?? null;
+      const fgTexture =
+        voluMaxDepthEnabled && subjectForegroundTextures[imageIndex]
+          ? subjectForegroundTextures[imageIndex]
+          : texture;
+      if (!rig || !image || !fgTexture) {
+        return;
+      }
+      assignCubeFaceTextures(
+        rig,
+        imageIndex,
+        image,
+        fgTexture,
+        plateTexture,
+        voluMaxDepthEnabled
+      );
+    };
 
     return {
       root,
@@ -420,62 +626,25 @@ export function createPresentationScene(
         if (step === appliedStep) {
           return;
         }
-        const faceIndex = getPresentationFace(step);
-        const texture = textures[step];
-        const image = orderedImages[step];
-        if (!texture || !image) {
-          return;
-        }
-        const material = materials[faceIndex];
-        const plateTexture = plateTextures[step] ?? null;
-        if (isDualLayerParallaxMaterial(material) && plateTexture) {
-          updateDualLayerParallaxMaterial(
-            material,
-            texture,
-            plateTexture,
-            presentationFocusCenter(image, currentHologramMode),
-            depthTextures[step],
-            image.depth?.subjectDepth ?? 0.75,
-            shouldUseDepthMap(image),
-            0,
-            {
-              ...dualLayerOptions(image),
-              hologramMode: currentHologramMode,
-            }
-          );
-        } else if (isParallaxMaterial(material)) {
-          updateParallaxMaterial(
-            material,
-            texture,
-            presentationFocusCenter(image, currentHologramMode),
-            depthTextures[step],
-            image.depth?.subjectDepth ?? 0.75,
-            shouldUseDepthMap(image),
-            0,
-            parallaxOptionsForImage(image, framePresetId, currentHologramMode)
-          );
-        }
+        updateFaceRigTextures(getPresentationFace(step), step);
         appliedStep = step;
       },
       setParallaxAmount: (step, amount, focusPulse = 0) => {
-        applyParallaxAmount(materials[getPresentationFace(step)], amount, focusPulse);
+        const rig = faceRigs[getPresentationFace(step)];
+        if (!rig) {
+          return;
+        }
+        rig.lastParallax = amount;
+        rig.lastFocusPulse = focusPulse;
+        syncCubeFaceMotion(rig, amount, focusPulse, rootRotY, rootRotX);
       },
       setFramePreset: (nextPreset) => {
-        materials.forEach((material) => applyFramePresetToMaterial(material, nextPreset));
+        frameMaterial.color.setHex(FRAME_OUTER_COLORS[nextPreset]);
       },
       setHologramMode: (enabled) => {
         currentHologramMode = enabled;
-        const val = enabled ? 1.0 : 0.0;
-        materials.forEach((material) => {
-          if (material instanceof THREE.ShaderMaterial && material.uniforms.uHologramMode) {
-            material.uniforms.uHologramMode.value = val;
-          }
-        });
         if (particles) {
           particles.points.visible = enabled;
-        }
-        if (holoShell) {
-          holoShell.visible = enabled;
         }
         if (holoEdges) {
           holoEdges.visible = enabled;
@@ -507,7 +676,7 @@ export function createPresentationScene(
           { idx: 4, offset: 0, swapKey: 0 },
           { idx: 0, offset: Math.PI / 2, swapKey: 1 },
           { idx: 1, offset: -Math.PI / 2, swapKey: 2 },
-          { idx: 5, offset: Math.PI, swapKey: 3 }
+          { idx: 5, offset: Math.PI, swapKey: 3 },
         ];
 
         sideFaces.forEach((face) => {
@@ -516,43 +685,7 @@ export function createPresentationScene(
 
           if (cosAngle < -0.96) {
             if (canSwap[face.swapKey]) {
-              const image = orderedImages[nextImageIndex];
-              const texture = textures[nextImageIndex];
-              const depthTexture = depthTextures[nextImageIndex];
-              const plateTexture = plateTextures[nextImageIndex] ?? null;
-
-              if (image && texture && depthTexture) {
-                const material = materials[face.idx];
-                if (isDualLayerParallaxMaterial(material) && plateTexture) {
-                  updateDualLayerParallaxMaterial(
-                    material,
-                    texture,
-                    plateTexture,
-                    presentationFocusCenter(image, currentHologramMode),
-                    depthTexture,
-                    image.depth?.subjectDepth ?? 0.75,
-                    shouldUseDepthMap(image),
-                    0,
-                    {
-                      ...dualLayerOptions(image),
-                      hologramMode: currentHologramMode,
-                    }
-                  );
-                } else if (isParallaxMaterial(material)) {
-                  updateParallaxMaterial(
-                    material,
-                    texture,
-                    presentationFocusCenter(image, currentHologramMode),
-                    depthTexture,
-                    image.depth?.subjectDepth ?? 0.75,
-                    shouldUseDepthMap(image),
-                    0,
-                    parallaxOptionsForImage(image, framePresetId, currentHologramMode)
-                  );
-                }
-                console.log(`[React Carousel] Swapped face index ${face.idx} to image ${nextImageIndex}`);
-              }
-              
+              updateFaceRigTextures(face.idx, nextImageIndex);
               nextImageIndex = (nextImageIndex + 1) % totalImages;
               canSwap[face.swapKey] = false;
             }
@@ -561,49 +694,23 @@ export function createPresentationScene(
           }
         });
       },
+      updateRotationParallax: (rotationY, rotationX) => {
+        rootRotY = rotationY;
+        rootRotX = rotationX;
+        faceRigs.forEach((rig) => {
+          if (!rig) {
+            return;
+          }
+          syncCubeFaceMotion(rig, rig.lastParallax, rig.lastFocusPulse, rotationY, rotationX);
+        });
+      },
       resetTextureCarousel: () => {
         nextImageIndex = 6;
-        for (let i = 0; i < canSwap.length; i++) {
+        for (let i = 0; i < canSwap.length; i += 1) {
           canSwap[i] = true;
         }
-        // 초기 6장 텍스처로 환원
         for (let index = 0; index < Math.min(CUBE_FACE_COUNT, orderedImages.length); index += 1) {
-          const faceIndex = getPresentationFace(index);
-          const material = materials[faceIndex];
-          const texture = textures[index];
-          const depthTexture = depthTextures[index];
-          const plateTexture = plateTextures[index] ?? null;
-          const image = orderedImages[index];
-
-          if (material && texture && depthTexture && image) {
-            if (isDualLayerParallaxMaterial(material) && plateTexture) {
-              updateDualLayerParallaxMaterial(
-                material,
-                texture,
-                plateTexture,
-                presentationFocusCenter(image, currentHologramMode),
-                depthTexture,
-                image.depth?.subjectDepth ?? 0.75,
-                shouldUseDepthMap(image),
-                0,
-                {
-                  ...dualLayerOptions(image),
-                  hologramMode: currentHologramMode,
-                }
-              );
-            } else if (isParallaxMaterial(material)) {
-              updateParallaxMaterial(
-                material,
-                texture,
-                presentationFocusCenter(image, currentHologramMode),
-                depthTexture,
-                image.depth?.subjectDepth ?? 0.75,
-                shouldUseDepthMap(image),
-                0,
-                parallaxOptionsForImage(image, framePresetId, currentHologramMode)
-              );
-            }
-          }
+          updateFaceRigTextures(getPresentationFace(index), index);
         }
       },
       dispose: () => {

@@ -7,240 +7,38 @@ import {
 import {
   getCubeEntryRotation,
   getCubeExitRotation,
-  slerpCubeTransition,
-  type CubeRotationMode,
+  CubeRotationMode,
 } from "./cubeTransitionRotation";
+import {
+  FanTimelineProfile,
+  FAN_GAP_MS,
+  FAN_SCALE_FAR,
+  FAN_SCALE_RETREAT,
+  easeInOutSine,
+  getFanApproachMs,
+  getFanShowcaseHoldMs,
+  getFanRetreatMs,
+  resolveFanPhase,
+  getFanParallaxPeak,
+  FAN_PROFILE_CONFIG
+} from "./fanTiming";
+import {
+  FAN_MIN_TRANSITION_SPIN_INTENSITY,
+  fanSpinEuler,
+  resolveSpinYawSign
+} from "./fanTransform";
+import {
+  FanCubeSample,
+  sampleApproachPhase,
+  sampleShowcaseHoldPhase,
+  sampleRetreatPhase,
+  sampleHandoffPhase
+} from "./fanPhases";
 
-/**
- * Fan-blade wedding timeline — single source of truth.
- * Flow per photo: approach → showcase hold → gentle retreat → handoff (to next).
- */
-export const FAN_APPROACH_MS = 2_400;
-/** First photo — longest “hero” beat. */
-export const FAN_OPENING_HOLD_MS = 1_200;
-/** Every later photo — time to appreciate before transitioning. */
-export const FAN_SHOWCASE_HOLD_MS = 900;
-export const FAN_RETREAT_MS = 2_000;
-/** Inter-photo handoff (rotation bridge, minimal spin). */
-export const FAN_GAP_MS = 1_600;
-export const FAN_LOOP_BRIDGE_MS = 1_100;
-
-export const FAN_SCALE_FAR = 0.5;
-export const FAN_SCALE_PEAK = 1.05;
-export const FAN_SCALE_RETREAT = 0.5;
-
-export const FAN_PARALLAX_PEAK = 0.16;
-
-export type FanTimelineProfile = "wedding_default" | "entrance_processional";
-
-export interface FanTimelineProfileConfig {
-  retreatSpinMax: number;
-  handoffSpinIntensity: number;
-  retreatMs: number;
-}
-
-export const FAN_PROFILE_CONFIG: Record<FanTimelineProfile, FanTimelineProfileConfig> = {
-  wedding_default: {
-    retreatSpinMax: 0.38,
-    handoffSpinIntensity: 0.022,
-    retreatMs: FAN_RETREAT_MS,
-  },
-  entrance_processional: {
-    retreatSpinMax: 0.28,
-    handoffSpinIntensity: 0.018,
-    retreatMs: 2_800,
-  },
-};
-
-/** Always keep some angular motion through photo transitions (prevents "freeze" perception). */
-export const FAN_MIN_TRANSITION_SPIN_INTENSITY = 0.016;
-
-/** Entrance hero: faster approach, longer dwell for aisle walk sync. */
-export const ENTRANCE_STEP0_APPROACH_MS = 1_800;
-export const ENTRANCE_STEP0_SHOWCASE_HOLD_MS = 3_500;
-export const ENTRANCE_STEP0_PARALLAX_PEAK = 0.23;
-/** Cap approach spin for comfortable tracking on entrance hero. */
-export const ENTRANCE_APPROACH_SPIN_MAX = 0.45;
-/** Showcase spin — tuned for smooth yaw-dominant motion. */
-export const ENTRANCE_SHOWCASE_SPIN = 0.055;
-
-export function resolveSpinYawSign(mode: CubeRotationMode): number {
-  if (mode === "yaw_ccw") {
-    return -1;
-  }
-  return 1;
-}
-
-export type FanPhase = "approach" | "showcase_hold" | "retreat" | "handoff";
-
-/** @deprecated Use showcase_hold */
-export type FanPhaseLegacy = FanPhase | "opening_hold" | "gap";
-
-export interface FanPhaseState {
-  phase: FanPhase;
-  phaseElapsed: number;
-  phaseDuration: number;
-  phaseU: number;
-}
-
-function mulberry32(seed: number): () => number {
-  let state = seed | 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-}
-
-function easeInOutSine(t: number): number {
-  const x = Math.min(1, Math.max(0, t));
-  return (-(Math.cos(Math.PI * x) - 1)) / 2;
-}
-
-export function easeOutQuart(t: number): number {
-  return 1 - Math.pow(1 - t, 4);
-}
-
-export function easeInQuart(t: number): number {
-  return t * t * t * t;
-}
-
-export function getFanApproachMs(
-  step: number,
-  profile: FanTimelineProfile = "wedding_default"
-): number {
-  if (profile === "entrance_processional" && step === 0) {
-    return ENTRANCE_STEP0_APPROACH_MS;
-  }
-  return FAN_APPROACH_MS;
-}
-
-/** Showcase dwell — every photo gets a wedding beat, not only the opener. */
-export function getFanShowcaseHoldMs(
-  step: number,
-  profile: FanTimelineProfile = "wedding_default"
-): number {
-  if (profile === "entrance_processional" && step === 0) {
-    return ENTRANCE_STEP0_SHOWCASE_HOLD_MS;
-  }
-  return step === 0 ? FAN_OPENING_HOLD_MS : FAN_SHOWCASE_HOLD_MS;
-}
-
-export function getFanParallaxPeak(
-  step: number,
-  profile: FanTimelineProfile = "wedding_default"
-): number {
-  if (profile === "entrance_processional" && step === 0) {
-    return ENTRANCE_STEP0_PARALLAX_PEAK;
-  }
-  return FAN_PARALLAX_PEAK;
-}
-
-/** @deprecated Alias for getFanShowcaseHoldMs */
-export function getFanOpeningHoldMs(step: number): number {
-  return getFanShowcaseHoldMs(step);
-}
-
-export function getFanRetreatMs(profile: FanTimelineProfile = "wedding_default"): number {
-  return FAN_PROFILE_CONFIG[profile].retreatMs;
-}
-
-export function getFanStepSegmentMs(
-  step: number,
-  profile: FanTimelineProfile = "wedding_default"
-): number {
-  return (
-    getFanApproachMs(step, profile) +
-    getFanShowcaseHoldMs(step, profile) +
-    getFanRetreatMs(profile) +
-    FAN_GAP_MS
-  );
-}
-
-export function resolveFanPhase(
-  step: number,
-  stepElapsed: number,
-  profile: FanTimelineProfile = "wedding_default"
-): FanPhaseState {
-  const approachMs = getFanApproachMs(step, profile);
-  const retreatMs = getFanRetreatMs(profile);
-  let t = stepElapsed;
-
-  if (t < approachMs) {
-    return {
-      phase: "approach",
-      phaseElapsed: t,
-      phaseDuration: approachMs,
-      phaseU: t / approachMs,
-    };
-  }
-  t -= approachMs;
-
-  const showcaseHold = getFanShowcaseHoldMs(step, profile);
-  if (t < showcaseHold) {
-    return {
-      phase: "showcase_hold",
-      phaseElapsed: t,
-      phaseDuration: showcaseHold,
-      phaseU: t / showcaseHold,
-    };
-  }
-  t -= showcaseHold;
-
-  if (t < retreatMs) {
-    return {
-      phase: "retreat",
-      phaseElapsed: t,
-      phaseDuration: retreatMs,
-      phaseU: t / retreatMs,
-    };
-  }
-  t -= retreatMs;
-
-  return {
-    phase: "handoff",
-    phaseElapsed: t,
-    phaseDuration: FAN_GAP_MS,
-    phaseU: Math.min(1, Math.max(0, t / FAN_GAP_MS)),
-  };
-}
-
-function fanSpinEuler(
-  seed: number,
-  step: number,
-  base: THREE.Euler,
-  intensity: number,
-  elapsedMs: number,
-  yawSign: number = 1
-): THREE.Euler {
-  if (intensity <= 0.001) {
-    return base.clone();
-  }
-  const rnd = mulberry32(seed ^ step * 9973);
-  const yawDir = yawSign >= 0 ? 1 : -1;
-  const seconds = elapsedMs / 1000;
-  const spinEnvelope = 1 - Math.exp(-seconds * 0.85);
-  const yawRate = (0.3 + rnd() * 0.42) * intensity * yawDir;
-  const pitchRate = (0.04 + rnd() * 0.1) * intensity * (rnd() > 0.5 ? 1 : -1);
-  const rollRate = (0.025 + rnd() * 0.07) * intensity * (rnd() > 0.5 ? 1 : -1);
-  const euler = base.clone();
-  euler.y += yawRate * seconds * spinEnvelope;
-  euler.x += pitchRate * seconds * 0.32 * spinEnvelope;
-  euler.z += rollRate * seconds * 0.22 * spinEnvelope;
-  return euler;
-}
-
-export interface FanCubeSample {
-  presentationScale: number;
-  rotation: THREE.Euler;
-  parallaxAmount: number;
-  focusPulse: number;
-}
+// Re-export everything for backward compatibility
+export * from "./fanTiming";
+export * from "./fanTransform";
+export * from "./fanPhases";
 
 export function sampleFanCubeMotion(
   step: number,
@@ -251,141 +49,22 @@ export function sampleFanCubeMotion(
   rotationMode: CubeRotationMode = "mixed",
   profile: FanTimelineProfile = "wedding_default"
 ): FanCubeSample {
-  const profileConfig = FAN_PROFILE_CONFIG[profile];
-  const parallaxPeak = getFanParallaxPeak(step, profile);
-  const { phase, phaseU, phaseElapsed } = resolveFanPhase(step, stepElapsed, profile);
+  const state = resolveFanPhase(step, stepElapsed, profile);
   const faceRotation = getFaceRotation(currentFace);
   const entry = getCubeEntryRotation(step);
   const exit = getCubeExitRotation(step, presentationCount);
+  const parallaxPeak = getFanParallaxPeak(step, profile);
 
-  const approachEase = easeInOutSine(phaseU);
-  const retreatEase = easeInOutSine(phaseU);
-  const handoffEase = easeInOutSine(phaseU);
-
-  const approachRotEase = easeOutQuart(phaseU);
-  const retreatRotEase = easeInQuart(phaseU);
-
-  const showcaseHoldMs = getFanShowcaseHoldMs(step, profile);
-  const approachMs = getFanApproachMs(step, profile);
-  const retreatStartMs = approachMs + showcaseHoldMs;
-  /** Continuous spin clock across retreat + handoff (avoids phase-boundary rotation pops). */
-  const transitionSpinMs = Math.max(0, stepElapsed - retreatStartMs);
-  const yawSign = resolveSpinYawSign(rotationMode);
-  const transitionSpinIntensity = Math.max(
-    FAN_MIN_TRANSITION_SPIN_INTENSITY,
-    profileConfig.handoffSpinIntensity
-  );
-  const showcaseSpinIntensity =
-    profile === "entrance_processional" ? ENTRANCE_SHOWCASE_SPIN : 0.05;
-
-  let presentationScale = FAN_SCALE_RETREAT;
-  let rotation = faceRotation.clone();
-  let parallaxAmount = 0;
-  let focusPulse = 0;
-
-  switch (phase) {
-    case "approach": {
-      const approachFrom = FAN_SCALE_FAR;
-      presentationScale = THREE.MathUtils.lerp(approachFrom, FAN_SCALE_PEAK, approachEase);
-      const approachSpinMax =
-        profile === "entrance_processional" && step === 0
-          ? ENTRANCE_APPROACH_SPIN_MAX
-          : 0.55;
-      if (step === 0) {
-        const spinIntensity = THREE.MathUtils.lerp(approachSpinMax, 0.05, approachEase);
-        rotation = slerpCubeTransition(entry, faceRotation, approachRotEase, step, rotationMode);
-        rotation = fanSpinEuler(motionSeed, step + 3, rotation, spinIntensity, stepElapsed, yawSign);
-      } else {
-        // Ensure rotation continuity across photo boundary:
-        // start at the previous step's *end-of-handoff* rotation (not raw exit),
-        // so the viewer never perceives a freeze between photos.
-        const prevStep = step - 1;
-        const prevApproachMs = getFanApproachMs(prevStep, profile);
-        const prevShowcaseHoldMs = getFanShowcaseHoldMs(prevStep, profile);
-        const prevRetreatStartMs = prevApproachMs + prevShowcaseHoldMs;
-        const prevTransitionEndMs = Math.max(0, getFanStepSegmentMs(prevStep, profile) - prevRetreatStartMs);
-        const prevExit = getCubeExitRotation(prevStep, presentationCount);
-        const prevHandoffEnd = fanSpinEuler(
-          motionSeed,
-          prevStep + 31,
-          prevExit.clone(),
-          transitionSpinIntensity,
-          prevTransitionEndMs,
-          yawSign
-        );
-
-        rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachRotEase, step, rotationMode);
-      }
-      parallaxAmount = parallaxPeak * approachEase * 0.5;
-      break;
-    }
-    case "showcase_hold": {
-      const breathe = Math.sin(phaseU * Math.PI);
-      presentationScale = FAN_SCALE_PEAK;
-      rotation = faceRotation.clone();
-      const spinRamp =
-        profile === "entrance_processional" && step === 0
-          ? 1
-          : Math.min(1, phaseElapsed / 520);
-      rotation = fanSpinEuler(
-        motionSeed,
-        step + 3,
-        rotation,
-        showcaseSpinIntensity * spinRamp,
-        stepElapsed,
-        yawSign
-      );
-      parallaxAmount = parallaxPeak * (0.28 + 0.1 * breathe);
-      focusPulse = step === 0 ? 0.2 + 0.08 * breathe : 0.14 + 0.06 * breathe;
-      break;
-    }
-    case "retreat": {
-      presentationScale = THREE.MathUtils.lerp(FAN_SCALE_PEAK, FAN_SCALE_RETREAT, retreatEase);
-      let spinIntensity = THREE.MathUtils.lerp(0.05, profileConfig.retreatSpinMax, retreatEase);
-      if (phaseU > 0.82) {
-        spinIntensity *= (1 - (phaseU - 0.82) / 0.18);
-      }
-      const showcaseEnd = fanSpinEuler(
-        motionSeed,
-        step + 3,
-        faceRotation.clone(),
-        0.04,
-        Math.max(0, retreatStartMs - 33)
-      );
-      const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatRotEase, step, rotationMode);
-      rotation = slerpTarget;
-      if (profile !== "entrance_processional") {
-        const retreatSpinGate = 1;
-        rotation = fanSpinEuler(
-          motionSeed,
-          step + 17,
-          rotation,
-          spinIntensity * retreatSpinGate,
-          transitionSpinMs
-        );
-      }
-      parallaxAmount = parallaxPeak * (1 - retreatEase) * 0.32;
-      focusPulse = 0.06 * (1 - retreatEase);
-      break;
-    }
-    case "handoff": {
-      presentationScale = FAN_SCALE_RETREAT;
-      rotation = exit.clone();
-      rotation = fanSpinEuler(
-        motionSeed,
-        step + 31,
-        rotation,
-        transitionSpinIntensity,
-        // Keep a continuous spin clock through handoff so angular velocity doesn't "reset" at phase boundaries.
-        transitionSpinMs,
-        yawSign
-      );
-      parallaxAmount = 0.04 * (1 - handoffEase);
-      break;
-    }
+  switch (state.phase) {
+    case "approach":
+      return sampleApproachPhase(state, step, stepElapsed, entry, faceRotation, getCubeExitRotation(Math.max(0, step - 1), presentationCount), parallaxPeak, presentationCount, motionSeed, rotationMode, profile);
+    case "showcase_hold":
+      return sampleShowcaseHoldPhase(state, step, stepElapsed, faceRotation, parallaxPeak, motionSeed, rotationMode, profile);
+    case "retreat":
+      return sampleRetreatPhase(state, step, stepElapsed, faceRotation, exit, parallaxPeak, motionSeed, rotationMode, profile);
+    case "handoff":
+      return sampleHandoffPhase(state, step, stepElapsed, exit, motionSeed, rotationMode, profile);
   }
-
-  return { presentationScale, rotation, parallaxAmount, focusPulse };
 }
 
 export function computeFanLoopBridgeFrame(
