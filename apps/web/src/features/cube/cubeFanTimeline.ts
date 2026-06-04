@@ -83,21 +83,15 @@ export function computeFanLoopBridgeFrame(
   const profileConfig = FAN_PROFILE_CONFIG[profile];
   const approachMs = getFanApproachMs(lastStep, profile);
   const showcaseHoldMs = getFanShowcaseHoldMs(lastStep, profile);
-  const retreatMs = getFanRetreatMs(profile);
-  const transitionSpinMs = approachMs + showcaseHoldMs + retreatMs + FAN_GAP_MS - (approachMs + showcaseHoldMs);
+  const totalStepMs = getFanStepSegmentMs(lastStep, profile);
   const yawSign = resolveSpinYawSign(rotationMode);
-  const transitionSpinIntensity = Math.max(
-    FAN_MIN_TRANSITION_SPIN_INTENSITY,
-    profileConfig.handoffSpinIntensity
-  );
-
   const lastStepExit = CORNER_REST_ROTATION.clone();
+  
   const fromRotation = fanSpinEuler(
     motionSeed,
     lastStep + 31,
     lastStepExit,
-    transitionSpinIntensity,
-    transitionSpinMs,
+    getAccumulatedRevs(totalStepMs, lastStep, profile),
     yawSign
   );
 

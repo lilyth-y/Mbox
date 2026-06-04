@@ -3,7 +3,6 @@ import { CubeRotationMode, slerpCubeTransition } from "./cubeTransitionRotation"
 import {
   FanPhaseState,
   FanTimelineProfile,
-  FAN_PROFILE_CONFIG,
   FAN_SCALE_FAR,
   FAN_SCALE_PEAK,
   FAN_SCALE_RETREAT,
@@ -15,11 +14,9 @@ import {
   getFanStepSegmentMs
 } from "./fanTiming";
 import {
-  ENTRANCE_APPROACH_SPIN_MAX,
-  ENTRANCE_SHOWCASE_SPIN,
-  FAN_MIN_TRANSITION_SPIN_INTENSITY,
   fanSpinEuler,
-  resolveSpinYawSign
+  resolveSpinYawSign,
+  getAccumulatedRevs
 } from "./fanTransform";
 
 export interface FanCubeSample {
@@ -49,34 +46,33 @@ export function sampleApproachPhase(
   const presentationScale = THREE.MathUtils.lerp(FAN_SCALE_FAR, FAN_SCALE_PEAK, approachEase);
   let rotation = faceRotation.clone();
   
-  const approachSpinMax =
-    profile === "entrance_processional" && step === 0
-      ? ENTRANCE_APPROACH_SPIN_MAX
-      : 0.55;
+  const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, profile);
 
   if (step === 0) {
-    const spinIntensity = THREE.MathUtils.lerp(approachSpinMax, 0.05, approachEase);
     rotation = slerpCubeTransition(entry, faceRotation, approachRotEase, step, rotationMode);
-    rotation = fanSpinEuler(motionSeed, step + 3, rotation, spinIntensity, stepElapsed, yawSign);
+    rotation = fanSpinEuler(motionSeed, step + 3, rotation, accumulatedRevs, yawSign);
   } else {
     const prevStep = step - 1;
     const prevApproachMs = getFanApproachMs(prevStep, profile);
     const prevShowcaseHoldMs = getFanShowcaseHoldMs(prevStep, profile);
     const prevRetreatStartMs = prevApproachMs + prevShowcaseHoldMs;
     const prevTransitionEndMs = Math.max(0, getFanStepSegmentMs(prevStep, profile) - prevRetreatStartMs);
-    const profileConfig = FAN_PROFILE_CONFIG[profile];
-    const transitionSpinIntensity = Math.max(FAN_MIN_TRANSITION_SPIN_INTENSITY, profileConfig.handoffSpinIntensity);
+    
+    // In prev step's handoff, the spin continues at 5.0 RPS from the end of retreat.
+    // getAccumulatedRevs(time, prevStep, profile) computes exact accumulated revolutions up to handoff end.
+    const prevTimeInStep = prevRetreatStartMs + prevTransitionEndMs;
+    const prevRevs = getAccumulatedRevs(prevTimeInStep, prevStep, profile);
     
     const prevHandoffEnd = fanSpinEuler(
       motionSeed,
       prevStep + 31,
       prevExit.clone(),
-      transitionSpinIntensity,
-      prevTransitionEndMs,
+      prevRevs,
       yawSign
     );
 
     rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachRotEase, step, rotationMode);
+    rotation = fanSpinEuler(motionSeed, step + 3, rotation, accumulatedRevs, yawSign);
   }
 
   const parallaxAmount = parallaxPeak * approachEase * 0.5;
@@ -96,18 +92,16 @@ export function sampleShowcaseHoldPhase(
 ): FanCubeSample {
   const breathe = Math.sin(state.phaseU * Math.PI);
   const presentationScale = FAN_SCALE_PEAK;
-  let rotation = faceRotation.clone();
-  
-  const showcaseSpinIntensity = profile === "entrance_processional" ? ENTRANCE_SHOWCASE_SPIN : 0.05;
-  const spinRamp = profile === "entrance_processional" && step === 0 ? 1 : Math.min(1, state.phaseElapsed / 520);
   const yawSign = resolveSpinYawSign(rotationMode);
   
+  const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, profile);
+  
+  let rotation = faceRotation.clone();
   rotation = fanSpinEuler(
     motionSeed,
     step + 3,
     rotation,
-    showcaseSpinIntensity * spinRamp,
-    stepElapsed,
+    accumulatedRevs,
     yawSign
   );
   
@@ -130,39 +124,20 @@ export function sampleRetreatPhase(
 ): FanCubeSample {
   const retreatEase = easeInOutSine(state.phaseU);
   const retreatRotEase = easeInQuart(state.phaseU);
-  
-  const approachMs = getFanApproachMs(step, profile);
-  const showcaseHoldMs = getFanShowcaseHoldMs(step, profile);
-  const retreatStartMs = approachMs + showcaseHoldMs;
-  const transitionSpinMs = Math.max(0, stepElapsed - retreatStartMs);
-  const profileConfig = FAN_PROFILE_CONFIG[profile];
+  const yawSign = resolveSpinYawSign(rotationMode);
   
   const presentationScale = THREE.MathUtils.lerp(FAN_SCALE_PEAK, FAN_SCALE_RETREAT, retreatEase);
   
-  let spinIntensity = THREE.MathUtils.lerp(0.05, profileConfig.retreatSpinMax, retreatEase);
-  if (state.phaseU > 0.82) {
-    spinIntensity *= (1 - (state.phaseU - 0.82) / 0.18);
-  }
+  const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, profile);
   
-  const showcaseEnd = fanSpinEuler(
+  let rotation = slerpCubeTransition(faceRotation, exit, retreatRotEase, step, rotationMode);
+  rotation = fanSpinEuler(
     motionSeed,
-    step + 3,
-    faceRotation.clone(),
-    0.04,
-    Math.max(0, retreatStartMs - 33)
+    step + 17,
+    rotation,
+    accumulatedRevs,
+    yawSign
   );
-  
-  let rotation = slerpCubeTransition(showcaseEnd, exit, retreatRotEase, step, rotationMode);
-  
-  if (profile !== "entrance_processional") {
-    rotation = fanSpinEuler(
-      motionSeed,
-      step + 17,
-      rotation,
-      spinIntensity,
-      transitionSpinMs
-    );
-  }
   
   const parallaxAmount = parallaxPeak * (1 - retreatEase) * 0.32;
   const focusPulse = 0.06 * (1 - retreatEase);
@@ -180,24 +155,17 @@ export function sampleHandoffPhase(
   profile: FanTimelineProfile
 ): FanCubeSample {
   const handoffEase = easeInOutSine(state.phaseU);
-  const presentationScale = FAN_SCALE_RETREAT;
-  
-  const approachMs = getFanApproachMs(step, profile);
-  const showcaseHoldMs = getFanShowcaseHoldMs(step, profile);
-  const retreatStartMs = approachMs + showcaseHoldMs;
-  const transitionSpinMs = Math.max(0, stepElapsed - retreatStartMs);
   const yawSign = resolveSpinYawSign(rotationMode);
   
-  const profileConfig = FAN_PROFILE_CONFIG[profile];
-  const transitionSpinIntensity = Math.max(FAN_MIN_TRANSITION_SPIN_INTENSITY, profileConfig.handoffSpinIntensity);
+  const presentationScale = FAN_SCALE_RETREAT;
+  const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, profile);
   
   let rotation = exit.clone();
   rotation = fanSpinEuler(
     motionSeed,
     step + 31,
     rotation,
-    transitionSpinIntensity,
-    transitionSpinMs,
+    accumulatedRevs,
     yawSign
   );
   

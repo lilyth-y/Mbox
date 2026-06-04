@@ -13,8 +13,8 @@
   // 1. TIMING & MATH MODULE (시간 계산 및 유틸리티)
   // --------------------------------------------------------
   const FAN_APPROACH_MS = 2400;
-  const FAN_OPENING_HOLD_MS = 1200;
-  const FAN_SHOWCASE_HOLD_MS = 900;
+  const FAN_OPENING_HOLD_MS = 1000;
+  const FAN_SHOWCASE_HOLD_MS = 1000;
   const FAN_RETREAT_MS = 2000;
   const FAN_GAP_MS = 1600;
   const FAN_LOOP_BRIDGE_MS = 1100;
@@ -123,10 +123,6 @@
   };
   const STYLES = ["yaw_arc", "pitch_lift", "pitch_drop", "roll_tilt", "corner_swing", "yaw_arc"];
 
-  const FAN_MIN_TRANSITION_SPIN = 0.016;
-  const RETREAT_SPIN_MAX = 0.38;
-  const HANDOFF_SPIN = 0.022;
-
   function slerpEuler(current, target, alpha) {
     if (!current && !target) return new THREE.Euler(0, 0, 0);
     if (!current) return target.clone ? target.clone() : new THREE.Euler(target.x || 0, target.y || 0, target.z || 0);
@@ -195,20 +191,47 @@
     return mode === "yaw_ccw" ? -1 : 1;
   }
 
-  function fanSpinEuler(seed, step, base, intensity, elapsedMs, speedMul, yawSign = 1) {
-    if (intensity <= 0.001) return base.clone();
+  function getAccumulatedRevs(stepElapsedMs, step, speedMul = 1) {
+    const mul = Math.max(0.35, Math.min(2.5, speedMul));
+    const T_app = (FAN_APPROACH_MS / mul) / 1000;
+    const T_show = (getFanShowcaseHoldMs(step) / mul) / 1000;
+    const T_ret = (FAN_RETREAT_MS / mul) / 1000;
+    
+    let revs = 0;
+    let t = stepElapsedMs / 1000;
+    
+    if (t <= T_app) {
+      return 3 * t + 2 * T_app / Math.PI * Math.sin(Math.PI * t / T_app);
+    }
+    revs += 3 * T_app;
+    t -= T_app;
+    
+    if (t <= T_show) {
+      return revs; // completely stopped
+    }
+    t -= T_show;
+    
+    if (t <= T_ret) {
+      return revs + 3 * t - 2 * T_ret / Math.PI * Math.sin(Math.PI * t / T_ret);
+    }
+    revs += 3 * T_ret;
+    t -= T_ret;
+    
+    return revs + 5.0 * t;
+  }
+
+  function fanSpinEuler(seed, step, base, accumulatedRevs, yawSign = 1) {
     const rnd = mulberry32(seed ^ step * 9973);
-    const speed = Math.max(0.35, Math.min(2.5, speedMul));
-    const seconds = elapsedMs / 1000;
-    const spinEnvelope = 1 - Math.exp(-seconds * 0.85);
     const yawDir = yawSign >= 0 ? 1 : -1;
-    const yawRate = (0.3 + rnd() * 0.42) * intensity * yawDir * speed;
-    const pitchRate = (0.04 + rnd() * 0.1) * intensity * (rnd() > 0.5 ? 1 : -1) * speed;
-    const rollRate = (0.025 + rnd() * 0.07) * intensity * (rnd() > 0.5 ? 1 : -1) * speed;
+    
+    const yawAngle = accumulatedRevs * 2 * Math.PI * yawDir;
+    const pitchAngle = 0.05 * accumulatedRevs * 2 * Math.PI * (rnd() > 0.5 ? 1 : -1);
+    const rollAngle = 0.05 * accumulatedRevs * 2 * Math.PI * (rnd() > 0.5 ? 1 : -1);
+    
     const euler = base.clone();
-    euler.y += yawRate * seconds * spinEnvelope;
-    euler.x += pitchRate * seconds * 0.32 * spinEnvelope;
-    euler.z += rollRate * seconds * 0.22 * spinEnvelope;
+    euler.y += yawAngle;
+    euler.x += pitchAngle * 0.32;
+    euler.z += rollAngle * 0.22;
     return euler;
   }
 
@@ -223,31 +246,28 @@
     
     let presentationScale = THREE.MathUtils.lerp(FAN_SCALE_FAR, FAN_SCALE_PEAK, approachEase);
     let rotation = faceRotation.clone();
+    
+    const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, speedMul);
 
     if (step === 0) {
-      const spinIntensity = THREE.MathUtils.lerp(0.85, 0.05, approachEase);
       rotation = slerpCubeTransition(entry, faceRotation, approachRotEase, step, rotationMode);
-      rotation = fanSpinEuler(motionSeed, step + 3, rotation, spinIntensity, stepElapsed, speedMul, yawSign);
+      rotation = fanSpinEuler(motionSeed, step + 3, rotation, accumulatedRevs, yawSign);
     } else {
       const prevStep = step - 1;
-      const mul = Math.max(0.35, Math.min(2.5, speedMul));
-      const prevApproachMs = FAN_APPROACH_MS / mul;
-      const prevShowcaseHoldMs = getFanShowcaseHoldMs(prevStep) / mul;
-      const prevRetreatStartMs = prevApproachMs + prevShowcaseHoldMs;
-      const prevTransitionEndMs = Math.max(0, getFanStepSegmentMs(prevStep, speedMul) - prevRetreatStartMs);
+      const prevTotalMs = getFanStepSegmentMs(prevStep, speedMul);
       const prevExit = getCubeExitRotation(prevStep, presentationCount);
       
-      const transitionSpinIntensity = Math.max(FAN_MIN_TRANSITION_SPIN, HANDOFF_SPIN);
+      const prevRevs = getAccumulatedRevs(prevTotalMs, prevStep, speedMul);
       const prevHandoffEnd = fanSpinEuler(
         motionSeed,
         prevStep + 31,
         prevExit.clone(),
-        transitionSpinIntensity,
-        prevTransitionEndMs,
-        speedMul,
+        prevRevs,
         yawSign
       );
+      
       rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachRotEase, step, rotationMode);
+      rotation = fanSpinEuler(motionSeed, step + 3, rotation, accumulatedRevs, yawSign);
     }
     
     return {
@@ -260,19 +280,18 @@
   }
 
   function sampleShowcaseHoldPhase(state, step, stepElapsed, faceRotation, motionSeed, rotationMode, speedMul) {
-    const { phaseU, phaseElapsed } = state;
+    const { phaseU } = state;
     const breathe = Math.sin(phaseU * Math.PI);
     const yawSign = resolveSpinYawSign(rotationMode);
     
+    const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, speedMul);
+    
     let rotation = faceRotation.clone();
-    const spinRamp = Math.min(1, phaseElapsed / 520);
     rotation = fanSpinEuler(
       motionSeed,
       step + 3,
       rotation,
-      0.07 * spinRamp,
-      stepElapsed,
-      speedMul,
+      accumulatedRevs,
       yawSign
     );
     
@@ -291,37 +310,15 @@
     const retreatRotEase = easeInQuart(phaseU);
     const yawSign = resolveSpinYawSign(rotationMode);
     
-    const mul = Math.max(0.35, Math.min(2.5, speedMul));
-    const approachMs = FAN_APPROACH_MS / mul;
-    const showcaseHoldMs = getFanShowcaseHoldMs(step) / mul;
-    const retreatStartMs = approachMs + showcaseHoldMs;
-    const transitionSpinMs = Math.max(0, stepElapsed - retreatStartMs);
-    
     let presentationScale = THREE.MathUtils.lerp(FAN_SCALE_PEAK, FAN_SCALE_RETREAT, retreatEase);
+    const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, speedMul);
     
-    let spinIntensity = THREE.MathUtils.lerp(0.05, RETREAT_SPIN_MAX, retreatEase);
-    if (phaseU > 0.82) {
-      spinIntensity *= (1 - (phaseU - 0.82) / 0.18);
-    }
-    
-    const showcaseEnd = fanSpinEuler(
-      motionSeed,
-      step + 3,
-      faceRotation.clone(),
-      0.04,
-      Math.max(0, retreatStartMs - 33),
-      speedMul,
-      yawSign
-    );
-    
-    let rotation = slerpCubeTransition(showcaseEnd, exit, retreatRotEase, step, rotationMode);
+    let rotation = slerpCubeTransition(faceRotation, exit, retreatRotEase, step, rotationMode);
     rotation = fanSpinEuler(
       motionSeed,
       step + 17,
       rotation,
-      spinIntensity,
-      transitionSpinMs,
-      speedMul,
+      accumulatedRevs,
       yawSign
     );
     
@@ -339,21 +336,14 @@
     const handoffEase = easeInOutSine(phaseU);
     const yawSign = resolveSpinYawSign(rotationMode);
     
-    const mul = Math.max(0.35, Math.min(2.5, speedMul));
-    const approachMs = FAN_APPROACH_MS / mul;
-    const showcaseHoldMs = getFanShowcaseHoldMs(step) / mul;
-    const retreatStartMs = approachMs + showcaseHoldMs;
-    const transitionSpinMs = Math.max(0, stepElapsed - retreatStartMs);
-    const transitionSpinIntensity = Math.max(FAN_MIN_TRANSITION_SPIN, HANDOFF_SPIN);
+    const accumulatedRevs = getAccumulatedRevs(stepElapsed, step, speedMul);
     
     let rotation = exit.clone();
     rotation = fanSpinEuler(
       motionSeed,
       step + 31,
       rotation,
-      transitionSpinIntensity,
-      transitionSpinMs,
-      speedMul,
+      accumulatedRevs,
       yawSign
     );
     
@@ -365,7 +355,6 @@
       phase: "handoff"
     };
   }
-
 
   // --------------------------------------------------------
   // 4. ORCHESTRATOR MODULE (메인 오케스트레이터)
@@ -408,21 +397,15 @@
   }
 
   function sampleLoopBridge(bridgeElapsed, bridgeMs, lastStep, motionSeed = 0, rotationMode = "auto", speedMul = 1) {
-    const mul = Math.max(0.35, Math.min(2.5, speedMul));
-    const approachMs = FAN_APPROACH_MS / mul;
-    const showcaseHoldMs = getFanShowcaseHoldMs(lastStep) / mul;
-    const transitionSpinMs = (FAN_APPROACH_MS + getFanShowcaseHoldMs(lastStep) + FAN_RETREAT_MS + FAN_GAP_MS) / mul - (approachMs + showcaseHoldMs);
     const yawSign = resolveSpinYawSign(rotationMode);
-    const transitionSpinIntensity = Math.max(FAN_MIN_TRANSITION_SPIN, HANDOFF_SPIN);
-
+    const totalStepMs = getFanStepSegmentMs(lastStep, speedMul);
+    
     const lastStepExit = CORNER_REST.clone();
     const fromRotation = fanSpinEuler(
       motionSeed,
       lastStep + 31,
       lastStepExit,
-      transitionSpinIntensity,
-      transitionSpinMs * mul,
-      speedMul,
+      getAccumulatedRevs(totalStepMs, lastStep, speedMul),
       yawSign
     );
 

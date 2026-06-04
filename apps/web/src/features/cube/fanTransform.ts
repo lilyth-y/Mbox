@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { CubeRotationMode } from "./cubeTransitionRotation";
+import {
+  FanTimelineProfile,
+  getFanApproachMs,
+  getFanShowcaseHoldMs,
+  getFanRetreatMs
+} from "./fanTiming";
 
 export const ENTRANCE_APPROACH_SPIN_MAX = 0.45;
 export const ENTRANCE_SHOWCASE_SPIN = 0.055;
@@ -22,27 +28,55 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
+export function getAccumulatedRevs(
+  stepElapsedMs: number,
+  step: number,
+  profile: FanTimelineProfile = "wedding_default"
+): number {
+  const T_app = getFanApproachMs(step, profile) / 1000;
+  const T_show = getFanShowcaseHoldMs(step, profile) / 1000;
+  const T_ret = getFanRetreatMs(profile) / 1000;
+  
+  let revs = 0;
+  let t = stepElapsedMs / 1000;
+  
+  if (t <= T_app) {
+    return 3 * t + 2 * T_app / Math.PI * Math.sin(Math.PI * t / T_app);
+  }
+  revs += 3 * T_app;
+  t -= T_app;
+  
+  if (t <= T_show) {
+    return revs; // completely stopped
+  }
+  t -= T_show;
+  
+  if (t <= T_ret) {
+    return revs + 3 * t - 2 * T_ret / Math.PI * Math.sin(Math.PI * t / T_ret);
+  }
+  revs += 3 * T_ret;
+  t -= T_ret;
+  
+  return revs + 5.0 * t;
+}
+
 export function fanSpinEuler(
   seed: number,
   step: number,
   base: THREE.Euler,
-  intensity: number,
-  elapsedMs: number,
+  accumulatedRevs: number,
   yawSign: number = 1
 ): THREE.Euler {
-  if (intensity <= 0.001) {
-    return base.clone();
-  }
   const rnd = mulberry32(seed ^ step * 9973);
   const yawDir = yawSign >= 0 ? 1 : -1;
-  const seconds = elapsedMs / 1000;
-  const spinEnvelope = 1 - Math.exp(-seconds * 0.85);
-  const yawRate = (0.3 + rnd() * 0.42) * intensity * yawDir;
-  const pitchRate = (0.04 + rnd() * 0.1) * intensity * (rnd() > 0.5 ? 1 : -1);
-  const rollRate = (0.025 + rnd() * 0.07) * intensity * (rnd() > 0.5 ? 1 : -1);
+  
+  const yawAngle = accumulatedRevs * 2 * Math.PI * yawDir;
+  const pitchAngle = 0.05 * accumulatedRevs * 2 * Math.PI * (rnd() > 0.5 ? 1 : -1);
+  const rollAngle = 0.05 * accumulatedRevs * 2 * Math.PI * (rnd() > 0.5 ? 1 : -1);
+  
   const euler = base.clone();
-  euler.y += yawRate * seconds * spinEnvelope;
-  euler.x += pitchRate * seconds * 0.32 * spinEnvelope;
-  euler.z += rollRate * seconds * 0.22 * spinEnvelope;
+  euler.y += yawAngle;
+  euler.x += pitchAngle * 0.32;
+  euler.z += rollAngle * 0.22;
   return euler;
 }

@@ -1,8 +1,8 @@
 import { FanPhaseState } from "./cubeSequence"; // wait, let's keep FanPhaseState here.
 
 export const FAN_APPROACH_MS = 2_400;
-export const FAN_OPENING_HOLD_MS = 1_200;
-export const FAN_SHOWCASE_HOLD_MS = 900;
+export const FAN_OPENING_HOLD_MS = 1_000;
+export const FAN_SHOWCASE_HOLD_MS = 1_000;
 export const FAN_RETREAT_MS = 2_000;
 export const FAN_GAP_MS = 1_600;
 export const FAN_LOOP_BRIDGE_MS = 1_100;
