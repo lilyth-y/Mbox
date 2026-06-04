@@ -2,7 +2,6 @@ import * as THREE from "three";
 import {
   CORNER_REST_ROTATION,
   getFaceRotation,
-  getPresentationFace,
   slerpEuler,
 } from "./cubeSequence";
 import {
@@ -23,12 +22,12 @@ export const FAN_OPENING_HOLD_MS = 1_200;
 export const FAN_SHOWCASE_HOLD_MS = 900;
 export const FAN_RETREAT_MS = 2_000;
 /** Inter-photo handoff (rotation bridge, minimal spin). */
-export const FAN_GAP_MS = 1_400;
+export const FAN_GAP_MS = 1_600;
 export const FAN_LOOP_BRIDGE_MS = 1_100;
 
-export const FAN_SCALE_FAR = 0.58;
+export const FAN_SCALE_FAR = 0.5;
 export const FAN_SCALE_PEAK = 1.05;
-export const FAN_SCALE_RETREAT = 0.8;
+export const FAN_SCALE_RETREAT = 0.5;
 
 export const FAN_PARALLAX_PEAK = 0.16;
 
@@ -42,28 +41,28 @@ export interface FanTimelineProfileConfig {
 
 export const FAN_PROFILE_CONFIG: Record<FanTimelineProfile, FanTimelineProfileConfig> = {
   wedding_default: {
-    retreatSpinMax: 0.55,
-    handoffSpinIntensity: 0,
+    retreatSpinMax: 0.38,
+    handoffSpinIntensity: 0.022,
     retreatMs: FAN_RETREAT_MS,
   },
   entrance_processional: {
-    retreatSpinMax: 0.18,
-    handoffSpinIntensity: 0.02,
+    retreatSpinMax: 0.28,
+    handoffSpinIntensity: 0.018,
     retreatMs: 2_800,
   },
 };
 
 /** Always keep some angular motion through photo transitions (prevents "freeze" perception). */
-export const FAN_MIN_TRANSITION_SPIN_INTENSITY = 0.012;
+export const FAN_MIN_TRANSITION_SPIN_INTENSITY = 0.016;
 
 /** Entrance hero: faster approach, longer dwell for aisle walk sync. */
 export const ENTRANCE_STEP0_APPROACH_MS = 1_800;
 export const ENTRANCE_STEP0_SHOWCASE_HOLD_MS = 3_500;
 export const ENTRANCE_STEP0_PARALLAX_PEAK = 0.23;
 /** Cap approach spin for comfortable tracking on entrance hero. */
-export const ENTRANCE_APPROACH_SPIN_MAX = 0.38;
-/** Showcase spin — tuned for RSI yaw band [2.0, 4.5]°/s at 30fps. */
-export const ENTRANCE_SHOWCASE_SPIN = 0.048;
+export const ENTRANCE_APPROACH_SPIN_MAX = 0.45;
+/** Showcase spin — tuned for smooth yaw-dominant motion. */
+export const ENTRANCE_SHOWCASE_SPIN = 0.055;
 
 export function resolveSpinYawSign(mode: CubeRotationMode): number {
   if (mode === "yaw_ccw") {
@@ -216,14 +215,15 @@ function fanSpinEuler(
   }
   const rnd = mulberry32(seed ^ step * 9973);
   const yawDir = yawSign >= 0 ? 1 : -1;
-  const yawRate = (0.55 + rnd() * 0.75) * intensity * yawDir;
-  const pitchRate = (0.14 + rnd() * 0.28) * intensity * (rnd() > 0.5 ? 1 : -1);
-  const rollRate = (0.08 + rnd() * 0.18) * intensity * (rnd() > 0.5 ? 1 : -1);
   const seconds = elapsedMs / 1000;
+  const spinEnvelope = 1 - Math.exp(-seconds * 0.85);
+  const yawRate = (0.3 + rnd() * 0.42) * intensity * yawDir;
+  const pitchRate = (0.04 + rnd() * 0.1) * intensity * (rnd() > 0.5 ? 1 : -1);
+  const rollRate = (0.025 + rnd() * 0.07) * intensity * (rnd() > 0.5 ? 1 : -1);
   const euler = base.clone();
-  euler.y += yawRate * seconds;
-  euler.x += pitchRate * seconds * 0.55;
-  euler.z += rollRate * seconds * 0.4;
+  euler.y += yawRate * seconds * spinEnvelope;
+  euler.x += pitchRate * seconds * 0.32 * spinEnvelope;
+  euler.z += rollRate * seconds * 0.22 * spinEnvelope;
   return euler;
 }
 
@@ -265,7 +265,7 @@ export function sampleFanCubeMotion(
     profileConfig.handoffSpinIntensity
   );
   const showcaseSpinIntensity =
-    profile === "entrance_processional" ? ENTRANCE_SHOWCASE_SPIN : 0.04;
+    profile === "entrance_processional" ? ENTRANCE_SHOWCASE_SPIN : 0.05;
 
   let presentationScale = FAN_SCALE_RETREAT;
   let rotation = faceRotation.clone();
@@ -274,12 +274,12 @@ export function sampleFanCubeMotion(
 
   switch (phase) {
     case "approach": {
-      const approachFrom = step === 0 ? FAN_SCALE_FAR : FAN_SCALE_RETREAT;
+      const approachFrom = FAN_SCALE_FAR;
       presentationScale = THREE.MathUtils.lerp(approachFrom, FAN_SCALE_PEAK, approachEase);
       const approachSpinMax =
         profile === "entrance_processional" && step === 0
           ? ENTRANCE_APPROACH_SPIN_MAX
-          : 0.85;
+          : 0.55;
       if (step === 0) {
         const spinIntensity = THREE.MathUtils.lerp(approachSpinMax, 0.05, approachEase);
         rotation = slerpCubeTransition(entry, faceRotation, approachEase, step, rotationMode);
@@ -303,19 +303,19 @@ export function sampleFanCubeMotion(
           yawSign
         );
 
-        rotation = slerpEuler(prevHandoffEnd, faceRotation, approachEase);
+        rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachEase, step, rotationMode);
       }
       parallaxAmount = parallaxPeak * approachEase * 0.5;
       break;
     }
     case "showcase_hold": {
       const breathe = Math.sin(phaseU * Math.PI);
-      presentationScale = FAN_SCALE_PEAK * (1 + 0.015 * breathe);
+      presentationScale = FAN_SCALE_PEAK;
       rotation = faceRotation.clone();
       const spinRamp =
         profile === "entrance_processional" && step === 0
           ? 1
-          : Math.min(1, phaseElapsed / 250);
+          : Math.min(1, phaseElapsed / 520);
       rotation = fanSpinEuler(
         motionSeed,
         step + 3,
@@ -334,7 +334,6 @@ export function sampleFanCubeMotion(
       if (phaseU > 0.82) {
         spinIntensity *= (1 - (phaseU - 0.82) / 0.18);
       }
-      const slerpTarget = slerpCubeTransition(faceRotation, exit, retreatEase, step, rotationMode);
       const showcaseEnd = fanSpinEuler(
         motionSeed,
         step + 3,
@@ -342,11 +341,8 @@ export function sampleFanCubeMotion(
         0.04,
         Math.max(0, retreatStartMs - 33)
       );
-      if (phaseU < 0.15) {
-        rotation = slerpEuler(showcaseEnd, slerpTarget, easeInOutSine(phaseU / 0.15));
-      } else {
-        rotation = slerpTarget;
-      }
+      const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatEase, step, rotationMode);
+      rotation = slerpTarget;
       if (profile !== "entrance_processional") {
         const retreatSpinGate = 1;
         rotation = fanSpinEuler(
@@ -362,11 +358,7 @@ export function sampleFanCubeMotion(
       break;
     }
     case "handoff": {
-      presentationScale = THREE.MathUtils.lerp(
-        FAN_SCALE_RETREAT,
-        FAN_SCALE_RETREAT * 0.97,
-        Math.sin(phaseU * Math.PI) * 0.5 + 0.5
-      );
+      presentationScale = FAN_SCALE_RETREAT;
       rotation = exit.clone();
       rotation = fanSpinEuler(
         motionSeed,
@@ -388,15 +380,38 @@ export function sampleFanCubeMotion(
 export function computeFanLoopBridgeFrame(
   bridgeElapsed: number,
   bridgeMs: number,
-  lastStep: number
+  lastStep: number,
+  motionSeed: number = 0,
+  rotationMode: CubeRotationMode = "auto",
+  profile: FanTimelineProfile = "wedding_default"
 ): {
   cameraZ: number;
   fieldOfView: number;
   parallaxAmount: number;
   applyRootTransform: (root: THREE.Object3D) => void;
 } {
+  const profileConfig = FAN_PROFILE_CONFIG[profile];
+  const approachMs = getFanApproachMs(lastStep, profile);
+  const showcaseHoldMs = getFanShowcaseHoldMs(lastStep, profile);
+  const retreatMs = getFanRetreatMs(profile);
+  const transitionSpinMs = approachMs + showcaseHoldMs + retreatMs + FAN_GAP_MS - (approachMs + showcaseHoldMs);
+  const yawSign = resolveSpinYawSign(rotationMode);
+  const transitionSpinIntensity = Math.max(
+    FAN_MIN_TRANSITION_SPIN_INTENSITY,
+    profileConfig.handoffSpinIntensity
+  );
+
+  const lastStepExit = CORNER_REST_ROTATION.clone();
+  const fromRotation = fanSpinEuler(
+    motionSeed,
+    lastStep + 31,
+    lastStepExit,
+    transitionSpinIntensity,
+    transitionSpinMs,
+    yawSign
+  );
+
   const alpha = easeInOutSine(Math.min(1, Math.max(0, bridgeElapsed / Math.max(bridgeMs, 1))));
-  const fromRotation = getFaceRotation(getPresentationFace(lastStep));
   const rotation = slerpEuler(fromRotation, CORNER_REST_ROTATION, alpha);
   const scale = THREE.MathUtils.lerp(FAN_SCALE_RETREAT, FAN_SCALE_FAR, alpha);
 
