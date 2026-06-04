@@ -49,6 +49,14 @@
     return (-(Math.cos(Math.PI * x) - 1)) / 2;
   }
 
+  function easeOutQuart(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function easeInQuart(t) {
+    return t * t * t * t;
+  }
+
   function slerpEuler(current, target, alpha) {
     if (!current && !target) {
       return new THREE.Euler(0, 0, 0);
@@ -261,6 +269,8 @@
     const approachEase = easeInOutSine(phaseU);
     const retreatEase = easeInOutSine(phaseU);
     const handoffEase = easeInOutSine(phaseU);
+    const approachRotEase = easeOutQuart(phaseU);
+    const retreatRotEase = easeInQuart(phaseU);
     const mul = Math.max(0.35, Math.min(2.5, speedMul));
     const showcaseHoldMs = getFanShowcaseHoldMs(step) / mul;
     const approachMs = FAN_APPROACH_MS / mul;
@@ -280,7 +290,7 @@
         presentationScale = THREE.MathUtils.lerp(approachFrom, FAN_SCALE_PEAK, approachEase);
         if (step === 0) {
           const spinIntensity = THREE.MathUtils.lerp(0.85, 0.05, approachEase);
-          rotation = slerpCubeTransition(entry, faceRotation, approachEase, step, rotationMode);
+          rotation = slerpCubeTransition(entry, faceRotation, approachRotEase, step, rotationMode);
           rotation = fanSpinEuler(motionSeed, step + 3, rotation, spinIntensity, stepElapsed, speedMul, yawSign);
         } else {
           const prevStep = step - 1;
@@ -301,7 +311,7 @@
             speedMul,
             yawSign
           );
-          rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachEase, step, rotationMode);
+          rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachRotEase, step, rotationMode);
         }
         parallaxAmount = FAN_PARALLAX_PEAK * approachEase * 0.5;
         focusPulse = 0;
@@ -340,7 +350,7 @@
           speedMul,
           yawSign
         );
-        const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatEase, step, rotationMode);
+        const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatRotEase, step, rotationMode);
         rotation = slerpTarget;
         rotation = fanSpinEuler(
           motionSeed,

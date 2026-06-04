@@ -102,6 +102,14 @@ function easeInOutSine(t: number): number {
   return (-(Math.cos(Math.PI * x) - 1)) / 2;
 }
 
+export function easeOutQuart(t: number): number {
+  return 1 - Math.pow(1 - t, 4);
+}
+
+export function easeInQuart(t: number): number {
+  return t * t * t * t;
+}
+
 export function getFanApproachMs(
   step: number,
   profile: FanTimelineProfile = "wedding_default"
@@ -254,6 +262,9 @@ export function sampleFanCubeMotion(
   const retreatEase = easeInOutSine(phaseU);
   const handoffEase = easeInOutSine(phaseU);
 
+  const approachRotEase = easeOutQuart(phaseU);
+  const retreatRotEase = easeInQuart(phaseU);
+
   const showcaseHoldMs = getFanShowcaseHoldMs(step, profile);
   const approachMs = getFanApproachMs(step, profile);
   const retreatStartMs = approachMs + showcaseHoldMs;
@@ -282,7 +293,7 @@ export function sampleFanCubeMotion(
           : 0.55;
       if (step === 0) {
         const spinIntensity = THREE.MathUtils.lerp(approachSpinMax, 0.05, approachEase);
-        rotation = slerpCubeTransition(entry, faceRotation, approachEase, step, rotationMode);
+        rotation = slerpCubeTransition(entry, faceRotation, approachRotEase, step, rotationMode);
         rotation = fanSpinEuler(motionSeed, step + 3, rotation, spinIntensity, stepElapsed, yawSign);
       } else {
         // Ensure rotation continuity across photo boundary:
@@ -303,7 +314,7 @@ export function sampleFanCubeMotion(
           yawSign
         );
 
-        rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachEase, step, rotationMode);
+        rotation = slerpCubeTransition(prevHandoffEnd, faceRotation, approachRotEase, step, rotationMode);
       }
       parallaxAmount = parallaxPeak * approachEase * 0.5;
       break;
@@ -341,7 +352,7 @@ export function sampleFanCubeMotion(
         0.04,
         Math.max(0, retreatStartMs - 33)
       );
-      const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatEase, step, rotationMode);
+      const slerpTarget = slerpCubeTransition(showcaseEnd, exit, retreatRotEase, step, rotationMode);
       rotation = slerpTarget;
       if (profile !== "entrance_processional") {
         const retreatSpinGate = 1;
