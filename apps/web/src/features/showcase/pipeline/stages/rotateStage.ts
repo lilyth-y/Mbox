@@ -1,7 +1,7 @@
-import { tickShowcasePresentation } from "../showcasePresentation";
+import { computeIntegralEaseSpinSpeedY, tickShowcasePresentation } from "../showcasePresentation";
 import type { ShowcasePipelineStage } from "../types";
 
-/** Y축 단방향 회전 + 허공 부유 + 호흡 줌아웃. */
+/** Y축 ease-in/out 회전 + 허공 부유 + 호흡 줌아웃. */
 export const rotateStage: ShowcasePipelineStage = {
   id: "rotate",
   enter() {
@@ -12,8 +12,15 @@ export const rotateStage: ShowcasePipelineStage = {
       return "complete";
     }
 
+    const spinSpeedY = computeIntegralEaseSpinSpeedY(
+      ctx.phaseElapsedMs,
+      dtMs,
+      ctx.config.rotateDurationMs,
+      ctx.config.rotateSpeedY
+    );
+
     tickShowcasePresentation(ctx, dtMs, {
-      spinSpeedY: ctx.config.rotateSpeedY,
+      spinSpeedY,
       parallaxStrength: 0.22,
     });
 

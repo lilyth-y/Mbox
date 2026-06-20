@@ -236,6 +236,28 @@ function easeInOutCubic(t: number): number {
 
 
 
+/**
+ * Integral-mapped Y spin speed — same total yaw as constant peakSpeedY over durationMs,
+ * with ease-in-out angular velocity (no snap at phase boundaries).
+ */
+export function computeIntegralEaseSpinSpeedY(
+  phaseElapsedMs: number,
+  dtMs: number,
+  durationMs: number,
+  peakSpeedY: number
+): number {
+  if (durationMs <= 0 || dtMs <= 0) {
+    return 0;
+  }
+  const totalYaw = Math.abs(peakSpeedY) * (durationMs * 0.001);
+  const t0 = phaseElapsedMs / durationMs;
+  const t1 = Math.min(1, (phaseElapsedMs + dtMs) / durationMs);
+  const deltaYaw = totalYaw * (easeInOutCubic(t1) - easeInOutCubic(t0));
+  return deltaYaw / (dtMs * 0.001);
+}
+
+
+
 function capturePullZoomStart(ctx: ShowcaseStageContext): void {
 
   if (ctx.stageState.pullZoomCaptured) {

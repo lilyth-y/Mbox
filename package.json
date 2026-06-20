@@ -51,6 +51,7 @@
     "verify:showcase-manifest": "node scripts/showcase-content-manifest.mjs",
     "verify:showcase-commercial": "npm run build --workspace @mbox/shared && node scripts/showcase-commercial-goals.mjs",
     "verify:showcase-commercial:e2e": "npm run build --workspace @mbox/shared && node scripts/showcase-commercial-goals.mjs --run-e2e",
+    "verify:showcase-rotate-ease": "node scripts/verify-showcase-rotate-ease.mjs",
     "generate:showcase-qa-corpus": "node scripts/generate-showcase-qa-corpus.mjs",
     "verify:photo-slideshow-timeline": "tsx scripts/verify-photo-slideshow-timeline.ts",
     "verify:fan-choreography": "tsx scripts/verify-fan-choreography.mjs",

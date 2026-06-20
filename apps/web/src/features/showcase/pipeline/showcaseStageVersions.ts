@@ -53,13 +53,24 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   rotate: {
     id: "rotate",
-    version: "1.0.0",
-    maturity: "beta",
+    version: "1.1.0",
+    maturity: "rc",
     labelKo: "회전",
-    summaryKo: "Y축 등속 회전 + 부유 + 호흡 줌",
-    acceptanceKo: ["3.4s 단일 방향 spin", "카메라 presentation follow 유지"],
-    knownIssuesKo: ["등속 회전 — 상업용은 ease-in/out 검토"],
+    summaryKo: "Y축 ease-in/out 회전 + 부유 + 호흡 줌",
+    acceptanceKo: [
+      "3.4s 단일 방향 spin — 총 각도 등속 구간과 동일(적분 매핑)",
+      "ease-in/out 각속도 — 구간 경계 스냅 없음",
+      "카메라 presentation follow 유지",
+    ],
     changelog: [
+      {
+        version: "1.1.0",
+        date: "2026-06-21",
+        notesKo: [
+          "computeIntegralEaseSpinSpeedY — ease-in/out 각속도",
+          "maturity rc",
+        ],
+      },
       {
         version: "1.0.0",
         date: "2026-06-01",
