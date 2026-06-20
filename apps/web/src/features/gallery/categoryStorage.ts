@@ -1,7 +1,12 @@
 import type { ProcessedImage } from "../../shared/types";
-
-const CATEGORY_CATALOG_KEY = "mbox.categoryCatalog";
-const categoryAssignmentsKey = (eventId: string) => `mbox.categoryAssignments.${eventId}`;
+import { WORKSPACE_ID } from "../../shared/config/runtime";
+import {
+  categoryAssignmentsStorageKey,
+  categoryCatalogStorageKey,
+  legacyCategoryAssignmentsKey,
+  LEGACY_CATEGORY_CATALOG_KEY,
+  migrateLegacyLocalStorageValue,
+} from "../../shared/lib/workspaceLocalKeys";
 
 interface CategoryAssignmentRecord {
   userCategory?: string;
@@ -11,7 +16,11 @@ type CategoryAssignmentMap = Record<string, CategoryAssignmentRecord>;
 
 export function loadCategoryCatalog(): string[] | null {
   try {
-    const raw = localStorage.getItem(CATEGORY_CATALOG_KEY);
+    const raw = migrateLegacyLocalStorageValue(
+      categoryCatalogStorageKey(WORKSPACE_ID),
+      LEGACY_CATEGORY_CATALOG_KEY,
+      WORKSPACE_ID
+    );
     if (!raw) {
       return null;
     }
@@ -27,7 +36,7 @@ export function loadCategoryCatalog(): string[] | null {
 
 export function saveCategoryCatalog(categories: string[]): void {
   try {
-    localStorage.setItem(CATEGORY_CATALOG_KEY, JSON.stringify(categories));
+    localStorage.setItem(categoryCatalogStorageKey(WORKSPACE_ID), JSON.stringify(categories));
   } catch {
     // Ignore quota or private-mode storage failures.
   }
@@ -35,7 +44,8 @@ export function saveCategoryCatalog(categories: string[]): void {
 
 export function loadCategoryAssignments(eventId: string): CategoryAssignmentMap {
   try {
-    const raw = localStorage.getItem(categoryAssignmentsKey(eventId));
+    const scopedKey = categoryAssignmentsStorageKey(eventId, WORKSPACE_ID);
+    const raw = migrateLegacyLocalStorageValue(scopedKey, legacyCategoryAssignmentsKey(eventId), WORKSPACE_ID);
     if (!raw) {
       return {};
     }
@@ -58,7 +68,7 @@ export function saveCategoryAssignments(images: ProcessedImage[], eventId: strin
   }
 
   try {
-    localStorage.setItem(categoryAssignmentsKey(eventId), JSON.stringify(assignments));
+    localStorage.setItem(categoryAssignmentsStorageKey(eventId, WORKSPACE_ID), JSON.stringify(assignments));
   } catch {
     // Ignore quota or private-mode storage failures.
   }

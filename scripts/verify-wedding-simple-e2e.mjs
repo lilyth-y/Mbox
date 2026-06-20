@@ -11,14 +11,18 @@ const shotsDir = join(sessionDir, "screenshots");
 const logPath = join(sessionDir, "process_log.md");
 const resultPath = join(sessionDir, "download_result.json");
 
-const WEB_URL =
+const API_URL = process.env.API_URL ?? "http://localhost:8787";
+const API_READY_TIMEOUT_MS = Number(process.env.API_READY_TIMEOUT_MS ?? 120_000);
+const SKIP_MP4 = process.env.MBOX_SKIP_MP4 === "1";
+
+const rawWebUrl =
   process.env.WEB_URL ??
   (process.env.MBOX_WEDDING_SIMPLE_FILE === "1"
     ? `file:///${root.replace(/\\/g, "/")}/wedding-simple/index.html`
     : "http://localhost:5173/wedding-simple/index.html");
-const API_URL = process.env.API_URL ?? "http://localhost:8787";
-const API_READY_TIMEOUT_MS = Number(process.env.API_READY_TIMEOUT_MS ?? 120_000);
-const SKIP_MP4 = process.env.MBOX_SKIP_MP4 === "1";
+const WEB_URL = rawWebUrl.includes("?")
+  ? `${rawWebUrl}&api_url=${encodeURIComponent(API_URL)}`
+  : `${rawWebUrl}?api_url=${encodeURIComponent(API_URL)}`;
 
 const logLines = [];
 const log = (msg) => {
@@ -111,7 +115,7 @@ try {
 
   browser = await chromium.launch({
     headless: process.env.MBOX_HEADED === "1" ? false : true,
-    args: ["--use-gl=angle", "--ignore-gpu-blocklist", "--enable-webgl"],
+    args: ["--use-gl=angle", "--ignore-gpu-blocklist", "--enable-webgl", "--allow-file-access-from-files", "--disable-web-security"],
   });
 
   context = await browser.newContext({
@@ -132,24 +136,28 @@ try {
 
   log(`Navigate to ${WEB_URL}`);
   await page.goto(WEB_URL, { waitUntil: "networkidle", timeout: 120_000 });
-  await page.waitForFunction(() => typeof tailwind !== "undefined", undefined, {
-    timeout: 15_000,
-  });
-  if (pageErrors.some((m) => /tailwind is not defined/i.test(m))) {
-    throw new Error("Tailwind CDN failed to load (COEP/CORS). Check vite COEP relax for /wedding-simple.");
-  }
+  await page.getByRole("heading", { name: "웨딩 사진 업로드" }).waitFor({ timeout: 30_000 });
   await shot(page, "01_loaded");
 
   // Check upload inputs
   const fileInput = page.locator('input[type="file"]');
-  const sampleImage = join(root, "wedding_2d_input.jpg");
-  if (!existsSync(sampleImage)) {
-    throw new Error(`Sample image not found at ${sampleImage}`);
+  const sampleCandidates = [
+    join(root, "wedding_2d_input.jpg"),
+    join(root, ".cursor", "video-analysis", "cube_sample.jpg"),
+    join(root, "data", "background", "1024_원본", "002.jpg"),
+  ];
+  const sampleImage = sampleCandidates.find((path) => existsSync(path));
+  if (!sampleImage) {
+    throw new Error(`No sample image found. Tried: ${sampleCandidates.join(", ")}`);
   }
 
-  // Upload 12 sample images for texture carousel swap testing
-  log(`Uploading 12 files: ${sampleImage}`);
-  await fileInput.setInputFiles(Array(12).fill(sampleImage));
+  const imageCount = Math.min(
+    20,
+    Math.max(3, Number(process.env.MBOX_E2E_IMAGE_COUNT ?? 3))
+  );
+  log(`Uploading ${imageCount} files: ${sampleImage}`);
+  await fileInput.setInputFiles(Array(imageCount).fill(sampleImage));
+  await page.locator("#start-ai-btn").waitFor({ state: "visible", timeout: 30_000 });
   await page.waitForTimeout(2000);
   await shot(page, "02_files_selected");
 
@@ -163,10 +171,7 @@ try {
   // Wait for processing to finish (should transition to step 3)
   log("Waiting for AI processing completion...");
   await page.waitForFunction(
-    () => {
-      const step3 = document.getElementById("step-3-view");
-      return step3 && !step3.classList.contains("hidden");
-    },
+    () => Boolean(document.getElementById("step-3-view")),
     undefined,
     { timeout: 480_000 } // up to 8 minutes for 12 images
   );

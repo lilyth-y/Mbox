@@ -115,7 +115,7 @@ export function FocusWorkbench({
 
   return (
     <div
-      className={`relative overflow-hidden overscroll-none bg-slate-950 ${isLarge ? "aspect-square rounded-2xl border border-slate-800" : "absolute inset-0"} ${className}`}
+      className={`relative overflow-hidden overscroll-none bg-[rgba(18,14,24,0.75)] ${isLarge ? "aspect-square rounded-2xl border border-[rgba(223,179,134,0.12)]" : "absolute inset-0"} ${className}`}
     >
       <div
         ref={surfaceRef}
@@ -206,7 +206,7 @@ export function FocusWorkbench({
           />
           <div className="absolute inset-0 pointer-events-none">
             <div
-              className="absolute border border-cyan-300/70 bg-cyan-400/10"
+              className="absolute border border-mbox-gold/50 bg-mbox-gold/10"
               style={{
                 left: `${image.subject.bounds.x0}%`,
                 top: `${image.subject.bounds.y0}%`,
@@ -215,12 +215,12 @@ export function FocusWorkbench({
               }}
             />
             <div
-              className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-200 bg-cyan-300/80"
+              className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-mbox-rose-gold bg-mbox-gold/80"
               style={{ left: `${aiCenter.x}%`, top: `${aiCenter.y}%` }}
               title="AI 추천 포커스"
             />
             <div
-              className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-200 bg-amber-400 shadow-lg shadow-amber-500/30"
+              className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-mbox-gold bg-mbox-gold shadow-lg shadow-mbox-gold/30"
               style={{ left: `${draftCenter.x}%`, top: `${draftCenter.y}%` }}
               title="사용자 포커스"
             />
@@ -229,7 +229,7 @@ export function FocusWorkbench({
       </div>
 
       <div
-        className={`pointer-events-none absolute z-10 rounded-lg bg-black/65 px-2 py-1 text-[10px] text-slate-200 ${
+        className={`pointer-events-none absolute z-10 rounded-lg bg-black/65 px-2 py-1 text-[10px] text-mbox-text ${
           isLarge ? "bottom-3 left-3" : "bottom-1 left-1 max-w-[90%] leading-tight"
         }`}
       >

@@ -8,6 +8,7 @@ import type {
   SubjectBounds,
   SubjectRecognition,
 } from "@mbox/shared";
+import type { BackgroundPlateTheme } from "./lib/backgroundPlate";
 
 export type {
   AnalysisMetadata,
@@ -19,7 +20,7 @@ export type {
   SubjectRecognition,
 };
 
-export type ImagePreprocessMode = "original" | "background_removed";
+export type ImagePreprocessMode = "original" | "background_removed" | "volumax";
 
 export type BackgroundTemplateId =
   | "studio"
@@ -50,10 +51,22 @@ export interface ProcessedImage {
   url: string;
   preparedUrl: string;
   preCropSourceUrl?: string;
-  /** Blurred plate from pre-cutout source; used as the slow parallax layer in 3D. */
+  /** Full-scene plate for VoluMax bg layer (prefer theme `original`). */
   backgroundPlateUrl?: string;
+  /** Theme used when `backgroundPlateUrl` was generated. */
+  backgroundPlateTheme?: BackgroundPlateTheme;
+  /** Soft-matted or AI-cut subject PNG for VoluMax fg layer. */
+  subjectForegroundUrl?: string;
+  /** Full-frame AI matte before face crop — refocus re-crops fg with `url`. */
+  subjectMatteSourceUrl?: string;
+  /** How `subjectForegroundUrl` was produced — AI cutout required for silhouette parallax. */
+  voluMaxForegroundKind?: "ai_cutout" | "soft_matte" | "none";
+  /** True when plate + PNG matte were generated for VoluMax dual-layer. */
+  voluMaxPrepared?: boolean;
   /** BG plate + cutout FG baked for cube face surface (fan mode). */
   faceCompositeUrl?: string;
+  /** MP4 / showcase bottom line (manual input). */
+  caption?: string;
   label: string;
   userCategory?: string;
   aiSuggestedCategory: string;
@@ -74,7 +87,7 @@ export interface ProcessedImage {
   resolutionEnhanceScale?: ResolutionEnhanceScale;
 }
 
-export type AppTab = "upload" | "postprocess" | "cube" | "wedding_hall";
+export type AppTab = "upload" | "postprocess" | "cube";
 
 export interface HoloEvent {
   id: string;

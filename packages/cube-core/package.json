@@ -1,0 +1,23 @@
+{
+  "name": "@mbox/cube-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"try { require('fs').unlinkSync('tsconfig.tsbuildinfo') } catch (_) {}\" && tsc -p tsconfig.json && npx esbuild src/index.ts --bundle --minify --format=esm --external:three --outfile=../../apps/web/public/wedding-simple/cube-core.js && node -e \"require('fs').copyFileSync('../../apps/web/public/wedding-simple/cube-core.js','../../wedding-simple/cube-core.js')\""
+  },
+  "peerDependencies": {
+    "three": "^0.128.0 || ^0.150.0 || ^0.160.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

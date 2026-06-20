@@ -1,4 +1,5 @@
 import type { ImagePreprocessMode, ProcessedImage, ProcessingProgress } from "../../shared/types";
+import { DEFAULT_LOCAL_API_URL } from "@mbox/shared";
 import { arrayBufferToDataUrl } from "../../shared/lib/arrayBufferToDataUrl";
 import {
   canAddPresentationImage,
@@ -17,7 +18,7 @@ export interface DataAssetManifest {
   }>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_LOCAL_API_URL;
 const FETCH_CONCURRENCY = 4;
 /** Keep batch POST bodies under API JSON limit (large KakaoTalk originals). */
 const ANALYZE_BATCH_SIZE = 4;

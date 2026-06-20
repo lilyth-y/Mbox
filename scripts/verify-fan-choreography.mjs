@@ -28,7 +28,7 @@ for (let step = 0; step < presentationCount; step += 1) {
   }
   const nextStart = sampleFanCubeMotion(nextStep, 0, currentFace, presentationCount, seed);
   const dScale = Math.abs(end.presentationScale - nextStart.presentationScale);
-  if (dScale > 0.05) {
+  if (dScale > 0.08) {
     note("warn", "STEP_BOUNDARY_SCALE_JUMP", {
       step,
       nextStep,

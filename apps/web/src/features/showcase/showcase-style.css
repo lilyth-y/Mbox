@@ -1,0 +1,200 @@
+/* Canvas mount only — layout/theme from mbox-theme.css */
+.showcase-viewport-wrap {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.showcase-dom-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  image-rendering: auto;
+  filter: none;
+  transition: opacity 0.35s ease-out;
+}
+
+.showcase-dom-backdrop-error {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 220, 180, 0.9);
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+
+.showcase-backdrop-spill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--crystal-spill-opacity, 0);
+  background:
+    radial-gradient(
+      circle at var(--crystal-spill-x, 50%) var(--crystal-spill-y, 50%),
+      var(--crystal-spill-core, rgba(220, 235, 255, 0.5)) 0%,
+      transparent var(--crystal-spill-core-radius, 24%)
+    ),
+    radial-gradient(
+      circle at var(--crystal-spill-x, 50%) var(--crystal-spill-y, 50%),
+      var(--crystal-spill-halo, rgba(160, 200, 255, 0.25)) 0%,
+      transparent var(--crystal-spill-halo-radius, 50%)
+    );
+  mix-blend-mode: screen;
+  transition: opacity 0.35s ease-out;
+}
+
+.showcase-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  outline: none;
+  background: transparent;
+}
+
+.showcase-layout {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .showcase-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  }
+}
+
+.showcase-catalog-panel {
+  padding: 1rem 1.1rem;
+}
+
+.showcase-catalog-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--mbox-text, #f2e8dc);
+}
+
+.showcase-catalog-hint {
+  margin: 0.35rem 0 0.9rem;
+}
+
+.showcase-catalog-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.showcase-catalog-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.showcase-catalog-legend {
+  padding: 0;
+  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mbox-muted, #a89b8c);
+}
+
+.showcase-catalog-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.showcase-catalog-option {
+  border: 1px solid rgba(223, 179, 134, 0.18);
+  border-radius: 999px;
+  background: rgba(12, 14, 18, 0.55);
+  color: var(--mbox-text, #f2e8dc);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 0.38rem 0.72rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.showcase-catalog-option:hover:not(:disabled) {
+  border-color: rgba(223, 179, 134, 0.42);
+  background: rgba(223, 179, 134, 0.08);
+}
+
+.showcase-catalog-option.is-selected {
+  border-color: rgba(223, 179, 134, 0.72);
+  background: rgba(223, 179, 134, 0.16);
+  color: #fff6eb;
+  box-shadow: 0 0 0 1px rgba(223, 179, 134, 0.12);
+}
+
+.showcase-catalog-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.showcase-catalog-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.15rem 0 0.25rem;
+}
+
+.showcase-catalog-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  color: var(--mbox-muted, #a89b8c);
+}
+
+.showcase-catalog-slider input[type="range"] {
+  width: 100%;
+  accent-color: rgba(223, 179, 134, 0.9);
+}
+
+.showcase-catalog-color-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.showcase-catalog-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--mbox-muted, #a89b8c);
+}
+
+.showcase-catalog-color-field input[type="color"] {
+  width: 100%;
+  height: 2rem;
+  padding: 0.15rem;
+  border: 1px solid rgba(223, 179, 134, 0.22);
+  border-radius: 0.5rem;
+  background: rgba(8, 10, 14, 0.85);
+  cursor: pointer;
+}

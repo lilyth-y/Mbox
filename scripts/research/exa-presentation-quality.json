@@ -1,0 +1,14 @@
+{
+  "source": "stub",
+  "note": "Set EXA_API_KEY and re-run for live Exa deep search.",
+  "queries": [
+    "Three.js hologram Fresnel rim shader selective bloom best practices",
+    "WebGL procedural galaxy nebula FBM starfield shader performance",
+    "Three.js presentation orbit camera showcase hold easing"
+  ],
+  "recommendedModules": [
+    "galaxy_background: FBM nebula + layered stars",
+    "hologram_fresnel_rim: rim + scanlines",
+    "selective_bloom: pmndrs layer bloom"
+  ]
+}

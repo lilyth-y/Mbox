@@ -31,6 +31,8 @@ export async function applyResolutionEnhance(
     const upscaledPlateSource = await upscaleImageDataUrl(plateSource, scale);
     backgroundPlateUrl = await createBackgroundPlateDataUrl(upscaledPlateSource, {
       theme: options.backgroundPlateTheme,
+      center: image.center,
+      focus: image.focus,
     });
   }
 

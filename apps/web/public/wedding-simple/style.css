@@ -266,7 +266,8 @@ body::before {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* Hologram container 1:1 ratio */
+/* Square 3D preview (circular fan-blade mask retired) */
+.preview-outer-wrap,
 .hologram-outer-wrap {
   border: 1.5px solid rgba(223, 179, 134, 0.18);
   border-radius: 36px;
@@ -285,6 +286,7 @@ body::before {
   50% { border-color: rgba(223, 179, 134, 0.32); box-shadow: 0 0 45px rgba(223, 179, 134, 0.1); }
 }
 
+.preview-screen,
 .hologram-screen {
   aspect-ratio: 1 / 1;
   width: 100%;
@@ -424,3 +426,4 @@ body::before {
   letter-spacing: 0.1em;
   color: var(--rose-gold);
 }
+

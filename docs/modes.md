@@ -1,6 +1,6 @@
-## 모드 구분: main / 간편모드 / wedding simple
+## 모드 구분: main / wedding simple
 
-이 문서는 `apps/web` 안에서 제공되는 **3가지 사용자 플로우**(main / 간편모드 / wedding simple)가
+이 문서는 `apps/web` 안에서 제공되는 **2가지 사용자 플로우**(main / wedding simple)가
 어떤 목적/기능 차이를 갖는지, 그리고 운영/테스트 포인트를 정리합니다.
 
 ### 1) main 모드 (통합 앱)
@@ -11,23 +11,19 @@
   - 업로드 → 분석/크롭 → (선택) 누끼/배경생성/후처리 → 3D 큐브/내보내기
   - 누끼(배경 제거)는 **사용자가 선택 적용**(개별/배치) → 원본/누끼 혼재 가능
   - 기능 폭이 가장 넓고, 실험·검증용 패널/옵션이 상대적으로 많음
+  - **VoluMax·홀로그램·파티클·BGM 기본값 OFF** — 사용자가 패널에서 켜야 적용
+  - 기본값 단일 출처: `packages/shared/src/cubePresentationDefaults.ts` → wedding-simple은 `cube-config.js`로 동기화 (`node scripts/sync-cube-config.mjs`)
+  - **cube_focus 팬 모션**(면 정면, 6면 마운트, 회전)은 main / wedding-simple **동일 코드** (`apps/web/src/features/cube/`). 모드별로 분기하지 않음.
+  - **안전성 7 : 퀄리티 3** — 신규 연출은 `docs/presentation-safety.md` · `cubeEffectFramework.ts` 틀 안에서만 추가
 
-### 2) 간편모드 (웨딩 오퍼레이터 UX)
-
-- **진입**: `http://localhost:5173` → UI에서 “결혼식장 간편 모드”
-- **목표**: 현장 운영 흐름(업로드→AI 처리→MP4)에 맞춘 **단순한 위저드**
-- **특징**
-  - 성공률/속도/오퍼레이터 UX 우선 (옵션 폭은 main보다 제한)
-  - 홀로그램/웨딩 프리셋 중심으로 기본값이 구성됨
-
-### 3) wedding simple (초경량 원클릭 플로우)
+### 2) wedding simple (초경량 원클릭 플로우, 단독 URL)
 
 - **진입(정적 단독 UI)**: `http://localhost:5173/wedding-simple/index.html`
   - 소스: `apps/web/public/wedding-simple/`
 - **목표**: “현장용 원클릭 MP4”에 가까운 **최소 기능**
 - **특징**
   - 기능은 최소화하되 “끝까지 가는 파이프라인”을 우선
-  - 최근 변경: 자동 처리에서 **누끼를 시도하고 실패 시 원본으로 폴백**하여 파이프라인이 멈추지 않도록 구성
+  - main과 동일한 **옵션 기본값** (`cube-config.js`) — VoluMax·AI 누끼·자동 레이어 준비는 기본 OFF
 
 ---
 
@@ -36,14 +32,9 @@
 | 모드 | 기본 정책 | 결과 |
 |------|-----------|------|
 | main | 사용자가 선택 적용(개별/배치) | 원본/누끼 혼재 가능 |
-| 간편모드 | 자동 처리 파이프라인 내에서 최대한 처리 | 운영 흐름에서 끊김 최소화 |
-| wedding simple | **누끼 시도 + 실패 시 원본 폴백** | “누끼가 엎어도” MP4까지 진행 |
+| wedding simple | **원본 배경 유지** (누끼 없음) | “누끼 없이” MP4까지 진행 |
 
-폴백의 의미:
-- 누끼(브라우저/서버)가 실패해도
-  - 원본을 1024로 크롭
-  - background plate / face composite 생성
-  - `preprocessMode`는 `"original"`로 유지
+폴백 정책(과거): wedding simple에서 누끼 실패 시 원본 폴백을 쓰던 시기가 있었으나, **현재는 wedding/간편 모드 모두 누끼를 시도하지 않고 원본을 유지**합니다. main 모드에서만 사용자가 선택적으로 누끼를 적용할 수 있습니다.
 
 ---
 
@@ -62,11 +53,11 @@
 
 ```bash
 npm run dev
-# 다른 터미널:
-npm run verify:bg-removal
+# 다른 터미널 (원본 배경 유지 — wedding/cube 연출 검증):
 npm run verify:cube-frames
 npm run verify:wedding-simple
-npm run verify:local
+# main 모드 누끼(선택 기능)만 별도:
+npm run verify:bg-removal
 ```
 
 ### Cloud Build 정합성 (CI/배포 전)

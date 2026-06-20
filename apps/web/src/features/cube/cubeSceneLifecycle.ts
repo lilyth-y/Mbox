@@ -1,4 +1,5 @@
 import type * as THREE from "three";
+import { readOrbitalPivot } from "./orbitalPivot";
 
 /** Remove all canvases under the mount node (fixes stacked WebGL layers after setting clicks). */
 export function clearCubeMount(container: HTMLElement): void {
@@ -48,6 +49,12 @@ export function aimCameraAtCubeOrigin(camera: THREE.PerspectiveCamera): void {
 export const HOLOGRAM_PREVIEW_SCALE_MUL = 1.0;
 
 export function applyHologramPreviewScale(root: THREE.Object3D): void {
+  const pivot = readOrbitalPivot(root);
+  if (pivot) {
+    const s = pivot.spinGroup.scale.x * HOLOGRAM_PREVIEW_SCALE_MUL;
+    pivot.spinGroup.scale.set(s, s, s);
+    return;
+  }
   const s = root.scale.x * HOLOGRAM_PREVIEW_SCALE_MUL;
   root.scale.set(s, s, s);
 }

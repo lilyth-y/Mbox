@@ -1,11 +1,13 @@
-const LOCAL_API_HINT = "http://localhost:8787";
+import { DEFAULT_LOCAL_API_URL, DEFAULT_LOCAL_WEB_URL, MBOX_API_DEV_PORT } from "@mbox/shared";
+
+const LOCAL_API_HINT = DEFAULT_LOCAL_API_URL.replace("127.0.0.1", "localhost");
 
 export function isLocalApiBaseUrl(apiBaseUrl: string): boolean {
   try {
     const url = new URL(apiBaseUrl);
     return (
       (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-      (url.port === "8787" || url.port === "")
+      (url.port === String(MBOX_API_DEV_PORT) || url.port === "")
     );
   } catch {
     return apiBaseUrl.includes("localhost") || apiBaseUrl.includes("127.0.0.1");
@@ -16,8 +18,8 @@ export function formatApiConnectionError(apiBaseUrl: string): string {
   if (isLocalApiBaseUrl(apiBaseUrl)) {
     return (
       `API에 연결할 수 없습니다 (${apiBaseUrl}). ` +
-      "터미널에서 `npm run dev --workspace @mbox/api` 로 API를 띄운 뒤, " +
-      "웹은 `npm run dev --workspace @mbox/web` (보통 http://localhost:5173)으로 여세요."
+      "터미널에서 `npm run dev` 로 API·웹을 함께 띄운 뒤, " +
+      `웹은 \`npm run dev:urls\` 로 확인 (보통 ${DEFAULT_LOCAL_WEB_URL})으로 여세요.`
     );
   }
 

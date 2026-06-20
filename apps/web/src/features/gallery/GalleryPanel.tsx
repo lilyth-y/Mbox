@@ -19,6 +19,7 @@ const CENTERING_LABELS: Record<ProcessedImage["focus"]["centering"], string> = {
 const PREPROCESS_LABELS: Record<ProcessedImage["preprocessMode"], string> = {
   original: "원본",
   background_removed: "누끼",
+  volumax: "VoluMax",
 };
 
 function GalleryItem({
@@ -28,6 +29,7 @@ function GalleryItem({
   enableFocusEditor,
   onFocusCenterCommit,
   onApplyAiRecommendedFocus,
+  onCaptionChange,
 }: {
   item: ProcessedImage;
   selected: boolean;
@@ -35,6 +37,7 @@ function GalleryItem({
   enableFocusEditor: boolean;
   onFocusCenterCommit?: (id: number, center: ImageCenter) => void;
   onApplyAiRecommendedFocus?: (id: number) => void;
+  onCaptionChange?: (id: number, caption: string) => void;
 }) {
   const focus = item.focus;
   const focusSummary = focus.onPrimarySubject
@@ -66,11 +69,11 @@ function GalleryItem({
       }}
       className={`rounded-xl overflow-hidden border text-left transition-all shadow-lg cursor-pointer ${
         selected
-          ? "border-violet-500 ring-2 ring-violet-500/30"
-          : "border-slate-700 hover:border-blue-500"
+          ? "border-mbox-gold ring-2 ring-mbox-gold/30"
+          : "border-[rgba(223,179,134,0.18)] hover:border-mbox-gold/50"
       }`}
     >
-      <div className="relative aspect-square touch-none overscroll-none bg-slate-800">
+      <div className="relative aspect-square touch-none overscroll-none bg-[rgba(18,14,24,0.85)]">
         {selected && enableFocusEditor && onFocusCenterCommit ? (
           <FocusEditorOverlay
             image={item}
@@ -87,44 +90,57 @@ function GalleryItem({
                 event.stopPropagation();
                 onApplyAiRecommendedFocus(item.id);
               }}
-              className="rounded-full border border-cyan-400/50 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-500/30"
+              className="rounded-full border border-mbox-gold/40 bg-mbox-gold/15 px-3 py-1 text-[11px] font-semibold text-mbox-gold transition hover:bg-mbox-gold/25"
             >
               AI 추천 포커스
             </button>
           </div>
         ) : null}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-          <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-slate-200">
+          <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-mbox-text">
             {PREPROCESS_LABELS[item.preprocessMode]}
           </span>
           {backgroundSummary ? (
-            <span className="rounded-full bg-violet-600/80 px-2 py-0.5 text-[10px] text-white">
+            <span className="rounded-full bg-mbox-gold/70 px-2 py-0.5 text-[10px] text-[#07060a]">
               {backgroundSummary}
             </span>
           ) : null}
         </div>
       </div>
-      <div className="p-3 bg-slate-800">
+      <div className="p-3 bg-[rgba(18,14,24,0.85)]">
         <div className="flex justify-between items-start mb-1">
-          <h3 className="text-sm font-bold text-slate-100 truncate">{item.label}</h3>
-          <span className="text-[10px] px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full">
+          <h3 className="text-sm font-bold text-mbox-text truncate">{item.label}</h3>
+          <span className="text-[10px] px-2 py-0.5 bg-[rgba(18,14,24,0.7)] text-mbox-muted rounded-full">
             {effectiveCategory}
           </span>
         </div>
-        <p className="text-[11px] text-slate-400">1024 x 1024 PNG</p>
+        <p className="text-[11px] text-mbox-muted">1024 x 1024 PNG</p>
         {subjectSummary ? (
-          <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">{subjectSummary}</p>
+          <p className="mt-2 text-[10px] text-mbox-subtle leading-relaxed">{subjectSummary}</p>
         ) : null}
-        <p className="mt-2 text-[10px] text-cyan-300/80 leading-relaxed">
+        <p className="mt-2 text-[10px] text-mbox-gold/80 leading-relaxed">
           AI 추천 포커스 ({Math.round(aiCenter.x)}%, {Math.round(aiCenter.y)}%)
         </p>
         {showAiCategoryHint ? (
-          <p className="mt-1 text-[10px] text-indigo-300/80 leading-relaxed">
+          <p className="mt-1 text-[10px] text-mbox-rose-gold/90 leading-relaxed">
             AI 추천 카테고리: {item.aiSuggestedCategory} ({Math.round(item.categoryConfidence * 100)}%)
           </p>
         ) : null}
-        <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">{focusSummary}</p>
-        <p className="mt-1 text-[10px] text-slate-600 line-clamp-2">{focus.compositionNotes}</p>
+        <p className="mt-2 text-[10px] text-mbox-subtle leading-relaxed">{focusSummary}</p>
+        <p className="mt-1 text-[10px] text-mbox-subtle/80 line-clamp-2">{focus.compositionNotes}</p>
+        {selected && onCaptionChange ? (
+          <label className="mt-3 block" onClick={(event) => event.stopPropagation()}>
+            <span className="text-[10px] font-semibold text-mbox-muted">쇼케이스 자막 (한 줄)</span>
+            <input
+              type="text"
+              value={item.caption ?? ""}
+              maxLength={48}
+              placeholder="예: 신랑 · 신부 첫 dance"
+              onChange={(event) => onCaptionChange(item.id, event.target.value)}
+              className="mt-1 w-full rounded-lg border border-[rgba(223,179,134,0.18)] bg-[rgba(18,14,24,0.75)] px-2.5 py-1.5 text-xs text-mbox-text placeholder:text-mbox-subtle/80 focus:border-mbox-gold focus:outline-none focus:ring-1 focus:ring-mbox-gold/30"
+            />
+          </label>
+        ) : null}
       </div>
     </div>
   );
@@ -137,6 +153,7 @@ interface GalleryPanelProps {
   enableFocusEditor?: boolean;
   onFocusCenterCommit?: (id: number, center: ImageCenter) => void;
   onApplyAiRecommendedFocus?: (id: number) => void;
+  onCaptionChange?: (id: number, caption: string) => void;
 }
 
 export function GalleryPanel({
@@ -146,6 +163,7 @@ export function GalleryPanel({
   enableFocusEditor = false,
   onFocusCenterCommit,
   onApplyAiRecommendedFocus,
+  onCaptionChange,
 }: GalleryPanelProps) {
   const usedBytes = getPresentationTotalBytes(processedImages);
 
@@ -153,10 +171,10 @@ export function GalleryPanel({
     <div className="lg:col-span-7">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <Layout className="text-blue-400" size={24} />
+          <Layout className="text-mbox-gold" size={24} />
           생성된 이미지 보관함
         </h2>
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-mbox-subtle">
           {processedImages.length}개 · {formatPresentationBytes(usedBytes)} /{" "}
           {formatPresentationBytes(MAX_PRESENTATION_BYTES)}
         </span>
@@ -173,13 +191,14 @@ export function GalleryPanel({
               enableFocusEditor={enableFocusEditor}
               onFocusCenterCommit={onFocusCenterCommit}
               onApplyAiRecommendedFocus={onApplyAiRecommendedFocus}
+              onCaptionChange={onCaptionChange}
             />
           ))}
         </div>
       ) : (
-        <div className="h-[400px] flex flex-col items-center justify-center bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-2xl">
-          <Layout className="text-slate-700 mb-4" size={48} />
-          <p className="text-slate-500">생성된 이미지가 아직 없습니다.</p>
+        <div className="h-[400px] flex flex-col items-center justify-center bg-[rgba(18,14,24,0.55)] border-2 border-dashed border-[rgba(223,179,134,0.12)] rounded-2xl">
+          <Layout className="text-mbox-subtle/50 mb-4" size={48} />
+          <p className="text-mbox-subtle">생성된 이미지가 아직 없습니다.</p>
         </div>
       )}
     </div>

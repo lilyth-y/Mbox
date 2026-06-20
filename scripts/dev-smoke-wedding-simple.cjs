@@ -27,18 +27,13 @@ async function main() {
   });
   page.on("pageerror", (err) => errors.push(err.message));
 
-  await page.goto("http://localhost:5173/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.goto("http://localhost:5173/wedding-simple/index.html", {
+    waitUntil: "domcontentloaded",
+    timeout: 60_000,
+  });
   const outDir = path.resolve(root, "experiments", "outputs");
   fs.mkdirSync(outDir, { recursive: true });
   await page.screenshot({ path: path.resolve(outDir, "wedding_simple_dev_00_home.png") });
-
-  // Some builds don't expose accessible names consistently; fall back to text click.
-  const weddingTab = page.getByRole("button", { name: /결혼식장 간편 모드/ });
-  if (await weddingTab.count()) {
-    await weddingTab.click({ timeout: 60_000 });
-  } else {
-    await page.locator("text=결혼식장 간편 모드").first().click({ timeout: 60_000 });
-  }
 
   await page.locator('input[type="file"]').first().setInputFiles([sample, sample, sample]);
   await page.getByRole("button", { name: /AI 원클릭 자동 보정 시작/ }).click();
@@ -54,15 +49,15 @@ async function main() {
     { timeout: 480_000, polling: 1500 },
   );
   const phase = "step3";
-  await page.waitForSelector(".cube-canvas-mount canvas", { timeout: 60_000 });
+  await page.waitForSelector("#canvas-container canvas", { timeout: 60_000 });
   await page.waitForTimeout(1500);
 
   const shotPath = path.resolve(outDir, `wedding_simple_dev_smoke_${phase}.png`);
   await page.screenshot({ path: shotPath, fullPage: false });
 
   const info = await page.evaluate(() => {
-    const mount = document.querySelector(".cube-canvas-mount");
-    const c = document.querySelector(".cube-canvas-mount canvas");
+    const mount = document.querySelector("#canvas-container");
+    const c = document.querySelector("#canvas-container canvas");
     const mr = mount?.getBoundingClientRect();
     const cr = c?.getBoundingClientRect();
     return {

@@ -21,7 +21,29 @@ apps/api/dist
 packages/shared/dist
 
 experiments/outputs
+/experiments/
+/data/
+!data/background/
+!data/background/**
+/research/
+/scratch/
+/scratchpad*
+/wedding-simple/
+/cs5/
+screenshots/
+PR_deck/
+*.pdf
 data/workspaces
+
+# Large media not needed for npm build (allow showcase backgrounds)
+**/*.mp4
+**/*.mov
+!data/background/**
+!data/background/**/*.mp4
+!data/background/**/*.mov
+**/*.pptx
+**/*.wasm
+!apps/web/public/havok/HavokPhysics.wasm
 
 .playwright-mcp
 .snapshots

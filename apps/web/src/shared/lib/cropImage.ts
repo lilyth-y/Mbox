@@ -1,5 +1,5 @@
 import { IMAGE_SIZE } from "../constants";
-import type { ImageCenter, ImageFocus } from "../types";
+import type { ImageCenter, ImageFocus, SubjectBounds } from "../types";
 import { computeCropBounds } from "./cropBounds";
 
 export function extractBase64(dataUrl: string): string {
@@ -13,7 +13,8 @@ export function extractBase64(dataUrl: string): string {
 export function cropImage(
   url: string,
   center: ImageCenter,
-  focus?: ImageFocus
+  focus?: ImageFocus,
+  subjectBounds?: SubjectBounds
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -27,7 +28,13 @@ export function cropImage(
         return;
       }
 
-      const { sx, sy, size } = computeCropBounds(img.width, img.height, center, focus);
+      const { sx, sy, size } = computeCropBounds(
+        img.width,
+        img.height,
+        center,
+        focus,
+        subjectBounds
+      );
 
       ctx.drawImage(img, sx, sy, size, size, 0, 0, IMAGE_SIZE, IMAGE_SIZE);
       resolve(canvas.toDataURL("image/png"));

@@ -1,7 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@100..900&display=swap");
 @import "tailwindcss";
+@import "./mbox-theme.css";
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #020617;
+@theme inline {
+  --color-mbox-gold: #dfb386;
+  --color-mbox-rose-gold: #e5b3b3;
+  --color-mbox-bronze: #8c6239;
+  --color-mbox-bg: #07060a;
+  --color-mbox-text: #f3f0f7;
+  --color-mbox-muted: #a39cae;
+  --color-mbox-subtle: #8c8599;
+  --color-mbox-surface: rgba(18, 14, 24, 0.55);
+  --font-display: "Playfair Display", serif;
+  --font-body: "Outfit", sans-serif;
 }

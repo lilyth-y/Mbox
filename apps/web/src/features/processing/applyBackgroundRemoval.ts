@@ -10,6 +10,7 @@ import {
   prepareBackgroundRemovalEngine,
   removeBackgroundForImage,
 } from "../../shared/lib/removeBackground";
+import { defringeCutoutDataUrl } from "../../shared/lib/voluMaxAiAlign";
 
 interface ApplyBackgroundRemovalOptions {
   onStatus?: (message: string) => void;
@@ -33,8 +34,12 @@ export async function applyBackgroundRemoval(
   const sourceUrl = image.preCropSourceUrl ?? image.originalUrl;
 
   onStatus?.(`[${image.label}] 배경 플레이트 생성 중...`);
+  const plateTheme = options.backgroundPlateTheme ?? "original";
   const backgroundPlateUrl = await createBackgroundPlateDataUrl(sourceUrl, {
-    theme: options.backgroundPlateTheme,
+    theme: plateTheme,
+    center: image.center,
+    focus: image.focus,
+    subjectBounds: image.subject.bounds,
   });
 
   try {
@@ -42,21 +47,32 @@ export async function applyBackgroundRemoval(
 
     onStatus?.(`[${image.label}] 배경 제거 결과를 1024x1024로 맞추는 중...`);
     const editedUrl = `data:${editResult.mimeType};base64,${editResult.imageBase64}`;
-    const cropped = await cropImage(editedUrl, image.center, image.focus);
-    const faceCompositeUrl = await createFaceCompositeDataUrl(cropped, backgroundPlateUrl);
+    const cropped = await cropImage(editedUrl, image.center, image.focus, image.subject.bounds);
+    const subjectForegroundUrl = await defringeCutoutDataUrl(cropped);
+    const faceSquareUrl = image.url;
+    const faceCompositeUrl = await createFaceCompositeDataUrl(
+      subjectForegroundUrl,
+      backgroundPlateUrl
+    );
 
     return {
       ...image,
-      preCropSourceUrl: editedUrl,
-      preparedUrl: cropped,
-      url: cropped,
+      preCropSourceUrl: sourceUrl,
+      preparedUrl: faceSquareUrl,
+      url: faceSquareUrl,
       backgroundPlateUrl,
+      backgroundPlateTheme: plateTheme,
+      subjectForegroundUrl,
+      subjectMatteSourceUrl: editedUrl,
+      voluMaxForegroundKind: "ai_cutout",
       faceCompositeUrl,
+      voluMaxPrepared: true,
       preprocessMode: "background_removed",
       byteSize:
-        estimateDataUrlBytes(cropped) +
+        estimateDataUrlBytes(faceSquareUrl) +
         estimateDataUrlBytes(backgroundPlateUrl) +
-        estimateDataUrlBytes(faceCompositeUrl),
+        estimateDataUrlBytes(faceCompositeUrl) +
+        estimateDataUrlBytes(subjectForegroundUrl),
     };
   } catch (error) {
     // IMPORTANT: "누끼가 엎어도" 프로세싱 전체가 멈추지 않도록 안전 폴백.
@@ -66,7 +82,7 @@ export async function applyBackgroundRemoval(
     onStatus?.(`[${image.label}] 배경 제거 실패 — 원본으로 계속 진행합니다. (${reason})`);
 
     onStatus?.(`[${image.label}] 원본을 1024x1024로 맞추는 중...`);
-    const cropped = await cropImage(sourceUrl, image.center, image.focus);
+    const cropped = await cropImage(sourceUrl, image.center, image.focus, image.subject.bounds);
     const faceCompositeUrl = await createFaceCompositeDataUrl(cropped, backgroundPlateUrl);
 
     return {
@@ -75,6 +91,7 @@ export async function applyBackgroundRemoval(
       preparedUrl: cropped,
       url: cropped,
       backgroundPlateUrl,
+      backgroundPlateTheme: plateTheme,
       faceCompositeUrl,
       preprocessMode: "original",
       byteSize:

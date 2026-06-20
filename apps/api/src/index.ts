@@ -1,6 +1,11 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import {
+  MBOX_API_DEV_PORT,
+  MBOX_WEB_DEV_PORT as DEFAULT_WEB_DEV_PORT,
+  localWebOrigin,
+} from "@mbox/shared";
 import { apiKeyAuth } from "./middleware/apiKeyAuth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { routesRouter } from "./routes/index.js";
@@ -8,16 +13,11 @@ import { routesRouter } from "./routes/index.js";
 dotenv.config();
 
 const app = express();
-const port = Number(process.env.API_PORT ?? 8787);
+const port = Number(process.env.API_PORT ?? MBOX_API_DEV_PORT);
 const host = process.env.API_HOST ?? "0.0.0.0";
-const defaultDevOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:5175",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:5174",
-  "http://127.0.0.1:5175",
-].join(",");
+const webDevPort = Number(process.env.MBOX_WEB_DEV_PORT ?? DEFAULT_WEB_DEV_PORT);
+const localWeb = localWebOrigin(webDevPort);
+const defaultDevOrigins = [localWeb, localWeb.replace("localhost", "127.0.0.1")].join(",");
 const corsOrigins = Array.from(
   new Set(
     `${process.env.CORS_ORIGIN ?? ""},${defaultDevOrigins}`

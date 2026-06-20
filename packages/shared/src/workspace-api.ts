@@ -17,7 +17,9 @@ export type VaultAssetSlot =
   | "preparedUrl"
   | "originalUrl"
   | "preCropSourceUrl"
-  | "backgroundPlateUrl";
+  | "backgroundPlateUrl"
+  | "subjectForegroundUrl"
+  | "faceCompositeUrl";
 
 export interface VaultImageStoragePaths {
   url: string;
@@ -25,6 +27,8 @@ export interface VaultImageStoragePaths {
   originalUrl?: string;
   preCropSourceUrl?: string;
   backgroundPlateUrl?: string;
+  subjectForegroundUrl?: string;
+  faceCompositeUrl?: string;
 }
 
 /** Set on vault records when blobs live in GCS (cross-device sync). */

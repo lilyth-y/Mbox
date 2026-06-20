@@ -168,10 +168,33 @@ function createConfettiTexture(): THREE.Texture {
   return texture;
 }
 
+export type ParticleLayout = "cube" | "screen";
+
+export interface CreateCubeParticlesOptions {
+  layout?: ParticleLayout;
+  /** Required when layout is "screen" — particles are spawned in camera view space. */
+  camera?: THREE.PerspectiveCamera;
+}
+
+function frustumHalfExtents(
+  camera: THREE.PerspectiveCamera,
+  distance: number
+): { halfWidth: number; halfHeight: number } {
+  const halfFovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const halfHeight = Math.tan(halfFovRad) * distance;
+  return { halfWidth: halfHeight * camera.aspect, halfHeight };
+}
+
 export function createCubeParticles(
   theme: ParticleThemeId,
-  count: number = 80
+  count: number = 80,
+  options: CreateCubeParticlesOptions = {}
 ): CubeParticlesSystem | null {
+  const layout = options.layout ?? "cube";
+  const screenCamera = options.camera;
+  if (layout === "screen" && !screenCamera) {
+    return null;
+  }
   if (theme === "none") {
     return null;
   }
@@ -180,9 +203,11 @@ export function createCubeParticles(
   let defaultSize = 0.35;
   let baseColor = new THREE.Color(0xffffff);
 
+  const screenLayout = layout === "screen";
   if (theme === "gold_dust") {
     texture = createGoldDustTexture();
-    defaultSize = 0.28;
+    // Screen HUD: keep specks small so the cube photos stay readable.
+    defaultSize = screenLayout ? 0.11 : 0.2;
     baseColor = new THREE.Color(0xffd700);
   } else if (theme === "white_petals") {
     texture = createPetalTexture();
@@ -217,17 +242,41 @@ export function createCubeParticles(
       : null;
 
   const spawnParticle = (index: number, isInitial = false) => {
-    // Spawning around the cube (CUBE_EDGE_LENGTH is approx 1.6, so spread in -3 to 3 box)
-    const x = (Math.random() - 0.5) * 6;
-    const y = isInitial
-      ? (Math.random() - 0.5) * 6
-      : theme === "white_petals"
-        ? 3.5 // petals fall from top
-        : theme === "floating_hearts"
-          ? -3.5 // hearts float from bottom
-          : (Math.random() - 0.5) * 6; // gold dust is random
+    let x: number;
+    let y: number;
+    let z: number;
 
-    const z = (Math.random() - 0.5) * 6;
+    if (layout === "screen" && screenCamera) {
+      const depth = 0.9 + Math.random() * 4.5;
+      const { halfWidth, halfHeight } = frustumHalfExtents(screenCamera, depth);
+      const spread = 0.96;
+      if (theme === "gold_dust") {
+        const angle = Math.random() * Math.PI * 2;
+        const edgeBias = 0.52 + Math.random() * 0.48;
+        x = Math.cos(angle) * halfWidth * spread * edgeBias;
+        y = Math.sin(angle) * halfHeight * spread * edgeBias;
+      } else {
+        x = (Math.random() - 0.5) * 2 * halfWidth * spread;
+        y = isInitial
+          ? (Math.random() - 0.5) * 2 * halfHeight * spread
+          : theme === "white_petals"
+            ? halfHeight * spread
+            : theme === "floating_hearts"
+              ? -halfHeight * spread
+              : (Math.random() - 0.5) * 2 * halfHeight * spread;
+      }
+      z = -depth;
+    } else {
+      x = (Math.random() - 0.5) * 6;
+      y = isInitial
+        ? (Math.random() - 0.5) * 6
+        : theme === "white_petals"
+          ? 3.5
+          : theme === "floating_hearts"
+            ? -3.5
+            : (Math.random() - 0.5) * 6;
+      z = (Math.random() - 0.5) * 6;
+    }
 
     const vx = (Math.random() - 0.5) * 0.4;
     const vy =
@@ -243,7 +292,9 @@ export function createCubeParticles(
 
     const maxLife = 3000 + Math.random() * 3000; // 3-6s
     const life = isInitial ? Math.random() * maxLife : 0;
-    const size = defaultSize * (0.6 + Math.random() * 0.8);
+    const sizeJitter =
+      theme === "gold_dust" && screenLayout ? 0.75 + Math.random() * 0.5 : 0.6 + Math.random() * 0.8;
+    const size = defaultSize * sizeJitter;
     const phase = Math.random() * Math.PI * 2;
     const swaySpeed = 1.2 + Math.random() * 2.0;
     const swayWidth = 0.15 + Math.random() * 0.35;
@@ -287,13 +338,17 @@ export function createCubeParticles(
     size: defaultSize,
     map: texture,
     transparent: true,
-    blending: THREE.AdditiveBlending,
+    opacity: theme === "gold_dust" && screenLayout ? 0.72 : 1,
+    blending:
+      theme === "gold_dust" && screenLayout ? THREE.NormalBlending : THREE.AdditiveBlending,
     depthWrite: false,
+    depthTest: false,
     vertexColors: true,
     sizeAttenuation: true,
   });
 
   const points = new THREE.Points(geometry, material);
+  points.renderOrder = layout === "screen" ? 160 : 150;
 
   const update = (deltaMs: number) => {
     const deltaSec = deltaMs / 1000;
@@ -354,6 +409,24 @@ export function createCubeParticles(
         currentZ = p.z;
       }
 
+      if (layout === "screen" && screenCamera) {
+        const depth = -currentZ;
+        const { halfWidth, halfHeight } = frustumHalfExtents(screenCamera, Math.max(0.9, depth));
+        const limitX = halfWidth * 1.05;
+        const limitY = halfHeight * 1.05;
+        if (
+          currentY < -limitY ||
+          currentY > limitY ||
+          currentX < -limitX ||
+          currentX > limitX ||
+          depth < 0.6 ||
+          depth > 5.5
+        ) {
+          spawnParticle(i, false);
+          continue;
+        }
+      }
+
       posAttr.setXYZ(i, currentX, currentY, currentZ);
 
       // Shimmer and fade in/out
@@ -367,8 +440,8 @@ export function createCubeParticles(
 
       // Shimmer/twinkle effect for gold dust
       if (theme === "gold_dust") {
-        const shimmer = 0.6 + 0.4 * Math.sin(p.phase + (p.life / 1000) * 8.0);
-        alpha *= shimmer;
+        const shimmer = 0.55 + 0.35 * Math.sin(p.phase + (p.life / 1000) * 8.0);
+        alpha *= shimmer * (screenLayout ? 0.55 : 0.75);
       }
 
       // Apply additive color scaling (simulates opacity)

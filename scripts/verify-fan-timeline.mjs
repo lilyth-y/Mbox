@@ -8,6 +8,8 @@ import {
   FAN_SCALE_PEAK,
   FAN_SCALE_RETREAT,
   FAN_SHOWCASE_HOLD_MS,
+  FAN_RETREAT_MS,
+  FAN_GAP_MS,
   getFanStepSegmentMs,
   resolveFanPhase,
   sampleFanCubeMotion,
@@ -31,15 +33,25 @@ ok(
 ok("step1 segment uses fan timeline", getStepSegmentMs(0, 1, 900, 2400, "cube_focus", 3) === step1Ms);
 
 const holdT = FAN_APPROACH_MS + FAN_OPENING_HOLD_MS * 0.5;
-const hold = sampleFanCubeMotion(0, holdT, 4, 3, 42);
-ok("showcase hold scale ≈ 105%", Math.abs(hold.presentationScale - FAN_SCALE_PEAK) < 0.03);
+const zoomFx = {
+  cubeHeartbeatEnabled: false,
+  cubeShowcaseZoomEnabled: true,
+  cubeSubjectPullEnabled: false,
+};
+const hold = sampleFanCubeMotion(0, holdT, 4, 3, 42, "mixed", "wedding_default", 1, zoomFx);
+ok("showcase hold scale ≈ 105%", Math.abs(hold.presentationScale - FAN_SCALE_PEAK) < 0.02 * FAN_SCALE_PEAK);
+ok("showcase hold parallax > 0 at center", hold.parallaxAmount > 0.08, String(hold.parallaxAmount));
 
 const retreatEnd = sampleFanCubeMotion(
   0,
-  FAN_APPROACH_MS + FAN_OPENING_HOLD_MS + 2_000 - 1,
+  FAN_APPROACH_MS + FAN_OPENING_HOLD_MS + FAN_RETREAT_MS - 1,
   4,
   3,
   42,
+  "mixed",
+  "wedding_default",
+  1,
+  zoomFx,
 );
 ok(
   "retreat end scale ≈ 80%",
@@ -50,7 +62,7 @@ ok(
 const step1Showcase = resolveFanPhase(1, FAN_APPROACH_MS + 400);
 ok("step>0 has showcase_hold phase", step1Showcase.phase === "showcase_hold", step1Showcase.phase);
 
-const handoff = resolveFanPhase(1, FAN_APPROACH_MS + FAN_SHOWCASE_HOLD_MS + 2_000 + 200);
+const handoff = resolveFanPhase(1, FAN_APPROACH_MS + FAN_SHOWCASE_HOLD_MS + FAN_RETREAT_MS + 200);
 ok("handoff phase exists", handoff.phase === "handoff", handoff.phase);
 
 const failed = checks.filter((c) => !c.pass);

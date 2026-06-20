@@ -46,12 +46,12 @@ export function AfterEffectsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div className="flex items-center gap-2 mb-4 text-emerald-300">
+      <div className="mbox-card">
+        <div className="flex items-center gap-2 mb-4 text-mbox-gold">
           <Sparkles size={20} />
           <h2 className="font-bold">영상 후처리 추천</h2>
         </div>
-        <p className="text-sm text-slate-400 leading-relaxed">
+        <p className="text-sm text-mbox-muted leading-relaxed">
           3D 큐브와 MP4 녹화 전에 명암·그림자·색채를 다듬습니다. 아래 항목은 모두 슬라이더로 직접 조정할 수
           있습니다.
         </p>
@@ -59,11 +59,11 @@ export function AfterEffectsPanel({
           {AFTER_EFFECT_RECOMMENDATIONS.map((item) => (
             <div
               key={item.id}
-              className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3"
+              className="rounded-2xl border border-[rgba(223,179,134,0.12)] bg-[rgba(18,14,24,0.45)] px-4 py-3"
             >
-              <p className="text-sm font-semibold text-slate-100">{item.label}</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.description}</p>
-              <p className="mt-2 text-[10px] text-emerald-300">
+              <p className="text-sm font-semibold text-mbox-text">{item.label}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-mbox-subtle">{item.description}</p>
+              <p className="mt-2 text-[10px] text-mbox-gold">
                 {item.adjustable ? "사용자 조정 가능" : "자동 적용"}
               </p>
             </div>
@@ -71,10 +71,10 @@ export function AfterEffectsPanel({
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <div className="mbox-card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="lg:w-1/2">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-mbox-muted">
               포커싱 · 미리보기
             </p>
             <div className="mt-3 relative">
@@ -87,12 +87,12 @@ export function AfterEffectsPanel({
                   />
                 </div>
               ) : (
-                <div className="aspect-square overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-center text-sm text-slate-500">
+                <div className="aspect-square overflow-hidden rounded-2xl border border-[rgba(223,179,134,0.12)] bg-[rgba(18,14,24,0.75)] flex items-center justify-center text-sm text-mbox-subtle">
                   갤러리에서 이미지를 선택하세요.
                 </div>
               )}
             </div>
-            <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+            <p className="mt-2 text-[11px] text-mbox-subtle leading-relaxed">
               {selectedImage
                 ? `${selectedImage.label} · 스크롤로 확대/축소, 드래그로 포커스(크롭 중심) 조정. Alt+드래그로 화면 이동.${
                     isPortraitSubject(selectedImage)
@@ -111,10 +111,10 @@ export function AfterEffectsPanel({
                   type="button"
                   disabled={!selectedImage || isProcessing}
                   onClick={() => onSettingsChange(preset.settings)}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-left transition hover:border-emerald-500/40"
+                  className="rounded-2xl border border-[rgba(223,179,134,0.12)] bg-[rgba(18,14,24,0.45)] px-4 py-3 text-left transition hover:border-mbox-gold/40"
                 >
-                  <p className="text-sm font-semibold text-slate-100">{preset.label}</p>
-                  <p className="mt-1 text-[11px] text-slate-500">{preset.description}</p>
+                  <p className="text-sm font-semibold text-mbox-text">{preset.label}</p>
+                  <p className="mt-1 text-[11px] text-mbox-subtle">{preset.description}</p>
                 </button>
               ))}
             </div>
@@ -124,7 +124,7 @@ export function AfterEffectsPanel({
               const limits = SETTING_LIMITS[settingKey];
               return (
                 <label key={settingKey} className="block">
-                  <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                  <div className="mb-2 flex items-center justify-between text-xs text-mbox-muted">
                     <span>{item.label}</span>
                     <span>{settings[settingKey]}</span>
                   </div>
@@ -140,7 +140,7 @@ export function AfterEffectsPanel({
                         [settingKey]: Number(event.target.value),
                       })
                     }
-                    className="w-full accent-emerald-400"
+                    className="w-full accent-mbox-gold"
                   />
                 </label>
               );
@@ -151,7 +151,7 @@ export function AfterEffectsPanel({
                 type="button"
                 disabled={!selectedImage || isProcessing}
                 onClick={onRecommend}
-                className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-mbox-gold/40 bg-mbox-gold/10 px-4 py-2 text-sm font-semibold text-mbox-gold transition hover:bg-mbox-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 AI 추천 설정
               </button>
@@ -159,7 +159,7 @@ export function AfterEffectsPanel({
                 type="button"
                 disabled={!selectedImage || isProcessing}
                 onClick={onApply}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+                className="gold-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isProcessing ? (
                   <span className="inline-flex items-center gap-2">
@@ -174,7 +174,7 @@ export function AfterEffectsPanel({
                 type="button"
                 disabled={isProcessing}
                 onClick={onApplyAll}
-                className="rounded-xl border border-emerald-500/40 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-mbox-gold/40 px-4 py-2 text-sm font-semibold text-mbox-gold transition hover:bg-mbox-gold/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 전체 이미지에 적용
               </button>
@@ -182,7 +182,7 @@ export function AfterEffectsPanel({
                 type="button"
                 disabled={!selectedImage || isProcessing}
                 onClick={onReset}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-[rgba(223,179,134,0.18)] px-4 py-2 text-sm font-semibold text-mbox-muted transition hover:bg-[rgba(18,14,24,0.85)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 초기화
               </button>

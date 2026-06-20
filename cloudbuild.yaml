@@ -89,6 +89,12 @@ steps:
         gcloud storage rsync --recursive "apps/web/dist" "gs://${_WEB_BUCKET}/"
         gcloud storage cp "apps/web/dist/index.html" "gs://${_WEB_BUCKET}/index.html" \
           --cache-control="no-cache, must-revalidate"
+        if [[ -d data/background ]]; then
+          echo "Syncing data/background → gs://${_WEB_BUCKET}/backgrounds/"
+          gcloud storage rsync --recursive "data/background" "gs://${_WEB_BUCKET}/backgrounds/"
+        else
+          echo "WARN: data/background missing in build context — run npm run sync:backgrounds:gcs or ensure .gcloudignore allows data/background."
+        fi
 
   - id: api-deploy
     name: gcr.io/cloud-builders/gcloud

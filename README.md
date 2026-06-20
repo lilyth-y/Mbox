@@ -36,11 +36,13 @@ npm install
 npm run dev
 ```
 
-4. 브라우저에서 `http://localhost:5173`을 엽니다. `VITE_LOCALHOST_DEMO=true`이면 헤더에 Localhost Demo 배지가 표시됩니다.
+4. 브라우저에서 `http://localhost:5173`을 엽니다 (`npm run dev:urls`로 포트 확인). `VITE_LOCALHOST_DEMO=true`이면 헤더에 Localhost Demo 배지가 표시됩니다.
 
-## 결혼식장 간편 모드 / Wedding Simple
+로컬 포트 정리: [docs/ports.md](docs/ports.md) — 웹 **5173**, API **8787**, preview **4173**.
 
-- **React 통합 탭**: `http://localhost:5173` → **결혼식장 간편 모드** (업로드 → AI 처리 → `marriage.mp4` 내보내기)
+## Wedding Simple (단독 URL)
+
+- **단독 UI**: `http://localhost:5173` → **결혼식장 간편 모드** (업로드 → AI 처리 → `marriage.mp4` 내보내기)
 - **정적 단독 UI**: `http://localhost:5173/wedding-simple/index.html` (`apps/web/public/wedding-simple/`)
 - 로컬 루트 `wedding-simple/` 폴더는 프로토타입 복사본이며, 배포 기준은 `apps/web/public/wedding-simple/`입니다.
 

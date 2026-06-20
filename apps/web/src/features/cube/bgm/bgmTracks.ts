@@ -1,4 +1,5 @@
 import type { CubeBgmTrackId } from "@mbox/shared";
+import { resolveUserAssetPublicUrl } from "../../../shared/lib/userBgmCatalog";
 
 function resolvePublicPath(path: string): string {
   const base = import.meta.env.BASE_URL ?? "/";
@@ -41,22 +42,26 @@ export const CUBE_BGM_TRACKS: CubeBgmTrackDefinition[] = [
   },
   {
     id: "bridal_chorus",
-    label: "바그너 결혼 행진곡 (입장곡)",
-    description: "결혼식 주인공 입장용 전통 클래식 BGM",
+    label: "클래식 입장곡",
+    description: "웨딩 입장·행진 분위기 (Mixkit 로열티프리)",
     publicPath: "/bgm/bridal-chorus.mp3",
-    durationSec: 104,
+    durationSec: 123,
   },
 ];
 
 export function resolveBgmSource(
   trackId: CubeBgmTrackId,
-  customObjectUrl: string | null
+  customObjectUrl: string | null,
+  workspacePublicPath: string | null = null
 ): string | null {
   if (trackId === "none") {
     return null;
   }
   if (trackId === "custom") {
     return customObjectUrl;
+  }
+  if (trackId === "workspace") {
+    return workspacePublicPath ? resolveUserAssetPublicUrl(workspacePublicPath) : null;
   }
   const track = CUBE_BGM_TRACKS.find((entry) => entry.id === trackId);
   return track ? resolvePublicPath(track.publicPath) : null;

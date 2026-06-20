@@ -7,10 +7,11 @@ import type {
   WorkspaceBootstrapResponse,
 } from "@mbox/shared";
 import type { ProcessedImage } from "../types";
+import { DEFAULT_LOCAL_API_URL } from "@mbox/shared";
 import { buildApiHeaders } from "./headers";
 import { formatApiConnectionError, formatWorkspaceApiError } from "./connectionErrors";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_LOCAL_API_URL;
 
 async function workspaceFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;

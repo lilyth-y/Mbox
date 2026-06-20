@@ -74,6 +74,14 @@ export function getFaceRotation(faceIndex: number): THREE.Euler {
   return FACE_ROTATIONS[faceIndex]?.clone() ?? new THREE.Euler(0, 0, 0);
 }
 
+/** Root rotation at showcase — compensates per-face mount so outward normal faces +Z camera. */
+export function getCubeShowcaseRootRotation(faceIndex: number): THREE.Euler {
+  const qMount = new THREE.Quaternion().setFromEuler(getFaceRotation(faceIndex));
+  const outward = new THREE.Vector3(0, 0, 1).applyQuaternion(qMount);
+  const qRoot = new THREE.Quaternion().setFromUnitVectors(outward, new THREE.Vector3(0, 0, 1));
+  return new THREE.Euler().setFromQuaternion(qRoot, "XYZ");
+}
+
 export function lerpEuler(current: THREE.Euler, target: THREE.Euler, alpha: number): THREE.Euler {
   return new THREE.Euler(
     THREE.MathUtils.lerp(current.x, target.x, alpha),

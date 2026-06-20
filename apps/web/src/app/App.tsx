@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Box, SlidersHorizontal, Sparkles, Upload } from "lucide-react";
+import { MboxPageShell } from "../components/MboxPageShell";
 import { CategoryPanel } from "../features/gallery/CategoryPanel";
 import { GalleryPanel } from "../features/gallery/GalleryPanel";
 import { processDataAssetBatch } from "../features/processing/processAssetBatch";
@@ -12,8 +13,6 @@ import {
 import { hasSubjectCutout } from "../shared/lib/cutoutPresentation";
 import { BackgroundGenerationPanel } from "../features/background/BackgroundGenerationPanel";
 import { UploadPanel } from "../features/upload/UploadPanel";
-import { CubeView } from "../features/cube/CubeView";
-import { WeddingSimpleDashboard } from "../features/wedding-simple/WeddingSimpleDashboard";
 import { AfterEffectsPanel, DEFAULT_POST_PROCESSING } from "../features/postprocess/AfterEffectsPanel";
 import {
   applyPostProcessingToImage,
@@ -33,6 +32,7 @@ import type {
 import { createProgressReporter } from "../shared/lib/processingProgress";
 import { ProcessingProgressDisplay } from "../features/processing/ProcessingProgressDisplay";
 import { EventManagerPanel } from "../features/events/EventManagerPanel";
+import { auditVoluMaxVaultIntegrity } from "../shared/lib/voluMaxVaultIntegrity";
 import {
   bootstrapLocalWorkspace,
   bootstrapRemoteWorkspace,
@@ -54,6 +54,7 @@ import {
   MAX_VAULT_BYTES,
 } from "../shared/lib/mediaLimits";
 import { formatVaultQuotaMessage, getVaultStorageUsageBytes } from "../features/events/indexedDbVault";
+import { WorkflowVideoCompositePanel } from "../features/composite/WorkflowVideoCompositePanel";
 
 import {
   DEFAULT_IMAGE_CATEGORIES,
@@ -65,6 +66,10 @@ import {
   saveCategoryAssignments,
   saveCategoryCatalog,
 } from "../features/gallery/categoryStorage";
+
+const CubeView = lazy(() =>
+  import("../features/cube/CubeView").then((m) => ({ default: m.CubeView })),
+);
 
 export default function App() {
   const [workspaceReady, setWorkspaceReady] = useState(false);
@@ -82,7 +87,7 @@ export default function App() {
   const [backgroundCustomPrompt, setBackgroundCustomPrompt] = useState("");
   const [postProcessingSettings, setPostProcessingSettings] =
     useState<PostProcessingSettings>(DEFAULT_POST_PROCESSING);
-  const [activeTab, setActiveTab] = useState<AppTab>("wedding_hall");
+  const [activeTab, setActiveTab] = useState<AppTab>("upload");
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = loadCategoryCatalog();
     return saved && saved.length > 0 ? saved : [...DEFAULT_IMAGE_CATEGORIES];
@@ -138,7 +143,8 @@ export default function App() {
         setProcessedImages(workspace.processedImages);
         setSelectedImageId(workspace.processedImages[0]?.id ?? null);
         setWorkspaceReady(true);
-        setStatus(statusMessage);
+        const notice = workspace.voluMaxVaultNotice?.trim();
+        setStatus(notice ? `${statusMessage} ${notice}` : statusMessage);
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -146,6 +152,15 @@ export default function App() {
         setStatus(`보관함 로드 실패: ${message}`);
       });
   }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    (
+      window as Window & { __mboxVoluMaxAudit?: () => ReturnType<typeof auditVoluMaxVaultIntegrity> }
+    ).__mboxVoluMaxAudit = () => auditVoluMaxVaultIntegrity(processedImages);
+  }, [processedImages]);
 
   useEffect(() => {
     if (!workspaceReady || !activeEventId || isProcessing) {
@@ -584,6 +599,12 @@ export default function App() {
     );
   };
 
+  const handleCaptionChange = (imageId: number, caption: string) => {
+    setProcessedImages((previous) =>
+      previous.map((image) => (image.id === imageId ? { ...image, caption } : image))
+    );
+  };
+
   const handleFocusCenterCommit = async (imageId: number, center: ImageCenter) => {
     const image = processedImages.find((entry) => entry.id === imageId);
     if (!image) {
@@ -694,61 +715,53 @@ export default function App() {
     setStatus("AI 후처리 추천값을 불러왔습니다. 적용 버튼으로 반영하세요.");
   };
 
-  return (    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8">
-      <header className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+  return (
+    <MboxPageShell wide>
+      <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-            mbox
-          </h1>
-          <p className="text-slate-400 text-sm">이미지 분석, 크롭, 배경 생성 및 3D 시각화 파이프라인</p>
-          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-slate-400 italic">{status}</p>
+          <h1 className="text-3xl serif-title metallic-text">mbox</h1>
+          <p className="text-mbox-muted text-sm mt-1">이미지 분석, 크롭, 배경 생성 및 3D 시각화 파이프라인</p>
+          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-mbox-subtle italic">{status}</p>
           <ProcessingProgressDisplay
             progress={processingProgress}
             isProcessing={isProcessing}
             compact
           />
+          <a
+            href="./showcase.html"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[rgba(180,220,255,0.28)] bg-[rgba(120,180,255,0.08)] px-4 py-2.5 text-sm font-semibold text-sky-100 hover:border-sky-200/50 transition-colors no-underline"
+          >
+            <Sparkles size={16} className="text-sky-200" aria-hidden />
+            크리스털 쇼케이스
+          </a>
         </div>
 
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="mbox-tab-bar">
           <button
-            onClick={() => setActiveTab("wedding_hall")}
-            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all font-semibold ${
-              activeTab === "wedding_hall"
-                ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/20"
-                : "hover:bg-slate-800 text-rose-300"
-            }`}
-          >
-            <Sparkles size={18} /> 결혼식장 간편 모드
-          </button>
-          <div className="w-[1px] bg-slate-800 my-1 mx-1" />
-          <button
+            type="button"
             onClick={() => setActiveTab("upload")}
-            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${
-              activeTab === "upload" ? "bg-blue-600 text-white shadow-lg" : "hover:bg-slate-800"
-            }`}
+            className={`mbox-tab ${activeTab === "upload" ? "active" : ""}`}
           >
             <Upload size={18} /> 프로세싱
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("postprocess")}
-            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${
-              activeTab === "postprocess" ? "bg-blue-600 text-white shadow-lg" : "hover:bg-slate-800"
-            }`}
+            className={`mbox-tab ${activeTab === "postprocess" ? "active" : ""}`}
           >
             <SlidersHorizontal size={18} /> 후처리
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("cube")}
-            className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all ${
-              activeTab === "cube" ? "bg-blue-600 text-white shadow-lg" : "hover:bg-slate-800"
-            }`}
+            className={`mbox-tab ${activeTab === "cube" ? "active" : ""}`}
           >
             <Box size={18} /> 3D 큐브
           </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto space-y-6">
+      <main className="space-y-6">
         <EventManagerPanel
           events={events}
           activeEventId={activeEventId}
@@ -758,6 +771,8 @@ export default function App() {
           onCreate={handleCreateEvent}
           onDelete={handleDeleteEvent}
         />
+
+        <WorkflowVideoCompositePanel />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {activeTab === "upload" ? (
@@ -812,6 +827,7 @@ export default function App() {
               enableFocusEditor
               onFocusCenterCommit={handleFocusCenterCommit}
               onApplyAiRecommendedFocus={handleApplyAiRecommendedFocus}
+              onCaptionChange={handleCaptionChange}
             />
           </>
         ) : activeTab === "postprocess" ? (
@@ -850,41 +866,41 @@ export default function App() {
               enableFocusEditor
               onFocusCenterCommit={handleFocusCenterCommit}
               onApplyAiRecommendedFocus={handleApplyAiRecommendedFocus}
+              onCaptionChange={handleCaptionChange}
             />
           </>
-        ) : activeTab === "wedding_hall" ? (
-          <div className="lg:col-span-12">
-            <WeddingSimpleDashboard active={activeTab === "wedding_hall"} />
-          </div>
         ) : (
-          <CubeView
-            active={activeTab === "cube"}
-            processedImages={processedImages}
-            onProcessedImagesChange={setProcessedImages}
-          />
+          <Suspense fallback={<p className="text-mbox-muted text-sm">큐브 뷰 로딩 중…</p>}>
+            <CubeView
+              active={activeTab === "cube"}
+              workspaceReady={workspaceReady}
+              processedImages={processedImages}
+              onProcessedImagesChange={setProcessedImages}
+            />
+          </Suspense>
         )}
         </div>
       </main>
 
-      <footer className="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center text-slate-500 text-sm">
+      <footer className="mt-12 pt-8 border-t border-[rgba(223,179,134,0.12)] flex flex-col md:flex-row justify-between items-center text-mbox-muted text-sm">
         <p>© 2026 mbox. All rights reserved.</p>
         <div className="flex gap-6 mt-4 md:mt-0">
-          <a href="/docs/goals.md" className="hover:text-blue-400 transition-colors">
+          <a href="/docs/goals.md" className="mbox-link">
             Documentation
           </a>
           <a
             href={`${API_PUBLIC_URL}/health`}
             target="_blank"
             rel="noreferrer"
-            className="hover:text-blue-400 transition-colors"
+            className="mbox-link"
           >
             API Status
           </a>
-          <a href="/docs/architecture.md" className="hover:text-blue-400 transition-colors">
+          <a href="/docs/architecture.md" className="mbox-link">
             Privacy
           </a>
         </div>
       </footer>
-    </div>
+    </MboxPageShell>
   );
 }

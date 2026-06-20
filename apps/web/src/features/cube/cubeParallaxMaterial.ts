@@ -1,9 +1,18 @@
 import * as THREE from "three";
 import type { ImageCenter, SubjectBounds } from "../../shared/types";
 import { DEPTH_EMPHASIS, PARALLAX_MAX } from "./cubeSequence";
-import type { CubeFramePresetId } from "@mbox/shared";
+import { CUBE_FACE_UV_INSET, type CubeFramePresetId } from "@mbox/shared";
 import { PHOTO_FRAME_GLSL } from "./photoFrameGlsl";
+import { HOLOGRAM_RIM_GLSL } from "./microModules/shaders/hologramRimGlsl";
+import {
+  createHologramRimUniforms,
+  HOLOGRAM_RIM_FRAGMENT_TAIL,
+} from "./microModules/hologramRimUniforms";
 import { createFramePresetUniform, setFramePresetUniform } from "./presentationFrameUniforms";
+import { createCustomFrameColorUniforms } from "./frameColorUniforms";
+import { createFrameFinishUniforms } from "./frameFinishUniforms";
+import { createFaceLacquerUniforms } from "./faceLacquerUniforms";
+import { DEFAULT_FRAME_BORDER_WIDTH_ID, frameBorderScale } from "./frameBorderWidth";
 
 const vertexShader = `
 varying vec2 vUv;
@@ -26,17 +35,36 @@ uniform vec4 uSubjectBounds;
 uniform vec2 uFocus;
 uniform float uFramePreset;
 uniform float uHologramMode;
+uniform float uGradientShift;
+uniform float uGradientEnabled;
+uniform vec3 uCustomFrameColor;
+uniform float uUseCustomFrameColor;
+uniform float uFrameBorderScale;
+uniform float uFrameFinish;
+uniform float uPhotoInsetExpand;
+uniform float uFaceUvInset;
+uniform float uShellFrameMode;
+uniform vec2 uFaceLightDir;
+uniform float uFaceGloss;
+uniform float uFaceShowcasePulse;
+uniform float uHologramRimEnabled;
+uniform float uHologramRimTime;
 varying vec2 vUv;
 
 ${PHOTO_FRAME_GLSL}
+${HOLOGRAM_RIM_GLSL}
 
 void main() {
+  vec2 edge = min(vUv, 1.0 - vUv);
+  if (uFrameFinish >= 1.5 && min(edge.x, edge.y) < uFaceUvInset) {
+    discard;
+  }
+  vec2 delta = vUv - uFocus;
   float depthWeight;
   if (uUseDepthMap > 0.5) {
     float sceneDepth = texture2D(uDepthMap, vUv).r;
     depthWeight = (sceneDepth - uSubjectDepth) * 1.35;
   } else {
-    vec2 delta = vUv - uFocus;
     float dist = length(delta);
     float subjectWeight = 1.0 - smoothstep(0.0, 0.42, dist);
     depthWeight = (subjectWeight - 0.5) * 2.6;
@@ -52,8 +80,6 @@ void main() {
   }
 
   depthWeight = clamp(depthWeight, -1.25, 1.25);
-
-  vec2 delta = vUv - uFocus;
   float foreground = step(0.0, depthWeight);
   float background = 1.0 - foreground;
   float portraitMul = mix(1.75, mix(3.45, 3.05, background), uPortraitBoost);
@@ -62,10 +88,8 @@ void main() {
   vec2 baseUv = vUv;
   vec2 warped = uFocus + (baseUv - uFocus) * scale;
   vec4 tex = texture2D(uTexture, warped);
-  vec4 framed = applyPhotoFrame(tex, vUv, uFramePreset, uHologramMode);
-  if (uHologramMode > 0.5) {
-    framed.a = 1.0;
-  }
+  vec4 framed = applyPhotoFrame(tex, vUv, uFramePreset, uHologramMode, uTexture);
+  ${HOLOGRAM_RIM_FRAGMENT_TAIL}
   gl_FragColor = framed;
 }
 `;
@@ -106,6 +130,7 @@ export function createParallaxMaterial(
 ): ParallaxMaterial {
   const framePresetId = options.framePresetId ?? "rose_gold";
   const material = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL1,
     uniforms: {
       uTexture: { value: texture },
       uDepthMap: { value: depthTexture },
@@ -121,12 +146,22 @@ export function createParallaxMaterial(
       },
       uFocus: { value: toFocusVector(center) },
       uHologramMode: { value: options.hologramMode ? 1.0 : 0.0 },
+      uGradientShift: { value: 0 },
+      uGradientEnabled: { value: 0 },
+      ...createHologramRimUniforms(),
       ...createFramePresetUniform(framePresetId),
+      ...createCustomFrameColorUniforms(null),
+      ...createFrameFinishUniforms(),
+      ...createFaceLacquerUniforms(),
+      uPhotoInsetExpand: { value: 1 },
+      uFaceUvInset: { value: CUBE_FACE_UV_INSET },
+      uShellFrameMode: { value: 0 },
+      uFrameBorderScale: { value: frameBorderScale(DEFAULT_FRAME_BORDER_WIDTH_ID) },
     },
     vertexShader,
     fragmentShader,
     transparent: true,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
   }) as ParallaxMaterial;
 
   material.userData.isParallax = true;

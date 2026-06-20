@@ -1,8 +1,7 @@
 /**
- * Browser E2E: hosted mbox — wedding hall (default) or classic upload pipeline.
+ * Browser E2E: hosted mbox — upload → cube MP4 export pipeline.
  * Usage (from repo root, playwright installed):
  *   node scripts/e2e-hosted-pipeline.mjs
- *   MBOX_E2E_MODE=classic node scripts/e2e-hosted-pipeline.mjs
  *
  * Timeouts (defaults): MBOX_ANALYZE_TIMEOUT_MS=480000, MBOX_RECORD_TIMEOUT_MS=180000
  */
@@ -19,7 +18,6 @@ loadEnvLocal(root);
 const WEB_URL =
   process.env.MBOX_WEB_URL ??
   "https://mbox-web-newmedia-496107.storage.googleapis.com/index.html";
-const E2E_MODE = process.env.MBOX_E2E_MODE ?? "wedding";
 const testImage =
   process.env.MBOX_TEST_IMAGE ??
   join(root, "experiments/assets/web-varied/web-portrait-tall.jpg");
@@ -36,7 +34,6 @@ const RECORD_TIMEOUT_MS = Number(
   process.env.MBOX_RECORD_TIMEOUT_MS ?? Math.max(240_000, 60_000 + 6_000 * 3 + 900 + 5_000),
 );
 const SKIP_MP4 = process.env.MBOX_SKIP_MP4 === "1";
-const DISABLE_BGM = process.env.MBOX_E2E_DISABLE_BGM !== "0";
 
 const browser = await chromium.launch({
   headless: process.env.MBOX_HEADED !== "1",
@@ -58,74 +55,7 @@ const fail = (message) => {
   throw new Error(message);
 };
 
-async function runWeddingFlow() {
-  await page.getByText("웨딩 홀로그램 오퍼레이터").waitFor({ timeout: 30_000 });
-
-  await page.locator('input[type="file"]').first().setInputFiles([testImage, testImage, testImage]);
-  await page
-    .getByRole("button", { name: /AI 원클릭 자동 보정.*시작/ })
-    .click();
-
-  const exportBtn = page.getByRole("button", { name: /marriage\.mp4 동영상 파일 내보내기/ });
-  await exportBtn.waitFor({ timeout: ANALYZE_TIMEOUT_MS });
-
-  let suggested = null;
-  let size = 0;
-  if (DISABLE_BGM) {
-    const noneBgm = page.getByRole("button", { name: /^없음$/ }).first();
-    if (await noneBgm.isVisible().catch(() => false)) {
-      await noneBgm.click();
-    }
-  }
-
-  if (!SKIP_MP4) {
-    const downloadPromise = page
-      .waitForEvent("download", { timeout: RECORD_TIMEOUT_MS })
-      .then((download) => ({ kind: "download", download }))
-      .catch(() => null);
-    const exportDonePromise = page
-      .waitForFunction(
-        () => {
-          const payload = window.__MBOX_LAST_EXPORT__;
-          return payload != null && payload.bytes > 1024;
-        },
-        undefined,
-        { timeout: RECORD_TIMEOUT_MS },
-      )
-      .then(() => ({ kind: "e2e_hook" }));
-
-    await exportBtn.click();
-
-    const outcome = await Promise.race([downloadPromise, exportDonePromise]);
-    if (!outcome) {
-      fail(`Export timed out (${RECORD_TIMEOUT_MS}ms)`);
-    }
-
-    if (outcome.kind === "download") {
-      suggested = outcome.download.suggestedFilename();
-      const outDir = mkdtempSync(join(tmpdir(), "mbox-e2e-"));
-      const outPath = join(outDir, suggested);
-      await outcome.download.saveAs(outPath);
-      size = statSync(outPath).size;
-    } else {
-      const payload = await page.evaluate(() => window.__MBOX_LAST_EXPORT__);
-      suggested = payload?.filename ?? "marriage.e2e";
-      size = payload?.bytes ?? 0;
-    }
-
-    if (!/\.(webm|mp4)$/i.test(suggested)) {
-      fail(`Unexpected download filename: ${suggested}`);
-    }
-    if (size < 1024) {
-      fail(`Download too small (${size} bytes): ${suggested}`);
-    }
-  }
-
-  return { suggested, size };
-}
-
-async function runClassicFlow() {
-  await page.getByRole("button", { name: /프로세싱/ }).click();
+async function runHostedFlow() {
   await page.locator('input[type="file"]').setInputFiles(testImage);
   await page.getByRole("button", { name: /분석·크롭 시작/ }).click();
 
@@ -183,9 +113,11 @@ try {
   if (/data\/asset\s*배치/i.test(bodyText)) {
     fail("Dev asset batch button visible in production UI");
   }
+  if (/웨딩 홀로그램 오퍼레이터/i.test(bodyText)) {
+    fail("Wedding hologram operator UI should not appear in main mbox app");
+  }
 
-  const result =
-    E2E_MODE === "classic" ? await runClassicFlow() : await runWeddingFlow();
+  const result = await runHostedFlow();
 
   const blocking = consoleErrors.filter((line) =>
     /cors|failed to fetch|invalid api key|401|403/i.test(line),
@@ -198,7 +130,7 @@ try {
     JSON.stringify(
       {
         ok: true,
-        mode: E2E_MODE,
+        mode: "classic",
         webUrl: WEB_URL,
         testImage,
         skipMp4: SKIP_MP4,

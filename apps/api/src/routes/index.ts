@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { assetsRouter } from "./assets.js";
+import { userAssetsRouter } from "./userAssets.js";
 import { workspaceRouter } from "./workspace.js";
 import { analyzeImage, analyzeImageBatch } from "../services/gemini.js";
 import { editImageBackground } from "../services/backgroundRemoval.js";
@@ -12,6 +13,7 @@ import type {
 export const routesRouter = Router();
 
 routesRouter.use(assetsRouter);
+routesRouter.use("/user-assets", userAssetsRouter);
 routesRouter.use("/workspace", workspaceRouter);
 
 routesRouter.get("/health", (_req, res) => {

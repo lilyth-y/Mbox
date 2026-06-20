@@ -1,14 +1,24 @@
 import type { HoloEvent } from "../../shared/types";
+import { WORKSPACE_ID } from "../../shared/config/runtime";
+import {
+  activeEventStorageKey,
+  eventsCatalogStorageKey,
+  LEGACY_ACTIVE_EVENT_KEY,
+  LEGACY_EVENTS_CATALOG_KEY,
+  migrateLegacyLocalStorageValue,
+} from "../../shared/lib/workspaceLocalKeys";
 
-const EVENTS_CATALOG_KEY = "mbox.events.catalog";
-const ACTIVE_EVENT_KEY = "mbox.events.active";
 function createEventId(): string {
   return `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function loadEventCatalog(): HoloEvent[] {
   try {
-    const raw = localStorage.getItem(EVENTS_CATALOG_KEY);
+    const raw = migrateLegacyLocalStorageValue(
+      eventsCatalogStorageKey(WORKSPACE_ID),
+      LEGACY_EVENTS_CATALOG_KEY,
+      WORKSPACE_ID
+    );
     if (!raw) {
       return [];
     }
@@ -30,7 +40,7 @@ export function loadEventCatalog(): HoloEvent[] {
 
 export function saveEventCatalog(events: HoloEvent[]): void {
   try {
-    localStorage.setItem(EVENTS_CATALOG_KEY, JSON.stringify(events));
+    localStorage.setItem(eventsCatalogStorageKey(WORKSPACE_ID), JSON.stringify(events));
   } catch {
     // Ignore quota failures for catalog metadata.
   }
@@ -38,7 +48,11 @@ export function saveEventCatalog(events: HoloEvent[]): void {
 
 export function loadActiveEventId(): string | null {
   try {
-    return localStorage.getItem(ACTIVE_EVENT_KEY);
+    return migrateLegacyLocalStorageValue(
+      activeEventStorageKey(WORKSPACE_ID),
+      LEGACY_ACTIVE_EVENT_KEY,
+      WORKSPACE_ID
+    );
   } catch {
     return null;
   }
@@ -46,7 +60,7 @@ export function loadActiveEventId(): string | null {
 
 export function saveActiveEventId(eventId: string): void {
   try {
-    localStorage.setItem(ACTIVE_EVENT_KEY, eventId);
+    localStorage.setItem(activeEventStorageKey(WORKSPACE_ID), eventId);
   } catch {
     // Ignore storage failures.
   }
@@ -55,6 +69,7 @@ export function saveActiveEventId(eventId: string): void {
 export {
   deleteEventVault,
   loadEventVault,
+  loadEventVaultReport,
   revokeEventObjectUrls,
   saveEventVault,
 } from "./indexedDbVault";

@@ -3,9 +3,7 @@
  *   node scripts/verify-local-dev.mjs
  */
 import { chromium } from "playwright";
-
-const WEB_URL = process.env.WEB_URL ?? "http://localhost:5173";
-const API_URL = process.env.API_URL ?? "http://localhost:8787";
+import { API_URL, WEB_URL } from "./lib/dev-ports.mjs";
 
 let ok = true;
 

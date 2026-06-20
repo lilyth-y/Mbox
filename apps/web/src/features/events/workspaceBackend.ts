@@ -18,12 +18,17 @@ import {
   saveCategoryAssignments,
 } from "../gallery/categoryStorage";
 import { prepareImagesForServerVault } from "./cloudVaultSync";
+import {
+  auditVoluMaxVaultIntegrity,
+  formatVoluMaxVaultAuditMessage,
+} from "../../shared/lib/voluMaxVaultIntegrity";
 import type { VaultSaveResult } from "./indexedDbVault";
 import {
   bootstrapEventWorkspace,
   createEventRecord,
   deleteEventVault,
   loadEventVault,
+  loadEventVaultReport,
   saveActiveEventId,
   saveEventCatalog,
   saveEventVault,
@@ -34,19 +39,43 @@ export interface EventWorkspaceState {
   events: HoloEvent[];
   activeEventId: string;
   processedImages: ProcessedImage[];
+  voluMaxVaultNotice?: string;
 }
 
 export function usesServerVault(): boolean {
   return USE_SERVER_VAULT;
 }
 
+function formatVaultSkippedMessage(
+  skipped: Array<{ id: number; label: string }>
+): string | undefined {
+  if (skipped.length === 0) {
+    return undefined;
+  }
+  const preview = skipped
+    .slice(0, 3)
+    .map((entry) => entry.label)
+    .join(", ");
+  const suffix = skipped.length > 3 ? ` 외 ${skipped.length - 3}장` : "";
+  return `손상된 보관함 항목 ${skipped.length}장을 건너뛰었습니다 (${preview}${suffix}). 해당 사진을 다시 업로드하세요.`;
+}
+
 export async function bootstrapLocalWorkspace(): Promise<EventWorkspaceState> {
   const { events, activeEventId } = bootstrapEventWorkspace();
-  const processedImages = applyStoredCategoryAssignments(
-    await loadEventVault(activeEventId),
-    activeEventId
-  );
-  return { events, activeEventId, processedImages };
+  const vaultReport = await loadEventVaultReport(activeEventId);
+  const processedImages = applyStoredCategoryAssignments(vaultReport.images, activeEventId);
+  const voluMaxVaultNotice = [
+    formatVaultSkippedMessage(vaultReport.skipped),
+    formatVoluMaxVaultAuditMessage(auditVoluMaxVaultIntegrity(processedImages)),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    events,
+    activeEventId,
+    processedImages,
+    voluMaxVaultNotice: voluMaxVaultNotice || undefined,
+  };
 }
 
 export async function bootstrapRemoteWorkspace(): Promise<EventWorkspaceState> {
@@ -72,7 +101,8 @@ export async function loadEventGallery(
     ]);
     return applyServerCategoryAssignments(vault, assignments);
   }
-  return applyStoredCategoryAssignments(await loadEventVault(eventId), eventId);
+  const images = applyStoredCategoryAssignments(await loadEventVault(eventId), eventId);
+  return images;
 }
 
 export async function persistEventVault(

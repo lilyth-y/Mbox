@@ -16,7 +16,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@mbox/shared": ["../../packages/shared/src/index.ts"]
+      "@mbox/shared": ["../../packages/shared/src/index.ts"],
+      "@mbox/cube-core": ["../../packages/cube-core/src/index.ts"]
     }
   },
   "include": ["src"]

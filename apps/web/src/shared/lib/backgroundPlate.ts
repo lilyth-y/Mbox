@@ -1,4 +1,6 @@
-import type { ProcessedImage } from "../types";
+import { CUBE_ORIGINAL_PLATE_BLUR_PX } from "@mbox/shared";
+import type { ImageCenter, ImageFocus, ProcessedImage, SubjectBounds } from "../types";
+import { computeCropBounds, computeRectCropBounds } from "./cropBounds";
 import { estimateDataUrlBytes } from "./mediaLimits";
 
 export type BackgroundPlateTheme =
@@ -9,17 +11,109 @@ export type BackgroundPlateTheme =
   | "starry_night";
 
 export const WEDDING_BACKGROUND_THEMES: { id: BackgroundPlateTheme; label: string }[] = [
-  { id: "original", label: "원본 배경" },
-  { id: "original_blurred", label: "기본 블러 배경" },
+  { id: "original", label: "원본 사진 배경" },
+  { id: "original_blurred", label: "블러 배경" },
   { id: "classic_hall", label: "클래식 웨딩홀" },
   { id: "romantic_garden", label: "로맨틱 가든" },
   { id: "starry_night", label: "은하수 밤하늘" },
 ];
 
+export function resolveBackgroundPlateRenderOptions(theme: BackgroundPlateTheme): {
+  plateThemeForRender: BackgroundPlateTheme;
+  plateBlurPx: number;
+} {
+  if (theme === "original") {
+    return { plateThemeForRender: "original", plateBlurPx: 0 };
+  }
+  if (theme === "original_blurred") {
+    return {
+      plateThemeForRender: "original_blurred",
+      plateBlurPx: CUBE_ORIGINAL_PLATE_BLUR_PX,
+    };
+  }
+  return { plateThemeForRender: theme, plateBlurPx: 52 };
+}
+
 export interface BackgroundPlateOptions {
   size?: number;
   blurPx?: number;
   theme?: BackgroundPlateTheme;
+  /** Face square crop — must match cropImage / AI matte alignment. */
+  center?: ImageCenter;
+  focus?: ImageFocus;
+  subjectBounds?: SubjectBounds;
+}
+
+/** Same 1024² crop as cropImage — VoluMax plate must match fg matte framing. */
+export function drawImageToPlateSquare(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  size: number,
+  center?: ImageCenter,
+  focus?: ImageFocus,
+  subjectBounds?: SubjectBounds
+): void {
+  if (center && typeof center.x === "number") {
+    const { sx, sy, size: cropSize } = computeCropBounds(
+      image.width,
+      image.height,
+      center,
+      focus,
+      subjectBounds
+    );
+    context.drawImage(image, sx, sy, cropSize, cropSize, 0, 0, size, size);
+    return;
+  }
+  drawImageCoverToSquare(context, image, size);
+}
+
+/** Center-weighted cover when no face crop metadata is available. */
+export function drawImageCoverToSquare(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  size: number
+): void {
+  if (image.width === size && image.height === size) {
+    context.drawImage(image, 0, 0, size, size);
+    return;
+  }
+  const scale = Math.max(size / image.width, size / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const offsetX = (size - drawWidth) / 2;
+  const offsetY = (size - drawHeight) / 2;
+  context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+}
+
+/** Cover crop into a non-square target (portrait plates, tall crystals). */
+export function drawImageCoverToRect(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  outWidth: number,
+  outHeight: number,
+  center?: ImageCenter,
+  focus?: ImageFocus,
+  subjectBounds?: SubjectBounds
+): void {
+  if (center && typeof center.x === "number") {
+    const aspect = outWidth / Math.max(outHeight, 1);
+    const { sx, sy, sw, sh } = computeRectCropBounds(
+      image.width,
+      image.height,
+      aspect,
+      center,
+      focus,
+      subjectBounds
+    );
+    context.drawImage(image, sx, sy, sw, sh, 0, 0, outWidth, outHeight);
+    return;
+  }
+  const scale = Math.max(outWidth / image.width, outHeight / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const offsetX = (outWidth - drawWidth) / 2;
+  const offsetY = (outHeight - drawHeight) / 2;
+  context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 }
 
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
@@ -136,7 +230,8 @@ export async function createBackgroundPlateDataUrl(
 ): Promise<string> {
   const size = options.size ?? 1024;
   const blurPx = options.blurPx ?? 32;
-  const theme = options.theme ?? "original_blurred";
+  const theme = options.theme ?? "original";
+  const { center, focus, subjectBounds } = options;
 
   const image = await loadImage(sourceDataUrl);
   const canvas = document.createElement("canvas");
@@ -147,20 +242,17 @@ export async function createBackgroundPlateDataUrl(
     throw new Error("Canvas context is unavailable.");
   }
 
-  const scale = Math.max(size / image.width, size / image.height);
-  const drawWidth = image.width * scale;
-  const drawHeight = image.height * scale;
-  const offsetX = (size - drawWidth) / 2;
-  const offsetY = (size - drawHeight) / 2;
+  const drawPlate = () =>
+    drawImageToPlateSquare(context, image, size, center, focus, subjectBounds);
 
   if (theme === "original") {
-    context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    drawPlate();
     return canvas.toDataURL("image/jpeg", 0.92);
   }
 
   const blurStrength = theme === "original_blurred" ? blurPx : Math.max(blurPx, 24);
   context.filter = `blur(${blurStrength}px) saturate(1.2) brightness(1.06)`;
-  context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+  drawPlate();
   context.filter = "none";
 
   const overlaySeed =
@@ -170,6 +262,57 @@ export async function createBackgroundPlateDataUrl(
   applyThemeOverlay(context, theme, size, overlaySeed);
 
   return canvas.toDataURL("image/jpeg", 0.88);
+}
+
+/** Soft-matted subject PNG for VoluMax foreground layer (no Gemini cutout). */
+export async function createSubjectForegroundDataUrl(
+  photoDataUrl: string,
+  bounds: SubjectBounds,
+  size = 1024
+): Promise<string> {
+  const image = await loadImage(photoDataUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas context is unavailable.");
+  }
+
+  drawImageCoverToSquare(context, image, size);
+  const scale = Math.max(size / image.width, size / image.height);
+  const drawW = image.width * scale;
+  const drawH = image.height * scale;
+  const offsetX = (size - drawW) / 2;
+  const offsetY = (size - drawH) / 2;
+
+  const bx0 = offsetX + (bounds.x0 / 100) * drawW;
+  const bx1 = offsetX + (bounds.x1 / 100) * drawW;
+  const by0 = offsetY + (bounds.y0 / 100) * drawH;
+  const by1 = offsetY + (bounds.y1 / 100) * drawH;
+  const pad = Math.max(14, Math.min(drawW, drawH) * 0.065);
+
+  const mask = document.createElement("canvas");
+  mask.width = size;
+  mask.height = size;
+  const maskContext = mask.getContext("2d");
+  if (!maskContext) {
+    throw new Error("Canvas context is unavailable.");
+  }
+  maskContext.fillStyle = "#000";
+  maskContext.fillRect(0, 0, size, size);
+  maskContext.filter = `blur(${pad}px)`;
+  maskContext.fillStyle = "#fff";
+  maskContext.beginPath();
+  maskContext.roundRect(bx0 - pad, by0 - pad, bx1 - bx0 + pad * 2, by1 - by0 + pad * 2, pad);
+  maskContext.fill();
+  maskContext.filter = "none";
+
+  context.globalCompositeOperation = "destination-in";
+  context.drawImage(mask, 0, 0);
+  context.globalCompositeOperation = "source-over";
+
+  return canvas.toDataURL("image/png");
 }
 
 /** Bake themed background + cutout onto one cube face texture. */
@@ -207,11 +350,21 @@ export async function regenerateBackgroundPlates(
   return Promise.all(
     images.map(async (image, index) => {
       const sourceUrl =
-        sourceUrls[index] ?? image.originalUrl ?? image.preCropSourceUrl ?? image.url;
+        image.preCropSourceUrl ??
+        image.originalUrl ??
+        image.url ??
+        sourceUrls[index] ??
+        image.preparedUrl;
       if (!sourceUrl) {
         return image;
       }
-      const backgroundPlateUrl = await createBackgroundPlateDataUrl(sourceUrl, { theme });
+      const { plateThemeForRender, plateBlurPx } = resolveBackgroundPlateRenderOptions(theme);
+      const backgroundPlateUrl = await createBackgroundPlateDataUrl(sourceUrl, {
+        theme: plateThemeForRender,
+        blurPx: plateBlurPx,
+        center: image.center,
+        focus: image.focus,
+      });
       const faceCompositeUrl =
         image.preprocessMode === "background_removed"
           ? await createFaceCompositeDataUrl(image.url, backgroundPlateUrl)
@@ -219,6 +372,7 @@ export async function regenerateBackgroundPlates(
       return {
         ...image,
         backgroundPlateUrl,
+        backgroundPlateTheme: theme,
         faceCompositeUrl,
         byteSize:
           estimateDataUrlBytes(image.url) +

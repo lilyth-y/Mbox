@@ -5,11 +5,15 @@ import {
   sampleFanCubeMotion,
   computeFanLoopBridgeFrame,
   type FanTimelineProfile,
-} from "./cubeFanTimeline";
+} from "./fan";
 import type { CubeRotationMode } from "./cubeTransitionRotation";
 import {
-  samplePhotoSlideshow3dMotion,
-} from "./photoSlideshow3dTimeline";
+  DEFAULT_FAN_SPEED,
+  resolveCubeShowcaseFx,
+  type CubeShowcaseFxOptions,
+} from "@mbox/shared";
+import { sampleOrbitalShowcaseMotion } from "@mbox/shared";
+import { applyOrbitalShowcaseRootTransform } from "./orbitalPivot";
 import { applyExportPresentationOverrides } from "./presentationExport";
 import type { ImageCenter } from "../../shared/types";
 import {
@@ -48,6 +52,11 @@ export function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
+export interface FanRootMotionSample {
+  rotation: THREE.Euler;
+  presentationScale: number;
+}
+
 export interface PresentationFrame {
   cameraZ: number;
   fieldOfView: number;
@@ -57,6 +66,8 @@ export interface PresentationFrame {
   parallaxAmount: number;
   /** 0-1 pulse for shader Z-push effect; peaks at full showcase focus. */
   focusPulse?: number;
+  /** cube_focus target pose for angular-velocity inertia integration. */
+  fanRootMotion?: FanRootMotionSample;
   applyRootTransform: (root: THREE.Object3D, step: number, presentationCount: number) => void;
 }
 
@@ -131,7 +142,9 @@ function computeCubeFrame(
   exportRecording = false,
   motionSeed = 0,
   fanTimelineProfile: FanTimelineProfile = "wedding_default",
-  hologramMode = false
+  hologramMode = false,
+  fanSpeed = 1,
+  showcaseFx: CubeShowcaseFxOptions = resolveCubeShowcaseFx()
 ): PresentationFrame {
   const fan = sampleFanCubeMotion(
     step,
@@ -140,16 +153,23 @@ function computeCubeFrame(
     presentationCount,
     motionSeed,
     rotationMode,
-    fanTimelineProfile
+    fanTimelineProfile,
+    fanSpeed,
+    showcaseFx,
+    exportRecording
   );
 
   const frame: PresentationFrame = {
-    cameraZ: DEFAULT_CAMERA_Z,
-    fieldOfView: DEFAULT_FOV,
-    cameraOffsetX: 0,
-    cameraOffsetY: 0,
+    cameraZ: fan.cameraZ,
+    fieldOfView: fan.fieldOfView,
+    cameraOffsetX: fan.cameraOffsetX,
+    cameraOffsetY: fan.cameraOffsetY,
     parallaxAmount: fan.parallaxAmount,
     focusPulse: fan.focusPulse,
+    fanRootMotion: {
+      rotation: fan.rotation.clone(),
+      presentationScale: fan.presentationScale,
+    },
     applyRootTransform: (root) => {
       root.rotation.set(fan.rotation.x, fan.rotation.y, fan.rotation.z);
       root.position.set(0, 0, 0);
@@ -271,35 +291,41 @@ function computeBookFrame(
   };
 }
 
-function computePhotoSlideshow3dFrame(
+function computeOrbitalShowcaseFrame(
   step: number,
   stepElapsed: number,
   presentationCount: number,
-  exportRecording = false,
-  motionSeed = 0
+  motionSeed = 0,
+  exportRecording = false
 ): PresentationFrame {
-  const sample = samplePhotoSlideshow3dMotion(
+  const sample = sampleOrbitalShowcaseMotion(stepElapsed, {
     step,
-    stepElapsed,
-    presentationCount,
-    motionSeed
+    faceCount: presentationCount,
+    motionSeed,
+  });
+  const dock = sample.dockingLock;
+  const dollyT = THREE.MathUtils.clamp(
+    sample.cameraDolly + sample.holdBreath * 0.06,
+    0,
+    1
   );
+  const dockPush = dock * dock * 0.22;
 
   const frame: PresentationFrame = {
-    cameraZ: sample.cameraZ,
-    fieldOfView: sample.fieldOfView,
-    cameraOffsetX: sample.cameraOffsetX,
-    cameraOffsetY: sample.cameraOffsetY,
+    cameraZ:
+      THREE.MathUtils.lerp(DEFAULT_CAMERA_Z, FRONT_CAMERA_Z, dollyT) -
+      sample.holdBreath * 0.18 -
+      dockPush * 0.28,
+    fieldOfView:
+      THREE.MathUtils.lerp(DEFAULT_FOV, FRONT_FOV, dollyT) - dock * 1.1,
+    cameraOffsetX:
+      Math.sin(stepElapsed * 0.0004 + step * 0.4) * 0.032 * (1 - dock * 0.65),
+    cameraOffsetY:
+      -0.015 * sample.frontness - sample.holdBreath * 0.03 + dock * 0.022,
     parallaxAmount: sample.parallaxAmount,
     focusPulse: sample.focusPulse,
     applyRootTransform: (root) => {
-      root.rotation.copy(sample.rotation);
-      root.position.copy(sample.position);
-      root.scale.set(
-        sample.presentationScale,
-        sample.presentationScale,
-        sample.presentationScale
-      );
+      applyOrbitalShowcaseRootTransform(root, sample);
     },
   };
   return exportRecording ? applyExportPresentationOverrides(frame) : frame;
@@ -347,8 +373,12 @@ export interface PresentationMotionContext {
   motionSeed?: number;
   /** Fan wedding timeline profile (cube_focus only). */
   fanTimelineProfile?: FanTimelineProfile;
+  /** Fan blade speed multiplier (legacy wedding-simple fanSpeed). */
+  fanSpeed?: number;
   /** Hologram disc export path — stronger parallax/focus in MP4. */
   hologramMode?: boolean;
+  /** Opt-in showcase FX (heartbeat, zoom, subject pull). */
+  cubeShowcaseFx?: Partial<CubeShowcaseFxOptions>;
 }
 
 /** Seam for preview loop: last cube face → step-0 entry pose (t=0). */
@@ -358,20 +388,28 @@ export function computeCubeLoopBridgeFrame(
   lastStep: number,
   motion: PresentationMotionContext = {}
 ): PresentationFrame {
+  const fanSpeed = motion.fanSpeed ?? DEFAULT_FAN_SPEED;
+  const showcaseFx = resolveCubeShowcaseFx(motion.cubeShowcaseFx);
   const fan = computeFanLoopBridgeFrame(
     bridgeElapsed,
     bridgeMs,
     lastStep,
     motion.motionSeed ?? 0,
     motion.cubeRotationMode ?? "auto",
-    motion.fanTimelineProfile ?? "wedding_default"
+    motion.fanTimelineProfile ?? "wedding_default",
+    fanSpeed,
+    showcaseFx
   );
   return {
     cameraZ: fan.cameraZ,
     fieldOfView: fan.fieldOfView,
-    cameraOffsetX: 0,
-    cameraOffsetY: 0,
+    cameraOffsetX: fan.cameraOffsetX ?? 0,
+    cameraOffsetY: fan.cameraOffsetY ?? 0,
     parallaxAmount: fan.parallaxAmount,
+    fanRootMotion: {
+      rotation: fan.fanRootMotion.rotation.clone(),
+      presentationScale: fan.fanRootMotion.presentationScale,
+    },
     applyRootTransform: (root) => {
       fan.applyRootTransform(root);
     },
@@ -419,13 +457,13 @@ export function computePresentationFrame(
       return computeOrbitFrame(step, stepElapsed, presentationCount, timing, variety);
     case "album_flip":
       return computeAlbumFrame(step, stepElapsed, presentationCount, timing);
-    case "photo_slideshow_3d":
-      return computePhotoSlideshow3dFrame(
+    case "orbital_showcase":
+      return computeOrbitalShowcaseFrame(
         step,
         stepElapsed,
         presentationCount,
-        motion.exportRecording,
-        motion.motionSeed ?? 0
+        motion.motionSeed ?? 0,
+        motion.exportRecording
       );
     case "cube_focus":
     default:
@@ -440,7 +478,9 @@ export function computePresentationFrame(
         motion.exportRecording,
         motion.motionSeed ?? 0,
         motion.fanTimelineProfile ?? "wedding_default",
-        motion.hologramMode ?? false
+        motion.hologramMode ?? false,
+        motion.fanSpeed ?? DEFAULT_FAN_SPEED,
+        resolveCubeShowcaseFx(motion.cubeShowcaseFx)
       );
   }
 }

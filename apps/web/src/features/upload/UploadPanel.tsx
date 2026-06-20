@@ -64,8 +64,8 @@ export function UploadPanel({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-      <div className="flex items-center gap-2 mb-4 text-blue-400">
+    <div className="mbox-card">
+      <div className="mbox-card-header">
         <Camera size={20} />
         <h2 className="font-bold">이미지 입력</h2>
       </div>
@@ -89,8 +89,8 @@ export function UploadPanel({
         <div
           className={`aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
             previewImage
-              ? "border-blue-500/50 bg-blue-500/5"
-              : "border-slate-700 hover:border-slate-600 bg-slate-800/50"
+              ? "border-mbox-gold/50 bg-mbox-gold/5"
+              : "border-[rgba(223,179,134,0.18)] hover:border-mbox-gold/30 bg-[rgba(18,14,24,0.85)]/50"
           }`}
         >
           {previewImage ? (
@@ -104,8 +104,8 @@ export function UploadPanel({
             </>
           ) : (
             <>
-              <Upload className="text-slate-500 mb-2" size={32} />
-              <span className="text-slate-400 text-sm">여러 장을 드래그하거나 클릭하여 업로드</span>
+              <Upload className="text-mbox-subtle mb-2" size={32} />
+              <span className="text-mbox-muted text-sm">여러 장을 드래그하거나 클릭하여 업로드</span>
             </>
           )}
         </div>
@@ -133,22 +133,22 @@ export function UploadPanel({
               onClick={() => onPreprocessModeChange(option.mode)}
               className={`rounded-2xl border px-4 py-4 text-left transition ${
                 selected
-                  ? "border-blue-500/60 bg-blue-500/10"
-                  : "border-slate-800 bg-slate-950/40 hover:border-slate-700"
+                  ? "border-mbox-gold/60 bg-mbox-gold/10"
+                  : "border-[rgba(223,179,134,0.12)] bg-[rgba(18,14,24,0.45)] hover:border-[rgba(223,179,134,0.18)]"
               }`}
             >
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <div className="flex items-center gap-2 text-sm font-semibold text-mbox-text">
                 <Icon size={16} />
                 {option.title}
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{option.description}</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-mbox-subtle">{option.description}</p>
             </button>
           );
         })}
       </div>
 
       <label className="mt-4 block">
-        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-mbox-muted">
           포커스 대상
         </span>
         <input
@@ -156,9 +156,9 @@ export function UploadPanel({
           value={focusTarget}
           onChange={(event) => onFocusTargetChange(event.target.value)}
           placeholder="예: 인물, 강아지, 자동차"
-          className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-blue-500/60"
+          className="w-full rounded-xl border border-[rgba(223,179,134,0.18)] bg-[rgba(18,14,24,0.7)] px-4 py-3 text-sm text-mbox-text outline-none transition focus:border-mbox-gold/60"
         />
-        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-2 text-[11px] leading-relaxed text-mbox-subtle">
           비워 두면 가장 눈에 띄는 피사체를 자동으로 선택합니다.
         </p>
       </label>
@@ -167,7 +167,7 @@ export function UploadPanel({
         <button
           disabled={sourceImages.length === 0 || isProcessing}
           onClick={onProcess}
-          className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+          className="flex-1 gold-btn py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:cursor-not-allowed"
         >
           {isProcessing ? <Loader2 className="animate-spin" /> : <Play size={18} />}
 
@@ -179,7 +179,7 @@ export function UploadPanel({
 
           onClick={onClear}
 
-          className="p-3 bg-slate-800 hover:bg-red-900/30 hover:text-red-400 rounded-xl transition-all"
+          className="p-3 bg-[rgba(18,14,24,0.85)] hover:bg-red-900/30 hover:text-red-400 rounded-xl transition-all"
 
         >
 
@@ -195,7 +195,7 @@ export function UploadPanel({
         <button
           disabled={isProcessing}
           onClick={onProcessAssetBatch}
-          className="mt-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/10 py-3 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3 w-full rounded-xl border border-mbox-gold/40 bg-mbox-gold/10 py-3 text-sm font-semibold text-mbox-gold transition hover:bg-mbox-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           data/asset 배치 처리 (1GB 한도)
         </button>
@@ -203,13 +203,13 @@ export function UploadPanel({
 
 
 
-      <div className="mt-4 p-3 bg-black/40 rounded-lg border border-slate-800 flex items-start gap-3">
+      <div className="mt-4 p-3 bg-black/40 rounded-lg border border-[rgba(223,179,134,0.12)] flex items-start gap-3">
 
         <div
 
           className={`p-1 rounded-full mt-0.5 ${
 
-            isProcessing ? "bg-blue-500/20 text-blue-500" : "bg-green-500/20 text-green-500"
+            isProcessing ? "bg-mbox-gold/20 text-mbox-gold" : "bg-green-500/20 text-green-500"
 
           }`}
 
@@ -219,7 +219,7 @@ export function UploadPanel({
 
         </div>
 
-        <p className="text-xs text-slate-400 leading-relaxed italic">{status}</p>
+        <p className="text-xs text-mbox-muted leading-relaxed italic">{status}</p>
 
       </div>
 

@@ -31,7 +31,7 @@ export async function applyBackgroundGeneration(
 
   onStatus?.(`[${image.label}] 배경 생성 결과를 1024x1024로 맞추는 중...`);
   const editedUrl = `data:${editResult.mimeType};base64,${editResult.imageBase64}`;
-  const cropped = await cropImage(editedUrl, image.center, image.focus);
+  const cropped = await cropImage(editedUrl, image.center, image.focus, image.subject.bounds);
 
   return {
     ...image,

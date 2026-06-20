@@ -50,12 +50,23 @@ export async function prepareBackgroundRemovalEngine(
  * 1) Browser segmentation (@imgly, version-pinned assets)
  * 2) API matte from analysis bounds (offline fallback)
  */
+export interface RemoveBackgroundOptions {
+  /** Skip 960px downscale — use when source is already the face square crop (1024). */
+  preserveSquareCrop?: boolean;
+}
+
 export async function removeBackgroundForImage(
   image: ProcessedImage,
   sourceDataUrl: string,
-  onStatus?: (message: string) => void
+  onStatus?: (message: string) => void,
+  options: RemoveBackgroundOptions = {}
 ): Promise<BackgroundRemovalResult> {
-  const prepared = await prepareImageForApi(sourceDataUrl);
+  const prepared = options.preserveSquareCrop
+    ? {
+        mimeType: sourceDataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg",
+        base64: sourceDataUrl.includes(",") ? sourceDataUrl.split(",")[1]! : sourceDataUrl,
+      }
+    : await prepareImageForApi(sourceDataUrl);
   const preparedDataUrl = `data:${prepared.mimeType};base64,${prepared.base64}`;
   const progress = createProgressRelay(image.label, onStatus);
 

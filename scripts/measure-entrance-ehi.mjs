@@ -297,9 +297,79 @@ function runSingleFromEnv() {
     attempt: 0,
     label: "env override run",
     profile: PROFILE,
+    rotationMode: ROTATION_MODE_DEFAULT,
     hologramMode: HOLOGRAM_MODE,
-    parallaxMul,
-    focusPulseMul,
+    parallaxMul: parallaxMul ?? 0.5,
+    focusPulseMul: focusPulseMul ?? 0.35,
+  });
+}
+
+const FIELD_AB_CONDITIONS = [
+  {
+    id: "A",
+    label: "field A control (wedding_default)",
+    profile: "wedding_default",
+    parallaxMul: 0.22,
+    focusPulseMul: 0,
+  },
+  {
+    id: "B",
+    label: "field B treatment (entrance_processional)",
+    profile: "entrance_processional",
+    parallaxMul: 0.5,
+    focusPulseMul: 0.35,
+  },
+];
+
+function computeRsiProxy(metrics) {
+  const meanYaw = metrics.step0ShowcaseMeanYawRateDegPerSec;
+  const V_score =
+    meanYaw >= 2.0 && meanYaw <= 4.5
+      ? 1
+      : meanYaw < 2.0
+        ? Math.max(0, meanYaw / 2.0)
+        : Math.max(0, 4.5 / meanYaw);
+  const D_score = Math.min(1, metrics.step0YawCoherence / 0.85);
+  const J_score =
+    metrics.step0YawRateStdDegPerSec <= 1.2
+      ? 1
+      : Math.max(0, 1 - (metrics.step0YawRateStdDegPerSec - 1.2) / 2);
+  const F_score = metrics.rotationSpikeCount === 0 ? 1 : 0;
+  const RSI = V_score * D_score * J_score * F_score;
+  return {
+    V_score: Number(V_score.toFixed(4)),
+    D_score: Number(D_score.toFixed(4)),
+    J_score: Number(J_score.toFixed(4)),
+    F_score,
+    RSI: Number(RSI.toFixed(4)),
+  };
+}
+
+function runFieldAbProxy() {
+  return FIELD_AB_CONDITIONS.map((condition, index) => {
+    const measured = measureConfig({
+      attempt: index + 1,
+      label: condition.label,
+      profile: condition.profile,
+      rotationMode: "yaw_cw",
+      hologramMode: true,
+      parallaxMul: condition.parallaxMul,
+      focusPulseMul: condition.focusPulseMul,
+    });
+    return {
+      condition: condition.id,
+      playback: {
+        fanProfile: condition.profile,
+        exportParallaxMul: condition.parallaxMul,
+        exportFocusPulseMul: condition.focusPulseMul,
+        rotationMode: "yaw_cw",
+      },
+      metrics: measured.metrics,
+      scores: measured.scores,
+      rsi: computeRsiProxy(measured.metrics),
+      pass: measured.pass,
+      result: measured.result,
+    };
   });
 }
 
@@ -308,7 +378,7 @@ function runProductionGate() {
     attempt: 6,
     label: "production gate",
     profile: "entrance_processional",
-    rotationMode: process.env.EHI_ROTATION ?? "yaw_cw",
+    rotationMode: "yaw_cw",
     hologramMode: true,
     parallaxMul: 0.5,
     focusPulseMul: 0.35,
@@ -317,14 +387,50 @@ function runProductionGate() {
 
 mkdirSync(outDir, { recursive: true });
 
+if (process.argv.includes("--field-ab")) {
+  const fieldOutDir = join(root, "experiments", "outputs", "field_ab");
+  mkdirSync(fieldOutDir, { recursive: true });
+  const conditions = runFieldAbProxy();
+  const rowA = conditions.find((row) => row.condition === "A");
+  const rowB = conditions.find((row) => row.condition === "B");
+  const report = {
+    generatedAt: new Date().toISOString(),
+    studyId: "entrance-hologram-field-ab-2026",
+    kpiProxy: {
+      EHI: "Entrance Hologram Index",
+      RSI: "Rotation Satisfaction Index (step0, yaw_cw)",
+    },
+    conditions,
+    comparison: {
+      deltaEHI: Number((rowB.scores.EHI - rowA.scores.EHI).toFixed(4)),
+      deltaRSI: Number((rowB.rsi.RSI - rowA.rsi.RSI).toFixed(4)),
+      B_passes_ehi_gate: rowB.pass,
+      A_passes_ehi_gate: rowA.pass,
+    },
+  };
+  writeFileSync(join(fieldOutDir, "ehi_proxy.json"), JSON.stringify(report, null, 2));
+  console.log("\n=== Field A/B EHI proxy (lab) ===\n");
+  for (const row of conditions) {
+    console.log(
+      `Condition ${row.condition}: EHI=${row.scores.EHI} RSI=${row.rsi.RSI} ` +
+        `spikes=${row.metrics.rotationSpikeCount} step0_yaw=${row.metrics.step0ShowcaseMeanYawRateDegPerSec}°/s → ${row.result}`
+    );
+  }
+  console.log(`\nΔEHI (B−A): ${report.comparison.deltaEHI}`);
+  console.log(`Wrote ${join(fieldOutDir, "ehi_proxy.json")}\n`);
+  process.exit(0);
+}
+
 const runGate = process.argv.includes("--gate");
 const runMetricsOnly = process.argv.includes("--metrics-only");
 const runAll = process.argv.includes("--all-attempts");
-const results = runGate || runMetricsOnly
+const results = runGate
   ? [runProductionGate()]
-  : runAll
-    ? ATTEMPT_PRESETS.map((preset) => measureConfig(preset))
-    : [runSingleFromEnv()];
+  : runMetricsOnly
+    ? [runSingleFromEnv()]
+    : runAll
+      ? ATTEMPT_PRESETS.map((preset) => measureConfig(preset))
+      : [runSingleFromEnv()];
 
 const finalResult = results[results.length - 1];
 const report = {

@@ -7,6 +7,7 @@ import {
 } from "../../shared/lib/analysisCache";
 import { cropImage } from "../../shared/lib/cropImage";
 import { estimateDataUrlBytes } from "../../shared/lib/mediaLimits";
+import { resolveFaceCenterAndBounds } from "../../shared/lib/subjectBoundsCrop";
 import { prepareImageForApi } from "../../shared/lib/prepareImageForApi";
 
 interface ProcessImageOptions {
@@ -23,7 +24,19 @@ export async function createProcessedImage(
 ): Promise<ProcessedImage> {
   const focusTarget = options.focusTarget?.trim();
   const preprocessMode = options.preprocessMode ?? "original";
-  const finalImage = await cropImage(sourceImage, metadata.center, metadata.focus);
+  const finalImage = await cropImage(
+    sourceImage,
+    metadata.center,
+    metadata.focus,
+    metadata.subject.bounds
+  );
+  const { center, bounds, depth } = await resolveFaceCenterAndBounds({
+    preCropSourceUrl: sourceImage,
+    originalUrl: sourceImage,
+    center: metadata.center,
+    focus: metadata.focus,
+    subject: metadata.subject,
+  });
   const uniqueId =
     typeof options.sequenceOrder === "number"
       ? options.sequenceOrder * 1_000 + (Date.now() % 1_000)
@@ -38,13 +51,13 @@ export async function createProcessedImage(
     aiSuggestedCategory: metadata.category,
     categoryConfidence: metadata.categoryConfidence,
     originalUrl: sourceImage,
-    center: metadata.center,
+    center,
     aiRecommendedCenter: metadata.center,
     focus: metadata.focus,
     focusTarget,
     preprocessMode,
-    subject: metadata.subject,
-    depth: metadata.depth,
+    subject: { ...metadata.subject, bounds },
+    depth,
     byteSize: estimateDataUrlBytes(finalImage),
     sequenceOrder: options.sequenceOrder,
   };

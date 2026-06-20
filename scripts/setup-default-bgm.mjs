@@ -1,30 +1,34 @@
 #!/usr/bin/env node
 /**
- * Prints instructions to install default cube BGM files into apps/web/public/bgm/
- * (Cannot auto-download Pixabay assets without your license acceptance in browser.)
+ * Verify or download default cube BGM (Mixkit — commercial use).
  */
-import { mkdirSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { COMMERCIAL_BGM_CATALOG } from "./download-commercial-bgm.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bgmDir = join(root, "apps", "web", "public", "bgm");
 
-mkdirSync(bgmDir, { recursive: true });
-
-const files = [
-  "cinematic-romantic.mp3",
-  "piano-slideshow.mp3",
-  "romantic-wedding.mp3",
-];
+const missing = COMMERCIAL_BGM_CATALOG.filter((entry) => !existsSync(join(bgmDir, entry.file)));
 
 console.log("Cube BGM setup\n");
-console.log(`Target folder: ${bgmDir}\n`);
-for (const file of files) {
-  const path = join(bgmDir, file);
-  console.log(`  ${existsSync(path) ? "[OK]" : "[MISSING]"} ${file}`);
+console.log(`Target: ${bgmDir}\n`);
+
+for (const entry of COMMERCIAL_BGM_CATALOG) {
+  const path = join(bgmDir, entry.file);
+  console.log(`  ${existsSync(path) ? "[OK]" : "[MISSING]"} ${entry.file} — ${entry.title}`);
 }
-console.log(`
-Download MP3s from Pixabay (see apps/web/public/bgm/README.md) and rename to match.
-Or use「직접 업로드」in the 3D cube tab.
-`);
+
+if (missing.length > 0) {
+  console.log(`\n${missing.length} file(s) missing — running download:commercial-bgm…\n`);
+  const result = spawnSync("node", ["scripts/download-commercial-bgm.mjs"], {
+    cwd: root,
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  process.exit(result.status ?? 1);
+}
+
+console.log("\nAll BGM present. License: apps/web/public/bgm/LICENSE.md");

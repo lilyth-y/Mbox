@@ -13,7 +13,11 @@ const URL_SLOTS: VaultAssetSlot[] = [
   "originalUrl",
   "preCropSourceUrl",
   "backgroundPlateUrl",
+  "subjectForegroundUrl",
+  "faceCompositeUrl",
 ];
+
+const PNG_SLOTS = new Set<VaultAssetSlot>(["subjectForegroundUrl", "faceCompositeUrl"]);
 
 function isInlineImageUrl(value: string): boolean {
   return value.startsWith("data:") || value.startsWith("blob:");
@@ -52,7 +56,11 @@ export async function prepareImagesForServerVault(
       if (existingPaths?.[slot]) {
         continue;
       }
-      assets.push({ imageId: image.id, slot, contentType: "image/jpeg" });
+      assets.push({
+        imageId: image.id,
+        slot,
+        contentType: PNG_SLOTS.has(slot) ? "image/png" : "image/jpeg",
+      });
     }
   }
 
@@ -86,9 +94,10 @@ export async function prepareImagesForServerVault(
         }
 
         const blob = await urlToBlob(value);
+        const contentType = PNG_SLOTS.has(slot) ? "image/png" : "image/jpeg";
         const putResponse = await fetch(upload.uploadUrl, {
           method: "PUT",
-          headers: { "Content-Type": "image/jpeg" },
+          headers: { "Content-Type": contentType },
           body: blob,
         });
         if (!putResponse.ok) {

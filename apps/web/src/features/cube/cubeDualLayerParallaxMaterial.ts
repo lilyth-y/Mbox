@@ -1,9 +1,23 @@
 import * as THREE from "three";
+import {
+  CUBE_FACE_UV_INSET,
+  CUBE_PARALLAX_UV_WARP_MAX,
+} from "@mbox/shared";
 import type { ImageCenter, SubjectBounds } from "../../shared/types";
 import { DEPTH_EMPHASIS, PARALLAX_MAX } from "./cubeSequence";
 import type { CubeFramePresetId } from "@mbox/shared";
 import { PHOTO_FRAME_GLSL } from "./photoFrameGlsl";
+import { HOLOGRAM_RIM_GLSL } from "./microModules/shaders/hologramRimGlsl";
+import {
+  createHologramRimUniforms,
+  HOLOGRAM_RIM_FRAGMENT_TAIL,
+} from "./microModules/hologramRimUniforms";
+import { configurePresentationTexture } from "./presentationTextures";
 import { createFramePresetUniform, setFramePresetUniform } from "./presentationFrameUniforms";
+import { createCustomFrameColorUniforms } from "./frameColorUniforms";
+import { createFrameFinishUniforms } from "./frameFinishUniforms";
+import { createFaceLacquerUniforms } from "./faceLacquerUniforms";
+import { DEFAULT_FRAME_BORDER_WIDTH_ID, frameBorderScale } from "./frameBorderWidth";
 
 const vertexShader = `
 varying vec2 vUv;
@@ -30,16 +44,34 @@ uniform float uHologramMode;
 uniform float uFocusPulse;
 uniform float uGradientShift;
 uniform float uGradientEnabled;
+uniform vec3 uCustomFrameColor;
+uniform float uUseCustomFrameColor;
+uniform float uFrameBorderScale;
+uniform float uFrameFinish;
+uniform float uPhotoInsetExpand;
+uniform float uFaceUvInset;
+uniform float uShellFrameMode;
+uniform vec2 uFaceLightDir;
+uniform float uFaceGloss;
+uniform float uFaceShowcasePulse;
+uniform float uUvWarpMax;
+uniform float uTrustFgAlpha;
+uniform float uHologramRimEnabled;
+uniform float uHologramRimTime;
 varying vec2 vUv;
 
-float subjectMask(vec2 uv) {
+vec2 clampFaceUv(vec2 uv) {
+  return clamp(uv, 0.001, 0.999);
+}
+
+float subjectMaskBounds(vec2 uv) {
   return step(uSubjectBounds.x, uv.x)
     * step(uv.x, uSubjectBounds.z)
     * step(uSubjectBounds.y, uv.y)
     * step(uv.y, uSubjectBounds.w);
 }
 
-float subjectMaskSoft(vec2 uv) {
+float subjectMaskSoftBounds(vec2 uv) {
   vec4 b = uSubjectBounds;
   float mx = smoothstep(b.x - 0.035, b.x + 0.025, uv.x)
     * smoothstep(b.z + 0.025, b.z - 0.035, uv.x);
@@ -48,8 +80,26 @@ float subjectMaskSoft(vec2 uv) {
   return mx * my;
 }
 
-/** JPEG originals have fg.a=1; use AI bounds + depth for VoluMax fg/bg split. */
+// AI cutout: follow PNG silhouette — never the detection bounding box.
+float subjectMask(vec2 uv) {
+  if (uTrustFgAlpha > 0.5) {
+    return step(0.06, texture2D(uFgTexture, uv).a);
+  }
+  return subjectMaskBounds(uv);
+}
+
+float subjectMaskSoft(vec2 uv) {
+  if (uTrustFgAlpha > 0.5) {
+    return smoothstep(0.04, 0.52, texture2D(uFgTexture, uv).a);
+  }
+  return subjectMaskSoftBounds(uv);
+}
+
+// PNG matte: trust texture alpha. JPEG fallback uses bounds + depth heuristics.
 float foregroundAlpha(vec2 uv, float fgAlphaSample) {
+  if (uTrustFgAlpha > 0.5) {
+    return clamp(fgAlphaSample, 0.0, 1.0);
+  }
   if (fgAlphaSample < 0.95) {
     return fgAlphaSample;
   }
@@ -66,27 +116,26 @@ float foregroundAlpha(vec2 uv, float fgAlphaSample) {
 }
 
 vec2 warpForeground(vec2 uv, float amount) {
+  vec2 delta = uv - uFocus;
   float depthWeight;
   if (uUseDepthMap > 0.5) {
     float sceneDepth = texture2D(uDepthMap, uv).r;
     depthWeight = (sceneDepth - uSubjectDepth) * 1.35;
   } else {
-    vec2 delta = uv - uFocus;
     float dist = length(delta);
     float subjectWeight = 1.0 - smoothstep(0.0, 0.42, dist);
     depthWeight = (subjectWeight - 0.5) * 2.6;
   }
 
-  float inSubject = subjectMask(uv);
+  float inSubject = subjectMaskSoft(uv);
   if (uPortraitBoost > 0.5) {
-    depthWeight = mix(depthWeight, mix(-1.18, 1.12, inSubject), 0.88);
+    depthWeight = mix(depthWeight, mix(-1.18, 1.12, inSubject), 0.88 * inSubject);
   }
 
   depthWeight = clamp(depthWeight, -1.25, 1.25);
-  vec2 delta = uv - uFocus;
   float foreground = step(0.0, depthWeight);
   float background = 1.0 - foreground;
-  float portraitMul = mix(1.75, mix(3.45, 3.05, background), uPortraitBoost);
+  float portraitMul = mix(1.85, mix(3.85, 3.35, background), uPortraitBoost);
   float separation = depthWeight * amount * portraitMul * ${DEPTH_EMPHASIS.toFixed(2)};
   float scale = 1.0 - separation;
   return uFocus + delta * scale;
@@ -94,33 +143,45 @@ vec2 warpForeground(vec2 uv, float amount) {
 
 vec2 warpBackground(vec2 uv, float amount) {
   vec2 delta = uv - uFocus;
-  // Base parallax recession + extra push-back at focus peak
-  float bgPush = 1.0 + uFocusPulse * 0.07;
+  // VoluMax background distance: stronger recession at showcase hold
+  float bgPush = 1.0 + uFocusPulse * 0.34 + amount * 0.16;
   float scale = (1.0 + amount * uBgParallaxMul * ${DEPTH_EMPHASIS.toFixed(2)}) * bgPush;
   return uFocus + delta * scale;
 }
 
-// Returns a scale factor: subject pixels are pulled 9% inward (toward uFocus).
-// originalUv is used only to determine if this pixel is inside the subject bounds.
+// VoluMax hero pop: scale subject UV outward toward camera (not inward pull).
 vec2 warpSubjectPulse(vec2 warpedUv, vec2 originalUv) {
-  float inSubject = subjectMask(originalUv);
-  if (inSubject < 0.5) return warpedUv;
+  float inSubject = subjectMaskSoft(originalUv);
+  if (inSubject < 0.04) return warpedUv;
   vec2 delta = warpedUv - uFocus;
-  float pull = 1.0 - uFocusPulse * 0.09;
-  return uFocus + delta * pull;
+  float push = 1.0 + uFocusPulse * 0.5 * inSubject;
+  return uFocus + delta * push;
 }
 
 ${PHOTO_FRAME_GLSL}
+${HOLOGRAM_RIM_GLSL}
 
 void main() {
+  vec2 edge = min(vUv, 1.0 - vUv);
+  // Framed faces: applyPhotoFrame clips the photo — skip geometric discard (was hiding photos).
+  if (uFrameFinish >= 1.5 && min(edge.x, edge.y) < uFaceUvInset) {
+    discard;
+  }
+
   float parallaxNorm = clamp(uParallax / ${PARALLAX_MAX.toFixed(4)}, 0.0, 1.0);
+  float warpAmount = min(parallaxNorm * ${PARALLAX_MAX.toFixed(4)}, uUvWarpMax);
 
   vec2 fanUv = vUv;
-  vec2 bgUv = warpBackground(fanUv, uParallax);
-  vec2 fgUv = warpForeground(fanUv, uParallax);
-  // Apply subject-forward pulse on top of parallax warp
-  if (uFocusPulse > 0.001) {
-    fgUv = warpSubjectPulse(fgUv, fanUv);
+  vec2 bgUv = fanUv;
+  vec2 fgUv = fanUv;
+  // AI cutout: fg + bg share one crop — independent UV warp pulls subject off the plate.
+  if (uTrustFgAlpha < 0.5 && (parallaxNorm > 0.002 || uFocusPulse > 0.002)) {
+    float fgWarp = warpAmount * (1.0 + uFocusPulse * 0.45);
+    bgUv = clampFaceUv(warpBackground(fanUv, warpAmount));
+    fgUv = clampFaceUv(warpForeground(fanUv, fgWarp));
+    if (uFocusPulse > 0.001) {
+      fgUv = clampFaceUv(warpSubjectPulse(fgUv, fanUv));
+    }
   }
   vec4 bg = texture2D(uBgTexture, bgUv);
   vec4 fg = texture2D(uFgTexture, fgUv);
@@ -134,28 +195,19 @@ void main() {
 
   vec3 composed = mix(bg.rgb, fg.rgb, fgBlend);
 
-  float edgeL = texture2D(uFgTexture, fgUv + vec2(0.003, 0.0)).a;
-  float edgeR = texture2D(uFgTexture, fgUv - vec2(0.003, 0.0)).a;
-  float edgeU = texture2D(uFgTexture, fgUv + vec2(0.0, 0.003)).a;
-  float rim = fgBlend * (1.0 - min(min(edgeL, edgeR), edgeU));
-  composed += vec3(1.0, 0.93, 0.88) * rim * parallaxNorm * 0.65;
+  if (parallaxNorm > 0.004 && uTrustFgAlpha < 0.5) {
+    float edgeL = texture2D(uFgTexture, fgUv + vec2(0.003, 0.0)).a;
+    float edgeR = texture2D(uFgTexture, fgUv - vec2(0.003, 0.0)).a;
+    float edgeU = texture2D(uFgTexture, fgUv + vec2(0.0, 0.003)).a;
+    float rim = fgBlend * (1.0 - min(min(edgeL, edgeR), edgeU));
+    composed += vec3(1.0, 0.93, 0.88) * rim * parallaxNorm * 0.65;
+  }
 
   float lift = 1.0 + parallaxNorm * 0.035;
   composed = mix(composed, composed * lift, fgBlend * parallaxNorm * 0.35);
 
-  vec4 framed = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset, uHologramMode);
-  if (uHologramMode > 0.5) {
-    framed.a = 1.0;
-  }
-  if (uGradientEnabled > 0.5) {
-    float wave = 0.5 + 0.5 * sin(uGradientShift);
-    vec3 tint = vec3(
-      0.65 + 0.35 * sin(uGradientShift),
-      0.65 + 0.35 * sin(uGradientShift + 2.094),
-      0.65 + 0.35 * sin(uGradientShift + 4.188)
-    );
-    framed.rgb = mix(framed.rgb, framed.rgb * tint, wave * 0.55);
-  }
+  vec4 framed = applyPhotoFrame(vec4(composed, 1.0), vUv, uFramePreset, uHologramMode, uFgTexture);
+  ${HOLOGRAM_RIM_FRAGMENT_TAIL}
   gl_FragColor = framed;
 }
 `;
@@ -185,6 +237,8 @@ export interface DualLayerParallaxOptions {
   bgParallaxMul?: number;
   framePresetId?: CubeFramePresetId;
   hologramMode?: boolean;
+  /** PNG/WebP matte — sample fg alpha directly for bg plate visibility. */
+  trustFgAlpha?: boolean;
 }
 
 export function createDualLayerParallaxMaterial(
@@ -196,11 +250,12 @@ export function createDualLayerParallaxMaterial(
   useDepthMap: boolean,
   options: DualLayerParallaxOptions = {}
 ): DualLayerParallaxMaterial {
-  foregroundTexture.colorSpace = THREE.SRGBColorSpace;
-  backgroundTexture.colorSpace = THREE.SRGBColorSpace;
+  configurePresentationTexture(foregroundTexture);
+  configurePresentationTexture(backgroundTexture);
   const framePresetId = options.framePresetId ?? "rose_gold";
 
   const material = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL1,
     uniforms: {
       uBgTexture: { value: backgroundTexture },
       uFgTexture: { value: foregroundTexture },
@@ -220,12 +275,22 @@ export function createDualLayerParallaxMaterial(
       uHologramMode: { value: options.hologramMode ? 1.0 : 0.0 },
       uGradientShift: { value: 0 },
       uGradientEnabled: { value: 0 },
+      ...createHologramRimUniforms(),
       ...createFramePresetUniform(framePresetId),
+      ...createCustomFrameColorUniforms(null),
+      ...createFrameFinishUniforms(),
+      ...createFaceLacquerUniforms(),
+      uPhotoInsetExpand: { value: 0 },
+      uFrameBorderScale: { value: frameBorderScale(DEFAULT_FRAME_BORDER_WIDTH_ID) },
+      uFaceUvInset: { value: CUBE_FACE_UV_INSET },
+      uShellFrameMode: { value: 0 },
+      uUvWarpMax: { value: CUBE_PARALLAX_UV_WARP_MAX },
+      uTrustFgAlpha: { value: options.trustFgAlpha ? 1 : 0 },
     },
     vertexShader,
     fragmentShader,
     transparent: false,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
   }) as DualLayerParallaxMaterial;
 
   material.userData.isDualLayerParallax = true;
@@ -272,6 +337,9 @@ export function updateDualLayerParallaxMaterial(
       material.uniforms as { uFramePreset: { value: number } },
       options.framePresetId
     );
+  }
+  if (material.uniforms.uTrustFgAlpha) {
+    material.uniforms.uTrustFgAlpha.value = options.trustFgAlpha ? 1 : 0;
   }
 }
 

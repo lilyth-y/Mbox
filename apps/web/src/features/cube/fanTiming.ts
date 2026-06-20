@@ -1,17 +1,24 @@
-import { FanPhaseState } from "./cubeSequence"; // wait, let's keep FanPhaseState here.
+// FanPhaseState is defined below
 
-export const FAN_APPROACH_MS = 2_400;
-export const FAN_OPENING_HOLD_MS = 1_000;
-export const FAN_SHOWCASE_HOLD_MS = 1_000;
-export const FAN_RETREAT_MS = 2_000;
-export const FAN_GAP_MS = 1_600;
-export const FAN_LOOP_BRIDGE_MS = 1_100;
+export const FAN_APPROACH_MS = 3_400;
+export const FAN_OPENING_HOLD_MS = 2_000;
+/** Peak hold — VoluMax parallax + face-forward settle. */
+export const FAN_SHOWCASE_HOLD_MS = 2_000;
+/** Slightly longer retreat for smoother pull-back (spin/scale stay unhurried). */
+export const FAN_RETREAT_MS = 3_000;
+export const FAN_GAP_MS = 1_450;
+export const FAN_LOOP_BRIDGE_MS = 1_450;
+/** Showcase→retreat motion lead (scale + yaw timeline overlap). */
+export const FAN_SHOWCASE_RETREAT_CROSSFADE_MS = 420;
 
-export const FAN_SCALE_FAR = 0.5;
-export const FAN_SCALE_PEAK = 1.05;
-export const FAN_SCALE_RETREAT = 0.5;
+export const FAN_SCALE_FAR = 0.42;
+export const FAN_SCALE_PEAK = 1.28;
+export const FAN_SCALE_RETREAT = 0.42;
 
-export const FAN_PARALLAX_PEAK = 0.16;
+import { CUBE_PARALLAX_PEAK_MAX } from "@mbox/shared";
+
+/** Peak parallax drive during showcase hold (framework cap). */
+export const FAN_PARALLAX_PEAK = CUBE_PARALLAX_PEAK_MAX;
 
 export type FanTimelineProfile = "wedding_default" | "entrance_processional";
 
@@ -30,13 +37,13 @@ export const FAN_PROFILE_CONFIG: Record<FanTimelineProfile, FanTimelineProfileCo
   entrance_processional: {
     retreatSpinMax: 0.28,
     handoffSpinIntensity: 0.018,
-    retreatMs: 2_800,
+    retreatMs: 3_600,
   },
 };
 
-export const ENTRANCE_STEP0_APPROACH_MS = 1_800;
-export const ENTRANCE_STEP0_SHOWCASE_HOLD_MS = 3_500;
-export const ENTRANCE_STEP0_PARALLAX_PEAK = 0.23;
+export const ENTRANCE_STEP0_APPROACH_MS = 2_500;
+export const ENTRANCE_STEP0_SHOWCASE_HOLD_MS = 4_800;
+export const ENTRANCE_STEP0_PARALLAX_PEAK = 0.38;
 
 export type FanPhase = "approach" | "showcase_hold" | "retreat" | "handoff";
 
@@ -64,6 +71,18 @@ export function easeInQuart(t: number): number {
   return t * t * t * t;
 }
 
+/** Fast finish — “whoosh” pull-in (u→1). */
+export function easeOutExpo(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+}
+
+/** Fast start — push away (u→1). */
+export function easeInExpo(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x <= 0 ? 0 : Math.pow(2, 10 * (x - 1));
+}
+
 export function getFanApproachMs(
   step: number,
   profile: FanTimelineProfile = "wedding_default"
@@ -88,8 +107,11 @@ export function getFanParallaxPeak(
   step: number,
   profile: FanTimelineProfile = "wedding_default"
 ): number {
-  if (profile === "entrance_processional" && step === 0) {
-    return ENTRANCE_STEP0_PARALLAX_PEAK;
+  if (profile === "entrance_processional") {
+    if (step === 0) {
+      return ENTRANCE_STEP0_PARALLAX_PEAK;
+    }
+    return ENTRANCE_STEP0_PARALLAX_PEAK * 0.6;
   }
   return FAN_PARALLAX_PEAK;
 }
@@ -104,23 +126,29 @@ export function getFanRetreatMs(profile: FanTimelineProfile = "wedding_default")
 
 export function getFanStepSegmentMs(
   step: number,
-  profile: FanTimelineProfile = "wedding_default"
+  profile: FanTimelineProfile = "wedding_default",
+  speedMul: number = 1
 ): number {
+  const mul = Math.max(0.35, Math.min(2.5, speedMul));
   return (
     getFanApproachMs(step, profile) +
     getFanShowcaseHoldMs(step, profile) +
     getFanRetreatMs(profile) +
     FAN_GAP_MS
-  );
+  ) / mul;
 }
 
 export function resolveFanPhase(
   step: number,
   stepElapsed: number,
-  profile: FanTimelineProfile = "wedding_default"
+  profile: FanTimelineProfile = "wedding_default",
+  speedMul: number = 1
 ): FanPhaseState {
-  const approachMs = getFanApproachMs(step, profile);
-  const retreatMs = getFanRetreatMs(profile);
+  const mul = Math.max(0.35, Math.min(2.5, speedMul));
+  const approachMs = getFanApproachMs(step, profile) / mul;
+  const retreatMs = getFanRetreatMs(profile) / mul;
+  const showcaseHold = getFanShowcaseHoldMs(step, profile) / mul;
+  const gapMs = FAN_GAP_MS / mul;
   let t = stepElapsed;
 
   if (t < approachMs) {
@@ -133,7 +161,6 @@ export function resolveFanPhase(
   }
   t -= approachMs;
 
-  const showcaseHold = getFanShowcaseHoldMs(step, profile);
   if (t < showcaseHold) {
     return {
       phase: "showcase_hold",
@@ -157,7 +184,7 @@ export function resolveFanPhase(
   return {
     phase: "handoff",
     phaseElapsed: t,
-    phaseDuration: FAN_GAP_MS,
-    phaseU: Math.min(1, Math.max(0, t / FAN_GAP_MS)),
+    phaseDuration: gapMs,
+    phaseU: Math.min(1, Math.max(0, t / gapMs)),
   };
 }
