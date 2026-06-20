@@ -1,0 +1,734 @@
+{
+  "version": 1,
+  "count": 100,
+  "purpose": "commercial_launch photo_batch_100 KPI corpus",
+  "profiles": [
+    {
+      "w": 768,
+      "h": 1024,
+      "tag": "portrait"
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "tag": "landscape"
+    },
+    {
+      "w": 768,
+      "h": 768,
+      "tag": "square"
+    },
+    {
+      "w": 600,
+      "h": 1200,
+      "tag": "tall"
+    },
+    {
+      "w": 1200,
+      "h": 600,
+      "tag": "wide"
+    }
+  ],
+  "images": [
+    {
+      "id": 1,
+      "file": "qa_001_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 2,
+      "file": "qa_002_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 3,
+      "file": "qa_003_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 4,
+      "file": "qa_004_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 5,
+      "file": "qa_005_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 6,
+      "file": "qa_006_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 7,
+      "file": "qa_007_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 8,
+      "file": "qa_008_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 9,
+      "file": "qa_009_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 10,
+      "file": "qa_010_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 11,
+      "file": "qa_011_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 12,
+      "file": "qa_012_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 13,
+      "file": "qa_013_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 14,
+      "file": "qa_014_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 15,
+      "file": "qa_015_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 16,
+      "file": "qa_016_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 17,
+      "file": "qa_017_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 18,
+      "file": "qa_018_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 19,
+      "file": "qa_019_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 20,
+      "file": "qa_020_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 21,
+      "file": "qa_021_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 22,
+      "file": "qa_022_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 23,
+      "file": "qa_023_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 24,
+      "file": "qa_024_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 25,
+      "file": "qa_025_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 26,
+      "file": "qa_026_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 27,
+      "file": "qa_027_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 28,
+      "file": "qa_028_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 29,
+      "file": "qa_029_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 30,
+      "file": "qa_030_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 31,
+      "file": "qa_031_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 32,
+      "file": "qa_032_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 33,
+      "file": "qa_033_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 34,
+      "file": "qa_034_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 35,
+      "file": "qa_035_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 36,
+      "file": "qa_036_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 37,
+      "file": "qa_037_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 38,
+      "file": "qa_038_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 39,
+      "file": "qa_039_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 40,
+      "file": "qa_040_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 41,
+      "file": "qa_041_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 42,
+      "file": "qa_042_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 43,
+      "file": "qa_043_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 44,
+      "file": "qa_044_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 45,
+      "file": "qa_045_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 46,
+      "file": "qa_046_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 47,
+      "file": "qa_047_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 48,
+      "file": "qa_048_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 49,
+      "file": "qa_049_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 50,
+      "file": "qa_050_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 51,
+      "file": "qa_051_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 52,
+      "file": "qa_052_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 53,
+      "file": "qa_053_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 54,
+      "file": "qa_054_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 55,
+      "file": "qa_055_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 56,
+      "file": "qa_056_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 57,
+      "file": "qa_057_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 58,
+      "file": "qa_058_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 59,
+      "file": "qa_059_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 60,
+      "file": "qa_060_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 61,
+      "file": "qa_061_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 62,
+      "file": "qa_062_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 63,
+      "file": "qa_063_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 64,
+      "file": "qa_064_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 65,
+      "file": "qa_065_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 66,
+      "file": "qa_066_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 67,
+      "file": "qa_067_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 68,
+      "file": "qa_068_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 69,
+      "file": "qa_069_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 70,
+      "file": "qa_070_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 71,
+      "file": "qa_071_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 72,
+      "file": "qa_072_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 73,
+      "file": "qa_073_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 74,
+      "file": "qa_074_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 75,
+      "file": "qa_075_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 76,
+      "file": "qa_076_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 77,
+      "file": "qa_077_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 78,
+      "file": "qa_078_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 79,
+      "file": "qa_079_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 80,
+      "file": "qa_080_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 81,
+      "file": "qa_081_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 82,
+      "file": "qa_082_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 83,
+      "file": "qa_083_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 84,
+      "file": "qa_084_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 85,
+      "file": "qa_085_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 86,
+      "file": "qa_086_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 87,
+      "file": "qa_087_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 88,
+      "file": "qa_088_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 89,
+      "file": "qa_089_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 90,
+      "file": "qa_090_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 91,
+      "file": "qa_091_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 92,
+      "file": "qa_092_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 93,
+      "file": "qa_093_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 94,
+      "file": "qa_094_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 95,
+      "file": "qa_095_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "id": 96,
+      "file": "qa_096_landscape.jpg",
+      "aspect": "landscape",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": 97,
+      "file": "qa_097_square.jpg",
+      "aspect": "square",
+      "width": 768,
+      "height": 768
+    },
+    {
+      "id": 98,
+      "file": "qa_098_tall.jpg",
+      "aspect": "tall",
+      "width": 600,
+      "height": 1200
+    },
+    {
+      "id": 99,
+      "file": "qa_099_wide.jpg",
+      "aspect": "wide",
+      "width": 1200,
+      "height": 600
+    },
+    {
+      "id": 100,
+      "file": "qa_100_portrait.jpg",
+      "aspect": "portrait",
+      "width": 768,
+      "height": 1024
+    }
+  ]
+}
