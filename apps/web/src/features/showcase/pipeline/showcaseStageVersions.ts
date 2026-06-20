@@ -150,18 +150,27 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   pull: {
     id: "pull",
-    version: "1.2.0",
-    maturity: "beta",
+    version: "1.3.0",
+    maturity: "rc",
     labelKo: "정면 강조",
-    summaryKo: "ease-in-out yaw + hero zoom + face cull",
+    summaryKo: "ease-in-out yaw + hero zoom + integral spin lead",
     acceptanceKo: [
       "줌 구간 easeInOutCubic yaw (스냅 없음)",
       "큐브 90° cardinal face 정렬",
       "hero lock 시 옆면 photo cull",
-      "패럴랙스 Z reset",
+      "lead spin ease-out integral — 0.82 cliff 제거",
+      "parallax (1−ease)² smooth fade",
     ],
-    knownIssuesKo: ["베타 — export/preview micro-stutter 잔존 가능"],
     changelog: [
+      {
+        version: "1.3.0",
+        date: "2026-06-21",
+        notesKo: [
+          "computeIntegralEaseOutSpinSpeedY lead spin",
+          "parallax·hold stiffness smooth ramp",
+          "maturity rc",
+        ],
+      },
       {
         version: "1.2.0",
         date: "2026-06-21",
@@ -185,16 +194,24 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   ascend: {
     id: "ascend",
-    version: "1.0.0",
-    maturity: "beta",
+    version: "1.1.0",
+    maturity: "rc",
     labelKo: "상승",
-    summaryKo: "hero → presentation ease-in-out zoom-out + spin ramp",
+    summaryKo: "hero → presentation ease-in-out zoom-out + integral spin ramp",
     acceptanceKo: [
       "pullReturnMs 대칭 easeInOutCubic 카메라 복귀",
       "스프링 vel 리셋 — 이중 추적 없음",
-      "repositionJewelCube 없이 spin ramp",
+      "repositionJewelCube 없이 integral spin ramp",
     ],
     changelog: [
+      {
+        version: "1.1.0",
+        date: "2026-06-21",
+        notesKo: [
+          "computeIntegralEaseSpinSpeedY ascend spin",
+          "maturity rc",
+        ],
+      },
       {
         version: "1.0.0",
         date: "2026-06-21",

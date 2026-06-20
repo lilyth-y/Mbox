@@ -256,6 +256,28 @@ export function computeIntegralEaseSpinSpeedY(
   return deltaYaw / (dtMs * 0.001);
 }
 
+function easeOutCubic(t: number): number {
+  const x = clamp01(t);
+  return 1 - (1 - x) ** 3;
+}
+
+/** Lead-phase spin — ease-out to zero at segment end (pull pre-zoom decel). */
+export function computeIntegralEaseOutSpinSpeedY(
+  phaseElapsedMs: number,
+  dtMs: number,
+  durationMs: number,
+  peakSpeedY: number
+): number {
+  if (durationMs <= 0 || dtMs <= 0) {
+    return 0;
+  }
+  const totalYaw = Math.abs(peakSpeedY) * (durationMs * 0.001);
+  const t0 = phaseElapsedMs / durationMs;
+  const t1 = Math.min(1, (phaseElapsedMs + dtMs) / durationMs);
+  const deltaYaw = totalYaw * (easeOutCubic(t1) - easeOutCubic(t0));
+  return deltaYaw / (dtMs * 0.001);
+}
+
 
 
 function capturePullZoomStart(ctx: ShowcaseStageContext): void {
@@ -370,14 +392,15 @@ export function tickShowcasePullEmphasis(
 
 
 
+  const holdEase =
+    ctx.phaseElapsedMs >= pullEnd
+      ? clamp01((ctx.phaseElapsedMs - pullEnd) / Math.max(config.pullHoldMs * 0.35, 1))
+      : 0;
+
   holdJewelCubeAt(
-
     ctx.rig,
-
     cubePos,
-
-    config.floatHoldStiffness * (inHoldPhase ? 1.55 : 1)
-
+    config.floatHoldStiffness * (1 + 0.55 * holdEase)
   );
 
 
@@ -410,11 +433,14 @@ export function tickShowcasePullEmphasis(
 
   if (ctx.phaseElapsedMs < zoomStartMs) {
 
-    const leadT = clamp01(ctx.phaseElapsedMs / Math.max(zoomStartMs, 1));
+    const leadSpin = computeIntegralEaseOutSpinSpeedY(
+      ctx.phaseElapsedMs,
+      dtMs,
+      Math.max(zoomStartMs, 1),
+      config.rotateSpeedY
+    );
 
-    const spinRamp = leadT > 0.82 ? 1 - (leadT - 0.82) / 0.18 : 1;
-
-    spinJewelCubeY(ctx.rig, config.rotateSpeedY * spinRamp, dtMs);
+    spinJewelCubeY(ctx.rig, leadSpin, dtMs);
 
     enforceJewelCubeUpright(ctx.rig);
 
@@ -448,7 +474,8 @@ export function tickShowcasePullEmphasis(
 
 
 
-  const parallax = inHoldPhase || ease > 0.55 ? 0 : 0.22 * (1 - ease);
+  const parallax =
+    inHoldPhase || ease >= 0.98 ? 0 : 0.22 * (1 - ease) * (1 - ease);
 
   tickHoloDisplayStack(ctx, dtMs, parallax);
 
@@ -492,7 +519,14 @@ export function tickShowcaseAscendReturn(
 
   tickShowcaseCameraReturn(ctx, dtMs, t);
 
-  spinJewelCubeY(ctx.rig, config.rotateSpeedY * ease, dtMs);
+  const ascendSpin = computeIntegralEaseSpinSpeedY(
+    ctx.phaseElapsedMs,
+    dtMs,
+    config.pullReturnMs,
+    config.rotateSpeedY
+  );
+
+  spinJewelCubeY(ctx.rig, ascendSpin, dtMs);
 
   enforceJewelCubeUpright(ctx.rig);
 

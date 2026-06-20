@@ -74,3 +74,24 @@ if (endSpeed > peakSpeedY * 0.08) {
 }
 
 console.log("verify-showcase-rotate-ease: OK");
+
+function endEaseOutSpeed(durationMs, peakSpeedY, dtMs = 16.67) {
+  const totalYaw = Math.abs(peakSpeedY) * (durationMs * 0.001);
+  const t0 = (durationMs - dtMs) / durationMs;
+  const deltaYaw = totalYaw * (easeOutCubic(1) - easeOutCubic(t0));
+  return deltaYaw / (dtMs * 0.001);
+}
+
+function easeOutCubic(t) {
+  const x = Math.max(0, Math.min(1, t));
+  return 1 - (1 - x) ** 3;
+}
+
+const leadMs = 1200;
+const endLead = endEaseOutSpeed(leadMs, 0.9);
+console.log(`pull lead end speedY: ${endLead.toFixed(4)} (should be ~0)`);
+if (endLead > 0.08) {
+  console.error("FAIL: pull lead ease-out end speed too high");
+  process.exit(1);
+}
+console.log("verify-showcase-pull-spin: OK");
