@@ -29,6 +29,9 @@ export type ShowcaseCommercialGoalSpec = {
   order: number;
 };
 
+/** Commercial launch export scope — 1:1 only (9:16·16:9 out of scope). */
+export const SHOWCASE_COMMERCIAL_EXPORT_ASPECT_COUNT = 1;
+
 /** Ordered gates for commercial_launch. Master KPI = pass_count / gate_count. */
 export const SHOWCASE_COMMERCIAL_GOALS: ShowcaseCommercialGoalSpec[] = [
   {
@@ -106,8 +109,8 @@ export const SHOWCASE_COMMERCIAL_GOALS: ShowcaseCommercialGoalSpec[] = [
   {
     id: "booth_aspects",
     order: 9,
-    labelKo: "부스 종횡비 템플릿 (1:1·9:16·16:9)",
-    kpi: "validated_export_aspect_templates / 3",
+    labelKo: "export 1:1 (1080²)",
+    kpi: "validated_export_aspect_templates / 1",
     target: 1,
     theoreticalBest: 1,
     unit: "ratio",
@@ -225,7 +228,7 @@ export function evaluateShowcaseCommercialGoals(
 
   const boothRatio =
     input.boothAspectsValidated !== undefined
-      ? input.boothAspectsValidated / 3
+      ? input.boothAspectsValidated / SHOWCASE_COMMERCIAL_EXPORT_ASPECT_COUNT
       : null;
 
   const photoCorpus = input.photoCorpusSize ?? 0;
@@ -289,7 +292,9 @@ export function evaluateShowcaseCommercialGoals(
     measureGoal(
       SHOWCASE_COMMERCIAL_GOALS.find((g) => g.id === "booth_aspects")!,
       boothRatio,
-      boothRatio === null ? "not implemented" : `${input.boothAspectsValidated}/3 aspects`
+      boothRatio === null
+        ? "not measured"
+        : `${input.boothAspectsValidated}/${SHOWCASE_COMMERCIAL_EXPORT_ASPECT_COUNT} (1:1 only)`
     ),
   ].sort((a, b) => {
     const oa = SHOWCASE_COMMERCIAL_GOALS.find((g) => g.id === a.id)!.order;

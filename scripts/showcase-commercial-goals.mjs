@@ -84,6 +84,47 @@ function loadPhotoBatchResult() {
   }
 }
 
+function loadShapesValidationResult() {
+  const shapesPath = join(reportDir, "shapes-latest.json");
+  if (!existsSync(shapesPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(shapesPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function ensureShapesReport({ runLive = false } = {}) {
+  const existing = loadShapesValidationResult();
+  if (existing && !runLive && existing.mode === "static+live") {
+    return existing;
+  }
+  const args = ["scripts/verify-showcase-shapes.mjs"];
+  if (runLive) {
+    args.push("--live");
+  }
+  const child = spawnSync(process.execPath, args, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: Number(process.env.MBOX_SHAPE_SUITE_TIMEOUT_MS ?? 600_000),
+    env: {
+      ...process.env,
+      MBOX_SHOWCASE_URL:
+        process.env.MBOX_SHOWCASE_URL ??
+        "http://localhost:5173/showcase.html",
+    },
+  });
+  if (child.stdout) {
+    console.log(child.stdout.trimEnd());
+  }
+  if (child.status !== 0 && child.stderr) {
+    console.error(child.stderr.trimEnd());
+  }
+  return loadShapesValidationResult();
+}
+
 function runWysiwygE2e() {
   const url =
     process.env.MBOX_SHOWCASE_URL ??
@@ -126,8 +167,11 @@ if (runE2e) {
 }
 
 const shapesTotal = parseShapeCount();
-// Cube-only validated until per-shape acceptance tests land.
-const shapesValidated = 1;
+const shapesReport = ensureShapesReport({ runLive: runE2e });
+const shapesValidated =
+  shapesReport?.mode === "static+live"
+    ? (shapesReport.gateValidatedCount ?? shapesReport.validatedCount ?? 0)
+    : 0;
 
 const result = evaluateShowcaseCommercialGoals({
   activeStageMaturities: maturities,
@@ -139,7 +183,8 @@ const result = evaluateShowcaseCommercialGoals({
   motionKnownIssues: motionIssues,
   shapesValidated,
   shapesTotal,
-  boothAspectsValidated: 1,
+  // 1:1 export — validated via WYSIWYG e2e (1080²); 9:16·16:9 out of scope.
+  boothAspectsValidated: wysiwygPassed === true ? 1 : wysiwygPassed === false ? 0 : undefined,
 });
 
 mkdirSync(reportDir, { recursive: true });

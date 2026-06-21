@@ -146,8 +146,8 @@ export const SHOWCASE_CONTENT_MATURITY_TIERS: Record<
       },
       {
         id: "booth-color",
-        labelKo: "부스/LED 색역",
-        descriptionKo: "1:1·9:16·16:9 템플릿에서 밝기·반사가 현장 디스플레이와 동일하게 보인다.",
+        labelKo: "부스/LED 색역 (1:1)",
+        descriptionKo: "1080×1080 export·미리보기에서 밝기·반사가 현장 1:1 디스플레이와 동일하게 보인다.",
       },
       {
         id: "motion-smooth",

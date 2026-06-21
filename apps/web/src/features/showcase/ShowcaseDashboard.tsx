@@ -27,6 +27,10 @@ import {
   type ShowcaseCatalogOptions,
 } from "./showcaseCatalogOptions";
 import { resolveShowcaseBackgroundMediaPath } from "./showcaseBackgroundMedia";
+import {
+  auditShowcaseShapeRuntime,
+  type ShowcaseShapeAuditResult,
+} from "./showcaseShapeAcceptance";
 import "./showcase-style.css";
 
 import { createShowcaseDemoDataUrl } from "./showcaseDemoImages";
@@ -561,6 +565,28 @@ export function ShowcaseDashboard() {
 
         }, 120);
 
+        if (window.__MBOX_SHOWCASE_E2E__) {
+          window.__MBOX_SHOWCASE_SHAPE_AUDIT__ = (): ShowcaseShapeAuditResult => {
+            const handle = sceneRef.current;
+            if (!handle) {
+              return {
+                shapeId: catalogRef.current.shapeId,
+                passed: false,
+                staticPassed: false,
+                checks: [{ id: "live:scene", pass: false, detail: "no scene handle" }],
+              };
+            }
+            const rig = handle.director.getRig();
+            return auditShowcaseShapeRuntime({
+              shapeId: catalogRef.current.shapeId,
+              snapshot: handle.director.getSnapshot(),
+              rigShapeId: rig?.shapeId ?? null,
+              canvas: handle.getCanvas(),
+              photoLayout: catalogRef.current.photoLayout,
+            });
+          };
+        }
+
       } catch (error) {
 
         const message = error instanceof Error ? error.message : "초기화 실패";
@@ -581,6 +607,10 @@ export function ShowcaseDashboard() {
 
         window.clearInterval(statusTimer);
 
+      }
+
+      if (window.__MBOX_SHOWCASE_E2E__) {
+        delete window.__MBOX_SHOWCASE_SHAPE_AUDIT__;
       }
 
       sceneHandle?.dispose();
