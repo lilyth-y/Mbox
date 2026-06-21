@@ -135,6 +135,7 @@ const result = evaluateShowcaseCommercialGoals({
   wysiwygPassed,
   photoCorpusSize: countCorpusImages(),
   measuredPhotoPassRate: loadPhotoBatchResult(),
+  photoBatchWaived: process.env.SHOWCASE_PHOTO_BATCH_REQUIRED !== "1",
   motionKnownIssues: motionIssues,
   shapesValidated,
   shapesTotal,

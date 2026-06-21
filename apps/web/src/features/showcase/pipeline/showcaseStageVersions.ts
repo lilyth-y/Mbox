@@ -35,8 +35,8 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
 > = {
   reveal: {
     id: "reveal",
-    version: "1.1.0",
-    maturity: "rc",
+    version: "1.2.0",
+    maturity: "commercial",
     labelKo: "표출",
     summaryKo: "홀로 전원 ON · L0–L3 ramp · 큐브 스폰 · integral spin",
     acceptanceKo: [
@@ -45,6 +45,11 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
       "revealHold integral ease-in/out spin",
     ],
     changelog: [
+      {
+        version: "1.2.0",
+        date: "2026-06-21",
+        notesKo: ["no-fall pipeline commercial maturity lock"],
+      },
       {
         version: "1.1.0",
         date: "2026-06-21",
@@ -59,8 +64,8 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   rotate: {
     id: "rotate",
-    version: "1.1.0",
-    maturity: "rc",
+    version: "1.2.0",
+    maturity: "commercial",
     labelKo: "회전",
     summaryKo: "Y축 ease-in/out 회전 + 부유 + 호흡 줌",
     acceptanceKo: [
@@ -69,6 +74,11 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
       "카메라 presentation follow 유지",
     ],
     changelog: [
+      {
+        version: "1.2.0",
+        date: "2026-06-21",
+        notesKo: ["commercial maturity lock"],
+      },
       {
         version: "1.1.0",
         date: "2026-06-21",
@@ -117,8 +127,8 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   morph: {
     id: "morph",
-    version: "1.2.0",
-    maturity: "rc",
+    version: "1.3.0",
+    maturity: "commercial",
     labelKo: "사진 모핑",
     summaryKo: "L2 dual-layer crossfade + integral spin",
     acceptanceKo: [
@@ -127,6 +137,11 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
       "프레임·aspect shape별 유지",
     ],
     changelog: [
+      {
+        version: "1.3.0",
+        date: "2026-06-21",
+        notesKo: ["commercial maturity lock"],
+      },
       {
         version: "1.2.0",
         date: "2026-06-21",
@@ -161,8 +176,8 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   pull: {
     id: "pull",
-    version: "1.3.0",
-    maturity: "rc",
+    version: "1.4.0",
+    maturity: "commercial",
     labelKo: "정면 강조",
     summaryKo: "ease-in-out yaw + hero zoom + integral spin lead",
     acceptanceKo: [
@@ -173,6 +188,11 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
       "parallax (1−ease)² smooth fade",
     ],
     changelog: [
+      {
+        version: "1.4.0",
+        date: "2026-06-21",
+        notesKo: ["commercial maturity lock"],
+      },
       {
         version: "1.3.0",
         date: "2026-06-21",
@@ -205,8 +225,8 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   ascend: {
     id: "ascend",
-    version: "1.1.0",
-    maturity: "rc",
+    version: "1.2.0",
+    maturity: "commercial",
     labelKo: "상승",
     summaryKo: "hero → presentation ease-in-out zoom-out + integral spin ramp",
     acceptanceKo: [
@@ -215,6 +235,11 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
       "repositionJewelCube 없이 integral spin ramp",
     ],
     changelog: [
+      {
+        version: "1.2.0",
+        date: "2026-06-21",
+        notesKo: ["commercial maturity lock"],
+      },
       {
         version: "1.1.0",
         date: "2026-06-21",

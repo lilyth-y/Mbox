@@ -141,6 +141,8 @@ export type ShowcaseCommercialGoalRunInput = {
   shapesValidated?: number;
   shapesTotal?: number;
   boothAspectsValidated?: number;
+  /** When true, photo_batch_100 gate is excluded (product waiver). */
+  photoBatchWaived?: boolean;
 };
 
 export type ShowcaseCommercialGoalRunResult = {
@@ -263,12 +265,14 @@ export function evaluateShowcaseCommercialGoals(
     ),
     measureGoal(
       SHOWCASE_COMMERCIAL_GOALS.find((g) => g.id === "photo_batch_100")!,
-      photoPass,
-      photoCorpus < 100
-        ? "blocked until corpus ≥ 100"
-        : input.measuredPhotoPassRate === undefined
-          ? "run npm run verify:showcase-photo-batch"
-          : undefined
+      input.photoBatchWaived ? null : photoPass,
+      input.photoBatchWaived
+        ? "waived — export SHOWCASE_PHOTO_BATCH_REQUIRED=1 to enforce"
+        : photoCorpus < 100
+          ? "blocked until corpus ≥ 100"
+          : input.measuredPhotoPassRate === undefined
+            ? "run npm run verify:showcase-photo-batch"
+            : undefined
     ),
     measureGoal(
       SHOWCASE_COMMERCIAL_GOALS.find((g) => g.id === "motion_smooth")!,

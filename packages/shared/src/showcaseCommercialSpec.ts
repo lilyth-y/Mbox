@@ -174,7 +174,7 @@ export const SHOWCASE_CONTENT_MATURITY_TIERS: Record<
 };
 
 /** Active product target — bump when tier gate is cleared. */
-export const SHOWCASE_CURRENT_CONTENT_TARGET: ShowcaseContentMaturityTier = "beta_sales";
+export const SHOWCASE_CURRENT_CONTENT_TARGET: ShowcaseContentMaturityTier = "commercial_launch";
 
 export function getShowcaseContentTierSpec(
   tier: ShowcaseContentMaturityTier = SHOWCASE_CURRENT_CONTENT_TARGET
