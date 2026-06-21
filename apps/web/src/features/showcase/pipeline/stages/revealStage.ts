@@ -3,6 +3,7 @@ import { bindShowcaseCameraToCube } from "../showcaseCamera";
 import {
   getHeroFramingQuaternion,
   getShowcaseFloatPosition,
+  computeIntegralEaseSpinSpeedY,
   tickShowcasePresentation,
 } from "../showcasePresentation";
 import { repositionJewelCube } from "../physicsHelpers";
@@ -51,8 +52,15 @@ export const revealStage: ShowcasePipelineStage = {
       return "continue";
     }
 
+    const revealSpin = computeIntegralEaseSpinSpeedY(
+      ctx.phaseElapsedMs,
+      dtMs,
+      ctx.config.revealHoldMs,
+      ctx.config.rotateSpeedY
+    );
+
     tickShowcasePresentation(ctx, dtMs, {
-      spinSpeedY: ctx.config.rotateSpeedY,
+      spinSpeedY: revealSpin,
       parallaxStrength: 0.2,
     });
 

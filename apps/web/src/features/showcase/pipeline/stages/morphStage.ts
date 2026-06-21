@@ -2,7 +2,7 @@ import {
   startJewelPhotoMorph,
   tickJewelPhotoMorph,
 } from "../../babylon/jewelCubePhotoMorph";
-import { tickShowcasePresentation } from "../showcasePresentation";
+import { tickShowcasePresentation, computeIntegralEaseSpinSpeedY } from "../showcasePresentation";
 import type { ShowcasePipelineStage } from "../types";
 
 /** L2 채널 모핑 — 단방향 회전·부유·카메라 유지. */
@@ -25,8 +25,15 @@ export const morphStage: ShowcasePipelineStage = {
       return "complete";
     }
 
+    const morphSpin = computeIntegralEaseSpinSpeedY(
+      ctx.phaseElapsedMs,
+      dtMs,
+      ctx.config.morphDurationMs,
+      ctx.config.morphRotateSpeedY
+    );
+
     tickShowcasePresentation(ctx, dtMs, {
-      spinSpeedY: ctx.config.morphRotateSpeedY,
+      spinSpeedY: morphSpin,
       parallaxStrength: 0.22,
     });
 

@@ -35,15 +35,21 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
 > = {
   reveal: {
     id: "reveal",
-    version: "1.0.0",
-    maturity: "beta",
+    version: "1.1.0",
+    maturity: "rc",
     labelKo: "표출",
-    summaryKo: "홀로 전원 ON · L0–L3 ramp · 큐브 스폰",
+    summaryKo: "홀로 전원 ON · L0–L3 ramp · 큐브 스폰 · integral spin",
     acceptanceKo: [
       "450ms 이내 콘텐츠 power ramp",
       "스폰 직후 셰이더·사진·셸 동시 가시",
+      "revealHold integral ease-in/out spin",
     ],
     changelog: [
+      {
+        version: "1.1.0",
+        date: "2026-06-21",
+        notesKo: ["computeIntegralEaseSpinSpeedY reveal hold", "maturity rc"],
+      },
       {
         version: "1.0.0",
         date: "2026-06-01",
@@ -111,16 +117,21 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   morph: {
     id: "morph",
-    version: "1.1.0",
-    maturity: "beta",
+    version: "1.2.0",
+    maturity: "rc",
     labelKo: "사진 모핑",
-    summaryKo: "L2 dual-layer crossfade + 회전 유지",
+    summaryKo: "L2 dual-layer crossfade + integral spin",
     acceptanceKo: [
       "smootherstep 대칭 crossfade",
-      "모핑 중 spin·부유 유지",
+      "모핑 중 integral ease spin·부유 유지",
       "프레임·aspect shape별 유지",
     ],
     changelog: [
+      {
+        version: "1.2.0",
+        date: "2026-06-21",
+        notesKo: ["computeIntegralEaseSpinSpeedY morph spin", "maturity rc"],
+      },
       {
         version: "1.1.0",
         date: "2026-06-18",
