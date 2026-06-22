@@ -25,7 +25,7 @@ function zoomBlend(fx: CubeShowcaseFxOptions): number {
   if (!fx.cubeShowcaseZoomEnabled) {
     return 0;
   }
-  return clampZoomIntensity(fx.cubeZoomIntensity);
+  return clampZoomIntensity(fx.cubeZoomIntensity ?? 1);
 }
 
 export function applyFanZoomScale(

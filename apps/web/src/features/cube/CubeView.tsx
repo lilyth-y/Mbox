@@ -1460,6 +1460,7 @@ export function CubeView({
         presentation: presentationRef.current,
         texturesSnapshot: texturesRef.current,
         onLayoutResized: () => {
+          // applyExportRendererSize is wrapped inside prepareCubeRecordingExport; syncLayout(exportSize) is called here:
           microModuleHostRef.current.syncLayout(exportSize, exportSize, buildMicroModuleHostOptions({
             scene,
             camera,

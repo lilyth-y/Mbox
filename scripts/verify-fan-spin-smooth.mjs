@@ -4,9 +4,11 @@
  *   npx tsx scripts/verify-fan-spin-smooth.mjs
  */
 import {
-  getAccumulatedRevs,
   getFanStepSegmentMs,
 } from "../apps/web/src/features/cube/cubeFanTimeline.ts";
+import {
+  getAccumulatedRevs,
+} from "../apps/web/src/features/cube/fanTransform.ts";
 import {
   getFanApproachMs,
   getFanShowcaseHoldMs,

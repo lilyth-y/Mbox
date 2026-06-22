@@ -10,6 +10,8 @@ import {
   FAN_SHOWCASE_HOLD_MS,
   FAN_RETREAT_MS,
   FAN_GAP_MS,
+} from "../apps/web/src/features/cube/fanTiming.ts";
+import {
   getFanStepSegmentMs,
   resolveFanPhase,
   sampleFanCubeMotion,

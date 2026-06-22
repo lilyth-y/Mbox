@@ -293,11 +293,9 @@ function spinEaseOutC1(phaseU: number): number {
 /**
  * Approach yaw — 전진하며 점점 느리게 (ω↓), C¹ at step entry + showcase peak.
  */
-export function approachSpinEase(phaseU: number, fromHandoff = false): number {
+export function approachSpinEase(phaseU: number, _fromHandoff = false): number {
   const u = Math.min(1, Math.max(0, phaseU));
-  const softStart = fromHandoff
-    ? 0.42 + 0.58 * fanSmootherstep01(Math.min(1, u / 0.1))
-    : fanSmootherstep01(Math.min(1, u / Math.max(FAN_APPROACH_SPIN_SOFT_START_U, 1e-6)));
+  const softStart = fanSmootherstep01(Math.min(1, u / Math.max(FAN_APPROACH_SPIN_SOFT_START_U, 1e-6)));
   return spinEaseOutC1(u) * softStart;
 }
 
@@ -310,6 +308,15 @@ export function retreatSpinEase(phaseU: number): number {
   return u * u * (2 - u);
 }
 
+export function handoffGapSubProgressWhoosh(w: number, K_left: number): number {
+  const x = Math.min(1, Math.max(0, w));
+  const k = Math.min(2.8, Math.max(0.2, K_left));
+  const a = k - 2;
+  const b = 3 - 2 * k;
+  const c = k;
+  return a * x * x * x + b * x * x + c * x;
+}
+
 /**
  * Retreat + handoff gap as one back-flight spin arc (ω stays > 0 through the gap).
  */
@@ -318,7 +325,7 @@ export function retreatGapSpinProgress(phaseU: number, retreatWeight: number): n
   const rw = Math.min(0.9, Math.max(0.58, retreatWeight));
   if (u <= rw) {
     const t = u / Math.max(rw, 1e-6);
-    return rw * t * t * (3 - 2 * t);
+    return rw * t * t * t;
   }
   const t = (u - rw) / Math.max(1 - rw, 1e-6);
   return rw + (1 - rw) * handoffGapSubProgress(t);
@@ -339,7 +346,11 @@ export function retreatGapWhooshSpinProgress(
     );
   }
   const w = (u - rw) / (1 - rw);
-  return rw + (1 - rw) * handoffGapSubProgress(w);
+  const eps = 1e-3;
+  const val1 = integratePresentationSpinProgress(sampleRetreatPresentationScale, "retreat", 1);
+  const val0 = integratePresentationSpinProgress(sampleRetreatPresentationScale, "retreat", 1 - eps);
+  const K_left = (val1 - val0) / eps;
+  return rw + (1 - rw) * handoffGapSubProgressWhoosh(w, K_left);
 }
 
 /**

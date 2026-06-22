@@ -6,12 +6,14 @@
 import * as THREE from "three";
 import {
   sampleFanCubeMotion,
-  getAccumulatedRevs,
   getFanStepSegmentMs,
   getFanApproachMs,
   getFanShowcaseHoldMs,
   getFanRetreatMs,
 } from "../apps/web/src/features/cube/cubeFanTimeline.ts";
+import {
+  getAccumulatedRevs,
+} from "../apps/web/src/features/cube/fanTransform.ts";
 
 const zoomFx = {
   cubeHeartbeatEnabled: false,

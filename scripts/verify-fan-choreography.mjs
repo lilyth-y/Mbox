@@ -5,6 +5,8 @@
 import {
   FAN_SCALE_FAR,
   FAN_SCALE_RETREAT,
+} from "../apps/web/src/features/cube/fanTiming.ts";
+import {
   computeFanLoopBridgeFrame,
   getFanStepSegmentMs,
   sampleFanCubeMotion,

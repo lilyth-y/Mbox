@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const WEB_URL = process.env.WEB_URL ?? "http://localhost:5173/wedding-simple/index.html";
+const WEB_URL = process.env.WEB_URL ?? "http://localhost:5173/wedding-simple/legacy.html";
 
 const configSrc = readFileSync(
   join(root, "apps/web/public/wedding-simple/cube-config.js"),
