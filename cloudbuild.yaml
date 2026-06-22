@@ -112,7 +112,7 @@ steps:
             --platform=managed \
             --timeout="${_CLOUD_RUN_TIMEOUT_SECONDS}" \
             --allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};API_PUBLIC_BASE_URL=${_VITE_API_BASE_URL};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         else
           gcloud run deploy "${_CLOUD_RUN_SERVICE}" \
@@ -121,7 +121,7 @@ steps:
             --platform=managed \
             --timeout="${_CLOUD_RUN_TIMEOUT_SECONDS}" \
             --no-allow-unauthenticated \
-            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
+            --set-env-vars="^;^GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${_REGION};CORS_ORIGIN=${_CORS_ORIGIN};WORKSPACE_DATA_DIR=/var/lib/mbox/workspaces;GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};API_PUBLIC_BASE_URL=${_VITE_API_BASE_URL};RATE_LIMIT_PER_MINUTE=180;ANALYZE_BATCH_CONCURRENCY=8;API_JSON_LIMIT=64mb" \
             --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"
         fi
 

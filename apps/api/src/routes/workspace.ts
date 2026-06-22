@@ -1,4 +1,5 @@
 import { Router } from "express";
+import express from "express";
 import type {
   CreateEventRequest,
   PresignVaultAssetRequest,
@@ -11,7 +12,12 @@ import {
   buildVaultObjectPath,
   createVaultUploadUrl,
   isGcsVaultEnabled,
+  streamVaultObject,
+  uploadVaultObject,
 } from "../services/gcsVaultStorage.js";
+import {
+  assertSafeVaultObjectPath,
+} from "../services/vaultMediaAccess.js";
 import {
   bootstrapWorkspace,
   createEvent,
@@ -28,9 +34,63 @@ import {
 
 export const workspaceRouter = Router();
 
+const vaultMediaRawBody = express.raw({
+  type: () => true,
+  limit: process.env.API_JSON_LIMIT ?? "64mb",
+});
+
 function workspaceIdFromRequest(req: { header: (name: string) => string | undefined }): string {
   return resolveWorkspaceId(req.header("x-workspace-id"));
 }
+
+function vaultMediaObjectPathFromRequest(req: { params: Record<string, string> }): string {
+  return decodeURIComponent(req.params[0] ?? req.params["0"] ?? "");
+}
+
+workspaceRouter.get("/vault-media/*", async (req, res) => {
+  try {
+    if (!isGcsVaultEnabled()) {
+      res.status(503).json({ error: "GCS vault is not configured on this API." });
+      return;
+    }
+    const objectPath = vaultMediaObjectPathFromRequest(req);
+    if (!objectPath) {
+      res.status(400).json({ error: "Vault object path is required." });
+      return;
+    }
+    assertSafeVaultObjectPath(objectPath);
+    await streamVaultObject(objectPath, res);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Vault media read failed.";
+    res.status(500).json({ error: message });
+  }
+});
+
+workspaceRouter.put("/vault-media/*", vaultMediaRawBody, async (req, res) => {
+  try {
+    if (!isGcsVaultEnabled()) {
+      res.status(503).json({ error: "GCS vault is not configured on this API." });
+      return;
+    }
+    const objectPath = vaultMediaObjectPathFromRequest(req);
+    if (!objectPath) {
+      res.status(400).json({ error: "Vault object path is required." });
+      return;
+    }
+    assertSafeVaultObjectPath(objectPath);
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
+    if (body.length === 0) {
+      res.status(400).json({ error: "Vault upload body is required." });
+      return;
+    }
+    const contentType = req.header("content-type")?.trim() || "image/jpeg";
+    await uploadVaultObject(objectPath, body, contentType);
+    res.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Vault media upload failed.";
+    res.status(500).json({ error: message });
+  }
+});
 
 workspaceRouter.get("/bootstrap", async (req, res) => {
   try {
