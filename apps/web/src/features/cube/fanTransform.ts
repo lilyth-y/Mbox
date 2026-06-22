@@ -379,22 +379,23 @@ export function retreatOrientEase(phaseU: number): number {
 export const FAN_SHOWCASE_SPIN_RATE = 0;
 
 /** Yaw direction while approaching a face. */
-export function resolveApproachSpinSign(mode: CubeRotationMode, _step: number = 0): number {
+export function resolveApproachSpinSign(mode: CubeRotationMode, step: number = 0): number {
   if (mode === "yaw_ccw") {
     return -1;
   }
   if (mode === "yaw_cw") {
     return 1;
   }
-  // For mixed/auto: consistent world-Y sign across approach, retreat, and handoff.
-  // Speed varies via ease curves; ω→0 at showcase peak prevents endless spin.
-  // Tumble provides pitch/roll variation without flipping the main yaw axis each step.
-  return 1;
+  // mixed/auto: alternate yaw direction each step to avoid monotonic drift.
+  return step % 2 === 0 ? 1 : -1;
 }
 
-/** Yaw direction while retreating — same axis as approach (no per-step yo-yo). */
+/** Yaw direction while retreating — opposes approach in mixed/auto (unwind). */
 export function resolveRetreatSpinSign(mode: CubeRotationMode, step: number = 0): number {
-  return resolveApproachSpinSign(mode, step);
+  if (mode === "yaw_ccw" || mode === "yaw_cw") {
+    return resolveApproachSpinSign(mode, step);
+  }
+  return -resolveApproachSpinSign(mode, step);
 }
 
 /** @deprecated Use resolveApproachSpinSign — kept for call sites that only need approach yaw. */
