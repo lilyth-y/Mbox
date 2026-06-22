@@ -27,7 +27,7 @@ function clientKey(req: Request): string {
 }
 
 export function rateLimit(req: Request, res: Response, next: NextFunction): void {
-  if (req.path === "/health") {
+  if (req.path === "/health" || req.path.includes("/vault-media/")) {
     next();
     return;
   }

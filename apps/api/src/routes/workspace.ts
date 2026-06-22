@@ -1,5 +1,6 @@
 import { Router } from "express";
 import express from "express";
+import type { Request, Response } from "express";
 import type {
   CreateEventRequest,
   PresignVaultAssetRequest,
@@ -47,8 +48,25 @@ function vaultMediaObjectPathFromRequest(req: { params: Record<string, string> }
   return decodeURIComponent(req.params[0] ?? req.params["0"] ?? "");
 }
 
+function applyVaultMediaCors(req: Request, res: Response): void {
+  const origin = req.header("origin")?.trim();
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+}
+
+workspaceRouter.options("/vault-media/*", (req, res) => {
+  applyVaultMediaCors(req, res);
+  res.sendStatus(204);
+});
+
 workspaceRouter.get("/vault-media/*", async (req, res) => {
   try {
+    applyVaultMediaCors(req, res);
     if (!isGcsVaultEnabled()) {
       res.status(503).json({ error: "GCS vault is not configured on this API." });
       return;
@@ -68,6 +86,7 @@ workspaceRouter.get("/vault-media/*", async (req, res) => {
 
 workspaceRouter.put("/vault-media/*", vaultMediaRawBody, async (req, res) => {
   try {
+    applyVaultMediaCors(req, res);
     if (!isGcsVaultEnabled()) {
       res.status(503).json({ error: "GCS vault is not configured on this API." });
       return;

@@ -80,7 +80,9 @@ export function resolveCubeShowcaseFx(
 }
 
 export function showcaseHeartbeatStrength(fx: CubeShowcaseFxOptions): number {
-  return fx.cubeHeartbeatEnabled ? fx.cubeHeartbeatIntensity : 0;
+  return fx.cubeHeartbeatEnabled
+    ? clampShowcaseFxIntensity(fx.cubeHeartbeatIntensity ?? 1)
+    : 0;
 }
 
 export function showcaseSubjectPullStrength(fx: CubeShowcaseFxOptions): number {

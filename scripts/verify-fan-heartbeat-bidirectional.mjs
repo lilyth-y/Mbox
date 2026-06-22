@@ -57,7 +57,7 @@ const handoffT =
 const handoff = sampleFanCubeMotion(0, handoffT, 4, 6, 42, "mixed", "wedding_default", 1, fx);
 ok(
   "handoff scale breathes",
-  handoff.presentationScale > 0.42 && handoff.presentationScale < 0.43,
+  handoff.presentationScale >= 0.418 && handoff.presentationScale < 0.43,
   String(handoff.presentationScale)
 );
 

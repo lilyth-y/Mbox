@@ -70,6 +70,8 @@ export function entranceRetreatHandoffSpinU(u: number): number {
 /** Yaw revolutions while approaching (decelerating spin). */
 /** Integer revs — approach end matches face-forward (no showcase correction spin). */
 export const FAN_APPROACH_REVS = 2;
+/** Extra retreat+handoff revs when mixed/auto unwinds opposing approach spin. */
+export const FAN_MIXED_RETREAT_UNWIND_EXTRA = 0.11;
 /** Yaw revolutions while shrinking away from showcase. */
 export const FAN_RETREAT_REVS = 0.32;
 /** Extra spin during in-place retreat when complex rotation FX is on. */
@@ -456,8 +458,12 @@ export function getStepSpinRevsTotal(
   }
   const approachSign = resolveApproachSpinSign(rotationMode, step);
   const retreatSign = resolveRetreatSpinSign(rotationMode, step);
+  const mixedUnwind =
+    (rotationMode === "mixed" || rotationMode === "auto") && retreatSign !== approachSign
+      ? FAN_MIXED_RETREAT_UNWIND_EXTRA
+      : 0;
   return (
-    approachSign * approachRevs + retreatSign * (retreatRevs + handoffRevs)
+    approachSign * approachRevs + retreatSign * (retreatRevs + handoffRevs + mixedUnwind)
   );
 }
 
@@ -505,7 +511,11 @@ export function getRevsWithinStep(
   const approachRevs = resolveApproachRevsForFx(fx, whooshSpin);
   const retreatRevs = resolveRetreatRevsForFx(fx, whooshSpin);
   const handoffRevs = resolveHandoffRevsForFx(fx, whooshSpin);
-  const backSpinRevs = retreatRevs + handoffRevs;
+  const mixedUnwind =
+    (rotationMode === "mixed" || rotationMode === "auto") && retreatSign !== approachSign
+      ? FAN_MIXED_RETREAT_UNWIND_EXTRA
+      : 0;
+  const backSpinRevs = retreatRevs + handoffRevs + mixedUnwind;
   const retreatMs = getFanRetreatMs(profile);
   const retreatGapMs = retreatMs + FAN_GAP_MS;
   const retreatWeight = retreatMs / Math.max(retreatGapMs, 1);

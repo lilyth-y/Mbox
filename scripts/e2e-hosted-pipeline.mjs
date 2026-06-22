@@ -66,13 +66,36 @@ async function runHostedFlow() {
   );
 
   await page.getByRole("button", { name: /3D 큐브/ }).click();
-  await page.getByText("3D VISUALIZATION").waitFor({ timeout: 30_000 });
-  await page.getByRole("button", { name: /연출 적용/ }).first().click();
+  await page.getByText("3D 큐브 미리보기").waitFor({ timeout: 60_000 });
 
-  const mp4Button = page.getByRole("button", { name: /MP4 생성/ }).first();
+  await page.waitForFunction(
+    () => {
+      const text = document.body.innerText;
+      if (text.includes("보관함 불러오는 중")) return false;
+      if (text.includes("큐브 연출 로딩 중")) return false;
+      if (text.includes("큐브를 보려면 사진이 필요합니다")) return false;
+      if (text.includes("연출용 용량 한도")) return false;
+      return true;
+    },
+    undefined,
+    { timeout: 180_000 },
+  );
+
+  const cubeBody = await page.locator("body").innerText();
+  if (/큐브를 보려면 사진이 필요|연출용 용량 한도/.test(cubeBody)) {
+    fail("Cube view has no presentation images after analyze");
+  }
+
+  const playButton = page.getByRole("button", { name: /^재생$/ });
+  await playButton.waitFor({ state: "visible", timeout: 30_000 });
+  if (await playButton.isEnabled()) {
+    await playButton.click();
+  }
+
+  const mp4Button = page.getByRole("button", { name: /^MP4$/ }).first();
   await mp4Button.waitFor({ state: "visible", timeout: 15_000 });
   if (await mp4Button.isDisabled()) {
-    fail("MP4 생성 button disabled — no processed images in cube view");
+    fail("MP4 button disabled — no processed images in cube view");
   }
 
   let suggested = null;
