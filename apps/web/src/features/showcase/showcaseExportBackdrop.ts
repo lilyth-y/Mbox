@@ -139,9 +139,6 @@ export function isShowcaseExportPreviewBackdropReady(
 export function resolveLiveShowcaseDomBackdrop(
   preferred?: HTMLVideoElement | HTMLImageElement | null
 ): HTMLVideoElement | HTMLImageElement | null {
-  if (previewElementIsReady(preferred)) {
-    return preferred ?? null;
-  }
   const dom = document.querySelector(
     ".showcase-viewport-wrap [data-showcase-backdrop='primary'], .showcase-viewport-wrap video.showcase-dom-backdrop, .showcase-viewport-wrap img.showcase-dom-backdrop"
   );
@@ -150,6 +147,9 @@ export function resolveLiveShowcaseDomBackdrop(
   }
   if (dom instanceof HTMLImageElement && previewElementIsReady(dom)) {
     return dom;
+  }
+  if (previewElementIsReady(preferred)) {
+    return preferred ?? null;
   }
   if (preferred instanceof HTMLVideoElement || preferred instanceof HTMLImageElement) {
     return preferred;

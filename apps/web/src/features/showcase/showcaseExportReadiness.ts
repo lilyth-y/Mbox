@@ -3,6 +3,19 @@ import {
   isShowcaseExportPreviewBackdropReady,
   resolveLiveShowcaseDomBackdrop,
 } from "./showcaseExportBackdrop";
+import { isLocalGpuExportSession, isRenderWorkerExportSession } from "../../shared/lib/renderExportProfile";
+
+function isLocalGpuJewelPipelineReady(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const report = (
+    window as unknown as {
+      __MBOX_SHOWCASE_RESOURCE_REPORT__?: { phases?: Array<{ phase: string }> };
+    }
+  ).__MBOX_SHOWCASE_RESOURCE_REPORT__;
+  return report?.phases?.some((phase) => phase.phase === "jewel_spawn") ?? false;
+}
 
 export type ShowcaseExportReadinessInput = {
   sceneReady: boolean;
@@ -39,6 +52,13 @@ export function evaluateShowcaseExportReadiness(
   }
   if (input.presentationCount <= 0) {
     return { ready: false, reason: "사진을 업로드해 주세요." };
+  }
+
+  if (isRenderWorkerExportSession()) {
+    if (isLocalGpuExportSession() && !isLocalGpuJewelPipelineReady()) {
+      return { ready: false, reason: "주얼 셰이더 준비 중…" };
+    }
+    return { ready: true, reason: null };
   }
 
   const wantsBackdrop =

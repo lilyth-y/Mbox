@@ -22,11 +22,18 @@ import type { JewelCubePhysicsRig } from "./jewelCubeFactory";
 
 import { applyConvexCrystalShellTuning } from "./shaders/jewelCrystalShellShader";
 
-
+function isCrystalShellShaderMaterial(
+  material: JewelCubePhysicsRig["shellMaterial"]
+): material is JewelCrystalShellMaterial {
+  return typeof (material as JewelCrystalShellMaterial).setVector3 === "function";
+}
 
 /** Push catalog crystal tint onto shell materials (works while paused too). */
 
 export function applyShowcaseCrystalCatalogToShell(rig: JewelCubePhysicsRig): void {
+  if (!isCrystalShellShaderMaterial(rig.shellMaterial)) {
+    return;
+  }
 
   applyUserCrystalSurfaceColor(rig.shellMaterial);
 
@@ -63,6 +70,9 @@ export function applyUserCrystalSurfaceColor(material: JewelCrystalShellMaterial
 /** How strongly backdrop video/image appears in shell reflections (0–1). */
 
 export function applyCrystalMediaReflectionStrength(material: JewelCrystalShellMaterial): void {
+  if (material.name.includes("jewel-crystal-shell-lite")) {
+    return;
+  }
 
   const { crystalBackdropBlend } = getShowcaseCatalogColorState();
 

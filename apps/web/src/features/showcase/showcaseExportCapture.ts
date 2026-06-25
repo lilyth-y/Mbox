@@ -14,15 +14,25 @@ import {
 
 } from "../cube/cubeRecorder";
 
+import { startBgmRecordingSession } from "../cube/bgm/compositeStreamWithBgm";
+
 import type { ShowcasePhysicsSceneHandle } from "./babylon/createShowcasePhysicsScene";
+import { resolveShowcaseGpuBudget } from "./showcaseGpuProfile";
 
 import {
+
+  CLOUD_SHOWCASE_PIPELINE_CONFIG,
 
   DEFAULT_SHOWCASE_PIPELINE_CONFIG,
 
   type ShowcasePipelineConfig,
 
 } from "./pipeline";
+import {
+  isCloudFastCrystalExport,
+  isLocalGpuExportSession,
+  resolveCrystalExportProfile,
+} from "../../shared/lib/renderExportProfile";
 
 import { getShowcasePresetCssColor } from "./babylon/showcasePresetBackdrop";
 
@@ -48,6 +58,7 @@ import {
   SHOWCASE_EXPORT_FPS,
 } from "./showcaseExportSpecs";
 import {
+  publishRenderWorkerBlob,
   publishShowcaseExportE2ePayload,
   verifyShowcaseExportBlob,
 } from "./showcaseExportVerification";
@@ -221,6 +232,10 @@ export type ShowcaseExportVideoOptions = {
   /** Preview viewport wrap — export size/framing follow on-screen layout. */
   viewportElement?: HTMLElement | null;
 
+  bgmUrl?: string | null;
+
+  bgmVolume?: number;
+
 };
 
 
@@ -243,12 +258,34 @@ export async function exportShowcaseMp4(
 
 ): Promise<ShowcaseExportVideoResult> {
 
-  const outputSize = resolveShowcaseExportOutputSize(options.exportSize);
-  const renderSize = resolveShowcaseRenderSize(outputSize);
+  const profile = resolveCrystalExportProfile();
+  const cloudFast = profile ? isCloudFastCrystalExport(profile) : false;
+  const localGpu = isLocalGpuExportSession();
+  const pipelineConfig: ShowcasePipelineConfig = cloudFast
+    ? CLOUD_SHOWCASE_PIPELINE_CONFIG
+    : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
+
+  const outputSize = resolveShowcaseExportOutputSize(
+    profile?.width ?? options.exportSize
+  );
+  const gpuBudget = resolveShowcaseGpuBudget();
+  const simplified = gpuBudget.tier === "simplified";
+  const renderSize = resolveShowcaseRenderSize(outputSize, {
+    cloudFast,
+    simplified: false,
+  });
+  const exportFps = localGpu
+    ? 30
+    : simplified
+      ? gpuBudget.exportFps
+      : profile?.fps ?? SHOWCASE_EXPORT_FPS;
+  const encodeBitrate =
+    profile?.videoBitrate ?? resolveShowcaseEncodeBitrate(outputSize);
 
   const durationMs = computeShowcaseExportDurationMs(
     options.imageCount,
-    options.fallPhysicsEnabled
+    options.fallPhysicsEnabled,
+    pipelineConfig
   );
 
   const baseName = options.filename ?? "mbox-showcase";
@@ -272,9 +309,13 @@ export async function exportShowcaseMp4(
   let inSceneExportBackdrop = false;
 
   handle.setExportRecording(true);
+  if (!localGpu) {
+    handle.applySafeGpuRecovery();
+  }
 
   const recorder = new CubeVideoRecorder();
   let composite: ReturnType<typeof createShowcaseExportCompositeStream> | null = null;
+  let bgmSession: Awaited<ReturnType<typeof startBgmRecordingSession>> | null = null;
 
   try {
     handle.director.reset();
@@ -302,22 +343,32 @@ export async function exportShowcaseMp4(
 
     assertShowcaseExportBackdropReady(wantsBackdrop, compositeBackdrop, inSceneExportBackdrop);
 
+    await syncExportBackdropTimeline([compositeBackdrop]);
+    await warmShowcaseExportBackdrop(exportBackdrop);
+    await warmBackdropVideo(compositeBackdrop);
+
     handle.applyExportViewport(renderSize, {
       preserveCameraRadius: true,
       cameraRadius: layout.cameraRadius,
     });
 
-    await syncExportBackdropTimeline([compositeBackdrop]);
-    await warmShowcaseExportBackdrop(exportBackdrop);
-    await warmBackdropVideo(compositeBackdrop);
+    handle.setExportCadenceFps(exportFps);
 
-    await waitFrames(24);
+    await waitFrames(localGpu ? 36 : cloudFast ? 8 : simplified ? 12 : 24);
 
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 720));
+    await new Promise<void>((resolve) =>
+      window.setTimeout(
+        resolve,
+        localGpu ? 1500 : cloudFast ? 280 : simplified ? 400 : 720
+      )
+    );
 
     const contentMs = durationMs - RECORD_ENCODER_FLUSH_MS;
 
-    const { mimeType, extension } = resolveRecordingMimeType({ withAudio: false });
+    const bgmUrl = options.bgmUrl ?? null;
+    const withAudio = Boolean(bgmUrl) && !window.__MBOX_E2E_EXPORT__;
+
+    const { mimeType, extension } = resolveRecordingMimeType({ withAudio });
 
     const sceneCanvas = handle.getCanvas();
 
@@ -333,7 +384,9 @@ export async function exportShowcaseMp4(
 
       size: outputSize,
 
-      fps: SHOWCASE_EXPORT_FPS,
+      fps: exportFps,
+
+      manualCapture: localGpu,
 
       fixedCadence: true,
 
@@ -344,8 +397,20 @@ export async function exportShowcaseMp4(
     const stream = composite.stream;
     const [videoTrack] = stream.getVideoTracks();
     if (videoTrack) {
-      await videoTrack.applyConstraints({ frameRate: SHOWCASE_EXPORT_FPS }).catch(() => undefined);
+      await videoTrack.applyConstraints({ frameRate: exportFps }).catch(() => undefined);
     }
+
+    if (withAudio && bgmUrl) {
+      bgmSession = await startBgmRecordingSession({
+        videoStream: stream,
+        audioUrl: bgmUrl,
+        durationMs,
+        volume: options.bgmVolume ?? 0.85,
+        holdUntilExportDone: true,
+      });
+    }
+
+    const recordStream = bgmSession?.compositeStream ?? stream;
 
     await waitFrames(4);
 
@@ -357,13 +422,27 @@ export async function exportShowcaseMp4(
       size: outputSize,
     });
 
-    recorder.start(stream, mimeType, resolveShowcaseEncodeBitrate(outputSize));
+    recorder.start(recordStream, mimeType, encodeBitrate);
 
-    await new Promise<void>((resolve) => window.setTimeout(resolve, contentMs));
+    const contentFrames = Math.ceil((contentMs * exportFps) / 1000);
+    const pacedRecordTimeoutMs = Math.max(
+      180_000,
+      Math.ceil((contentFrames / exportFps) * 2_500)
+    );
+
+    if (localGpu) {
+      composite.beginRecording();
+      await handle.recordPacedExportFrames(contentFrames, exportFps);
+      await composite.waitForRecordedFrames(contentFrames, pacedRecordTimeoutMs);
+    } else {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, contentMs));
+    }
 
     await new Promise<void>((resolve) => window.setTimeout(resolve, RECORD_ENCODER_FLUSH_MS));
 
     let blob = normalizeRecordingBlob(await recorder.stop(), extension);
+
+    bgmSession?.stop();
 
     let outExtension = extension;
 
@@ -401,10 +480,12 @@ export async function exportShowcaseMp4(
       },
     });
 
+    await publishRenderWorkerBlob(blob);
     downloadBlob(blob, filename);
 
     return { blob, filename };
   } finally {
+    bgmSession?.stop();
     composite?.dispose();
 
     exportBackdrop?.dispose();

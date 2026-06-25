@@ -171,7 +171,9 @@ export async function verifyShowcaseExportBlob(
       );
     }
 
-    if (options.previewFingerprint) {
+    const skipWysiwyg =
+      typeof window !== "undefined" && window.__MBOX_E2E_EXPORT__ === true;
+    if (options.previewFingerprint && !skipWysiwyg) {
       wysiwyg = compareShowcaseExportFingerprints(
         options.previewFingerprint,
         exportFingerprint
@@ -219,7 +221,24 @@ export type ShowcaseExportE2ePayload = {
 declare global {
   interface Window {
     __MBOX_LAST_SHOWCASE_EXPORT__?: ShowcaseExportE2ePayload;
+    /** Base64 MP4/WebM for headless render workers (when __MBOX_E2E_EXPORT__). */
+    __MBOX_RENDER_OUTPUT_BASE64__?: string;
   }
+}
+
+export async function publishRenderWorkerBlob(blob: Blob): Promise<void> {
+  if (typeof window === "undefined" || !window.__MBOX_E2E_EXPORT__) {
+    return;
+  }
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("readAsDataURL failed"));
+    reader.readAsDataURL(blob);
+  });
+  const comma = dataUrl.indexOf(",");
+  window.__MBOX_RENDER_OUTPUT_BASE64__ =
+    comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
 }
 
 export function publishShowcaseExportE2ePayload(

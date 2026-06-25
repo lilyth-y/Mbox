@@ -8,8 +8,41 @@ import { processShowcaseUpload } from "./processShowcaseUpload";
 
 import { bootstrapLocalWorkspace } from "../events/workspaceBackend";
 
-import type { ShowcasePhysicsSceneHandle } from "./babylon/createShowcasePhysicsScene";
+import {
+  cycleVariableSpinPreference,
+  DEFAULT_SHOWCASE_PRESENTATION_PREFERENCES,
+  getVariableSpinUiLabel,
+  normalizeVariableSpinMode,
+} from "./pipeline/showcasePresentationPreferences";
+import type { ShowcasePresentationPreferences } from "./pipeline/showcasePresentationPreferences";
+import {
+  clampZoomBreathingAmplitude,
+  clampZoomBreathingPeriodMs,
+  SHOWCASE_ZOOM_BREATHING_AMPLITUDE_MAX,
+  SHOWCASE_ZOOM_BREATHING_AMPLITUDE_MIN,
+  SHOWCASE_ZOOM_BREATHING_PERIOD_MAX_MS,
+  SHOWCASE_ZOOM_BREATHING_PERIOD_MIN_MS,
+} from "./pipeline/showcasePresentationPreferences";
 
+import {
+  SHOWCASE_SCENE_INIT_CANCELLED,
+  type ShowcasePhysicsSceneHandle,
+} from "./babylon/createShowcasePhysicsScene";
+import {
+  buildShowcaseWebGLHelp,
+  disposeBabylonEnginesForCanvas,
+  disposeAllBabylonEngines,
+  probeWebGLSupport,
+  isShowcaseCanvasContextLost,
+  isShowcaseElectronPreviewShell,
+  shouldUseConservativeShowcaseWebGl,
+} from "./babylon/babylonCanvasGuard";
+import {
+  shouldUseKinematicShowcasePreview,
+  shouldDeferHavokUntilJewelStable,
+  resolveShowcaseSubsystemFlags,
+  getShowcaseConservativePlayingDelayMs,
+} from "./showcaseGpuProfile";
 import {
   buildShowcaseContentManifest,
   describeShowcasePipeline,
@@ -26,7 +59,9 @@ import {
   syncShowcaseCatalogToUrl,
   type ShowcaseCatalogOptions,
 } from "./showcaseCatalogOptions";
-import { resolveShowcaseBackgroundMediaPath } from "./showcaseBackgroundMedia";
+import { resolveShowcaseBackgroundMediaPath, resolveShowcaseBackgroundMediaIsVideo } from "./showcaseBackgroundMedia";
+import { resolveShowcaseBgmUrl } from "./showcaseBgm";
+import { useShowcaseBgmPreview } from "./useShowcaseBgmPreview";
 import {
   auditShowcaseShapeRuntime,
   type ShowcaseShapeAuditResult,
@@ -37,10 +72,17 @@ import { createShowcaseDemoDataUrl } from "./showcaseDemoImages";
 
 import {
   computeShowcaseExportDurationMs,
-  exportShowcaseMp4,
 } from "./showcaseExportCapture";
+import { runShowcaseExport } from "./runShowcaseExport";
+import { isCloudRenderBackend } from "../../shared/lib/renderBackend";
+import { isLocalGpuExportSession } from "../../shared/lib/renderExportProfile";
 import { evaluateShowcaseExportReadiness } from "./showcaseExportReadiness";
 import { ShowcaseDomMediaBackdrop } from "./showcaseDomMediaBackdrop";
+import {
+  isRenderJobAutoMode,
+  readRenderJobFromWindow,
+  readRenderJobSourceUrls,
+} from "../../shared/lib/renderJobWindow";
 
 function needsShowcaseEnvironmentReload(
   prev: ShowcaseCatalogOptions,
@@ -73,7 +115,7 @@ const STAGE_LABEL: Record<ShowcasePipelineStageId, string> = {
 
   reveal: "표출",
 
-  rotate: "회전",
+  rotate: "회전·모핑",
 
   fall: "낙하",
 
@@ -181,10 +223,18 @@ async function readImageFilesAsDataUrls(files: File[]): Promise<string[]> {
 
 
 const DEMO_IMAGES: ProcessedImage[] = [1, 2, 3].map((id) =>
-
   demoProcessedImage(DEMO_IMAGE_URLS[id - 1]!, id)
-
 );
+
+function resolveInitialShowcaseImages(): ProcessedImage[] | null {
+  const fromJob = readRenderJobSourceUrls();
+  if (fromJob?.length) {
+    return fromJob.map((url, index) => demoProcessedImage(url, index + 1));
+  }
+  return DEMO_IMAGES;
+}
+
+const INITIAL_SHOWCASE_IMAGES: ProcessedImage[] | null = resolveInitialShowcaseImages();
 
 
 
@@ -196,15 +246,40 @@ export function ShowcaseDashboard() {
   const spillRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<ShowcasePhysicsSceneHandle | null>(null);
+  const renderJobAutoTriggeredRef = useRef(false);
+  const renderJobBootstrapRef = useRef(false);
+  const handleExportVideoRef = useRef<() => Promise<void>>(async () => {});
 
-  const playingRef = useRef(true);
+  const playingRef = useRef(!shouldUseConservativeShowcaseWebGl());
 
   /** User upload must win over async workspace bootstrap. */
   const userImagesOverrideRef = useRef(false);
 
-  const imagesRef = useRef<ProcessedImage[] | null>(null);
+  const imagesRef = useRef<ProcessedImage[] | null>(INITIAL_SHOWCASE_IMAGES);
 
   const sceneLoadTokenRef = useRef(0);
+  const sceneInitInFlightRef = useRef(false);
+  const sceneRecoveryKeyRef = useRef(0);
+  const [sceneRecoveryKey, setSceneRecoveryKey] = useState(0);
+  const webglLiveRef = useRef(false);
+  const readyRef = useRef(false);
+  const contextLossRecoveryRef = useRef<{
+    restoredListener: (() => void) | null;
+    rebuildTimer: number | null;
+    softRecoveryTimer: number | null;
+  }>({ restoredListener: null, rebuildTimer: null, softRecoveryTimer: null });
+  const contextLossRebuildAttemptsRef = useRef(0);
+  const lastContextRestoreMsRef = useRef(0);
+  const contextLossStreakRef = useRef(0);
+  const gpuSafeSessionRef = useRef(
+    isLocalGpuExportSession() ? false : shouldUseConservativeShowcaseWebGl()
+  );
+  /** WebGL2 first — WebGL1 only after a real context-loss recovery. */
+  const webglFallbackRef = useRef(false);
+  const backdropMediaRef = useRef<HTMLVideoElement | HTMLImageElement | null>(null);
+
+  const [webglRecovering, setWebglRecovering] = useState(false);
+  const [backdropDeferred, setBackdropDeferred] = useState(true);
 
   const sceneImagesKeyRef = useRef<string | null>(null);
 
@@ -216,15 +291,32 @@ export function ShowcaseDashboard() {
 
 
 
-  const [images, setImages] = useState<ProcessedImage[] | null>(null);
+  const [images, setImages] = useState<ProcessedImage[] | null>(INITIAL_SHOWCASE_IMAGES);
 
-  const [status, setStatus] = useState("Havok 물리 엔진을 준비하는 중…");
+  const lastInitErrorRef = useRef<string | null>(null);
+
+  const [status, setStatus] = useState(
+    INITIAL_SHOWCASE_IMAGES
+      ? "데모 사진으로 크리스탈 쇼케이스를 준비합니다…"
+      : "사진을 업로드하면 크리스탈 미리보기가 시작됩니다."
+  );
 
   const [ready, setReady] = useState(false);
 
-  const [playing, setPlaying] = useState(true);
+  useEffect(() => {
+    readyRef.current = ready;
+  }, [ready]);
+
+  const [sceneLoadError, setSceneLoadError] = useState<string | null>(null);
+  const [sceneLoadHelp, setSceneLoadHelp] = useState<string[]>([]);
+
+  const [playing, setPlaying] = useState(!shouldUseConservativeShowcaseWebGl());
 
   const [fallPhysicsEnabled, setFallPhysicsEnabled] = useState(false);
+
+  const [presentationPrefs, setPresentationPrefs] = useState<ShowcasePresentationPreferences>(
+    () => ({ ...DEFAULT_SHOWCASE_PRESENTATION_PREFERENCES })
+  );
 
   const [phase, setPhase] = useState<ShowcasePipelineStageId>("reveal");
 
@@ -239,6 +331,11 @@ export function ShowcaseDashboard() {
   const [applyBackgroundRemoval, setApplyBackgroundRemoval] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   const [exportMessage, setExportMessage] = useState("");
 
@@ -247,6 +344,10 @@ export function ShowcaseDashboard() {
   const [backdropSource, setBackdropSource] = useState<HTMLVideoElement | HTMLImageElement | null>(
     null
   );
+  const [bgmCustomUrl, setBgmCustomUrl] = useState<string | null>(null);
+  const bgmCustomUrlRef = useRef(bgmCustomUrl);
+  bgmCustomUrlRef.current = bgmCustomUrl;
+  const customBackdropBlobRef = useRef<string | null>(null);
   const backdropSourceRef = useRef(backdropSource);
   backdropSourceRef.current = backdropSource;
 
@@ -258,13 +359,59 @@ export function ShowcaseDashboard() {
     [catalog]
   );
 
+  const backdropMediaIsVideo = useMemo(
+    () => resolveShowcaseBackgroundMediaIsVideo(catalog),
+    [catalog]
+  );
+
+  const bgmUrl = useMemo(
+    () => resolveShowcaseBgmUrl(catalog, bgmCustomUrl),
+    [catalog, bgmCustomUrl]
+  );
+
+  useShowcaseBgmPreview({
+    enabled: catalog.bgmEnabled,
+    url: bgmUrl,
+    volume: catalog.bgmVolume,
+    playing: playing,
+    muted: isRecording || !ready,
+  });
+
+  useEffect(
+    () => () => {
+      const bgmUrl = bgmCustomUrlRef.current;
+      if (bgmUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(bgmUrl);
+      }
+      const backdropBlob = customBackdropBlobRef.current;
+      if (backdropBlob?.startsWith("blob:")) {
+        URL.revokeObjectURL(backdropBlob);
+      }
+    },
+    []
+  );
+
   const environmentKey = useMemo(() => buildEnvironmentKey(catalog), [catalog]);
 
   const jewelProfileKey = useMemo(() => buildJewelProfileKey(catalog), [catalog]);
 
   const handleBackdropReady = useCallback((source: HTMLVideoElement | HTMLImageElement | null) => {
+    backdropMediaRef.current = source;
     setBackdropSource(source);
   }, []);
+
+  useEffect(() => {
+    if (!ready || webglRecovering) {
+      setBackdropDeferred(true);
+      return;
+    }
+    if (!resolveShowcaseSubsystemFlags().domBackdropVideo) {
+      return;
+    }
+    const deferMs = shouldUseConservativeShowcaseWebGl() ? 4_000 : 1_500;
+    const timer = window.setTimeout(() => setBackdropDeferred(false), deferMs);
+    return () => window.clearTimeout(timer);
+  }, [ready, webglRecovering]);
 
   const applySceneImages = useCallback((nextImages: ProcessedImage[]) => {
     const nextKey = nextImages.map((image) => image.url).join("\0");
@@ -351,6 +498,19 @@ export function ShowcaseDashboard() {
 
 
   const handleCatalogChange = useCallback((next: ShowcaseCatalogOptions) => {
+    const nextBackdropPath =
+      next.backgroundMediaSource !== "none"
+        ? resolveShowcaseBackgroundMediaPath(next)
+        : null;
+    const activeBlob = customBackdropBlobRef.current;
+    if (activeBlob && activeBlob !== nextBackdropPath) {
+      URL.revokeObjectURL(activeBlob);
+      customBackdropBlobRef.current = null;
+    }
+    if (nextBackdropPath?.startsWith("blob:")) {
+      customBackdropBlobRef.current = nextBackdropPath;
+    }
+
     setCatalog((prev) => {
       if (needsShowcaseEnvironmentReload(prev, next)) {
         setReady(false);
@@ -366,8 +526,40 @@ export function ShowcaseDashboard() {
 
 
   useEffect(() => {
+    if (renderJobBootstrapRef.current) {
+      return;
+    }
+    const sourceUrls = readRenderJobSourceUrls();
+    if (!sourceUrls?.length) {
+      return;
+    }
+    renderJobBootstrapRef.current = true;
+    userImagesOverrideRef.current = true;
+    setImages(sourceUrls.map((url, index) => demoProcessedImage(url, index + 1)));
+    setStatus(`${sourceUrls.length}장 · 클라우드 렌더 작업 준비`);
+  }, []);
+
+
+
+  useEffect(() => {
+
+    if (shouldUseConservativeShowcaseWebGl()) {
+      return;
+    }
 
     let cancelled = false;
+
+    const bootstrapTimeout = window.setTimeout(() => {
+
+      if (!cancelled && !userImagesOverrideRef.current && imagesRef.current === DEMO_IMAGES) {
+
+        setStatus("워크스페이스 응답 지연 — 데모 사진으로 계속합니다.");
+
+      }
+
+    }, 6_000);
+
+
 
     void bootstrapLocalWorkspace()
 
@@ -391,7 +583,7 @@ export function ShowcaseDashboard() {
 
           setStatus("워크스페이스 사진으로 크리스탈 쇼케이스를 재생합니다.");
 
-        } else {
+        } else if (!imagesRef.current?.length) {
 
           setImages(DEMO_IMAGES);
 
@@ -403,7 +595,7 @@ export function ShowcaseDashboard() {
 
       .catch(() => {
 
-        if (!cancelled && !userImagesOverrideRef.current) {
+        if (!cancelled && !userImagesOverrideRef.current && !imagesRef.current?.length) {
 
           setImages(DEMO_IMAGES);
 
@@ -411,11 +603,19 @@ export function ShowcaseDashboard() {
 
         }
 
+      })
+
+      .finally(() => {
+
+        window.clearTimeout(bootstrapTimeout);
+
       });
 
     return () => {
 
       cancelled = true;
+
+      window.clearTimeout(bootstrapTimeout);
 
     };
 
@@ -426,6 +626,10 @@ export function ShowcaseDashboard() {
   const fallPhysicsRef = useRef(fallPhysicsEnabled);
 
   fallPhysicsRef.current = fallPhysicsEnabled;
+
+  const presentationPrefsRef = useRef(presentationPrefs);
+
+  presentationPrefsRef.current = presentationPrefs;
 
 
 
@@ -466,14 +670,37 @@ export function ShowcaseDashboard() {
 
 
     void (async () => {
+      if (sceneInitInFlightRef.current) {
+        return;
+      }
+      sceneInitInFlightRef.current = true;
 
       setReady(false);
 
-      setStatus("Havok WASM · 물리 씬 로딩…");
+      setSceneLoadError(null);
+      setSceneLoadHelp([]);
+
+      webglLiveRef.current = false;
+
+      setStatus(
+        shouldUseKinematicShowcasePreview()
+          ? "미리보기 준비 중… (물리 off — ?physics=1)"
+          : shouldUseConservativeShowcaseWebGl()
+            ? "미리보기 준비 중… (GPU 안전 모드)"
+            : "Havok WASM · 물리 씬 로딩…"
+      );
 
 
 
-      const { createShowcasePhysicsScene } = await import("./babylon/createShowcasePhysicsScene");
+      const havokPreload =
+        shouldUseKinematicShowcasePreview() || shouldDeferHavokUntilJewelStable()
+          ? Promise.resolve()
+          : import("../premium/babylon/physicsWorld").then((m) => m.preloadHavokPhysics());
+
+      const [{ createShowcasePhysicsScene }] = await Promise.all([
+        import("./babylon/createShowcasePhysicsScene"),
+        havokPreload,
+      ]);
 
       if (cancelled) {
 
@@ -487,6 +714,8 @@ export function ShowcaseDashboard() {
 
       if (!snapshot?.length) {
 
+        setStatus("사진을 불러오는 중…");
+
         return;
 
       }
@@ -494,16 +723,259 @@ export function ShowcaseDashboard() {
 
 
       try {
+        // Hard guarantee: prevent Babylon engine overlap across recoveries.
+        disposeAllBabylonEngines();
 
         sceneHandle = await createShowcasePhysicsScene(canvas, snapshot, {
 
-          fallPhysicsEnabled: fallPhysicsRef.current,
+          fallPhysicsEnabled: shouldUseKinematicShowcasePreview()
+            ? false
+            : fallPhysicsRef.current,
 
           catalog: catalogRef.current,
 
-          backdropMediaElement: backdropSourceRef.current,
+          presentationPrefs: presentationPrefsRef.current,
+
+          backdropMediaElement: null,
 
           backdropSpillElement: spillRef.current,
+
+          gpuSafeSession: isLocalGpuExportSession()
+            ? false
+            : gpuSafeSessionRef.current,
+
+          forceWebGl1: webglFallbackRef.current,
+
+          contextLossRecoveryAttempt: contextLossRebuildAttemptsRef.current,
+
+          shouldContinue: () => !cancelled && loadToken === sceneLoadTokenRef.current,
+
+          onWebGLContextLost: () => {
+            if (loadToken !== sceneLoadTokenRef.current) {
+              return;
+            }
+            const localGpuExport = isLocalGpuExportSession();
+            const canvasEl = canvasRef.current;
+            if (canvasEl && !isShowcaseCanvasContextLost(canvasEl)) {
+              return;
+            }
+            if (!localGpuExport) {
+              gpuSafeSessionRef.current = true;
+            }
+            if (localGpuExport) {
+              setWebglRecovering(true);
+              if (!readyRef.current) {
+                setStatus("GPU 복구 중… (로컬 ANGLE)");
+              }
+            }
+            if (shouldUseConservativeShowcaseWebGl() && !webglFallbackRef.current) {
+              webglFallbackRef.current = true;
+            }
+            const clearContextLossRecovery = () => {
+              const pending = contextLossRecoveryRef.current;
+              if (pending.rebuildTimer !== null) {
+                window.clearTimeout(pending.rebuildTimer);
+              }
+              if (pending.softRecoveryTimer !== null) {
+                window.clearTimeout(pending.softRecoveryTimer);
+              }
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer: null,
+                softRecoveryTimer: null,
+              };
+            };
+
+            const scheduleHardRebuild = () => {
+              clearContextLossRecovery();
+              setWebglRecovering(false);
+
+              const canvasNow = canvasRef.current;
+              if (
+                canvasNow &&
+                !isShowcaseCanvasContextLost(canvasNow) &&
+                sceneRef.current &&
+                loadToken === sceneLoadTokenRef.current
+              ) {
+                contextLossRebuildAttemptsRef.current = 0;
+                setSceneLoadError(null);
+                setSceneLoadHelp([]);
+                setReady(true);
+                webglLiveRef.current = true;
+                const count = imagesRef.current?.length ?? 0;
+                if (count > 0) {
+                  setStatus(`${count}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+                }
+                return;
+              }
+
+              if (contextLossRebuildAttemptsRef.current >= (shouldUseConservativeShowcaseWebGl() ? 8 : 4)) {
+                const help = buildShowcaseWebGLHelp("WebGL context lost", {
+                  hadLiveContext: true,
+                });
+                setSceneLoadHelp(help);
+                setSceneLoadError(help[0] ?? "WebGL 컨텍스트가 끊겼습니다.");
+                setStatus("WebGL 컨텍스트가 끊겼습니다. 새로고침해 주세요.");
+                setReady(false);
+                return;
+              }
+
+              contextLossRebuildAttemptsRef.current += 1;
+              sceneRef.current?.dispose();
+              sceneRef.current = null;
+              const canvasEl = canvasRef.current;
+              if (canvasEl) {
+                disposeBabylonEnginesForCanvas(canvasEl);
+              }
+              disposeAllBabylonEngines();
+              webglLiveRef.current = false;
+              setSceneLoadError(null);
+              setSceneLoadHelp([]);
+              setReady(false);
+              setBackdropDeferred(true);
+              setStatus(
+                webglFallbackRef.current
+                  ? "미리보기 안정화 중… (GPU 안전 모드)"
+                  : "미리보기를 다시 불러오는 중…"
+              );
+
+              const rebuildTimer = window.setTimeout(() => {
+                contextLossRecoveryRef.current.rebuildTimer = null;
+                sceneRecoveryKeyRef.current += 1;
+                setSceneRecoveryKey(sceneRecoveryKeyRef.current);
+              }, contextLossRebuildAttemptsRef.current > 0 ? 800 : 450);
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer,
+                softRecoveryTimer: null,
+              };
+            };
+
+            if (backdropMediaRef.current instanceof HTMLVideoElement) {
+              backdropMediaRef.current.pause();
+            }
+            setWebglRecovering(true);
+            setBackdropDeferred(true);
+            setSceneLoadError(null);
+            setSceneLoadHelp([]);
+            if (!readyRef.current) {
+              setStatus("WebGL 컨텍스트 복구 대기 중…");
+            }
+
+            if (contextLossRecoveryRef.current.rebuildTimer !== null) {
+              return;
+            }
+
+            if (localGpuExport) {
+              const softRecoveryTimer = window.setTimeout(() => {
+                contextLossRecoveryRef.current.softRecoveryTimer = null;
+                sceneRef.current?.applySafeGpuRecovery();
+              }, 1_500);
+              const rebuildTimer = window.setTimeout(() => {
+                contextLossRecoveryRef.current.rebuildTimer = null;
+                if (contextLossRecoveryRef.current.softRecoveryTimer !== null) {
+                  window.clearTimeout(contextLossRecoveryRef.current.softRecoveryTimer);
+                  contextLossRecoveryRef.current.softRecoveryTimer = null;
+                }
+                scheduleHardRebuild();
+              }, readyRef.current ? 4_000 : 15_000);
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer,
+                softRecoveryTimer,
+              };
+              return;
+            }
+
+            if (shouldUseConservativeShowcaseWebGl()) {
+              const rebuildTimer = window.setTimeout(() => {
+                contextLossRecoveryRef.current.rebuildTimer = null;
+                scheduleHardRebuild();
+              }, contextLossRebuildAttemptsRef.current > 0 ? 400 : 300);
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer,
+                softRecoveryTimer: null,
+              };
+              return;
+            }
+
+            contextLossStreakRef.current += 1;
+            const msSinceRestore =
+              lastContextRestoreMsRef.current > 0
+                ? Date.now() - lastContextRestoreMsRef.current
+                : Number.POSITIVE_INFINITY;
+            const rapidReloss = msSinceRestore < 8_000;
+
+            if (rapidReloss) {
+              sceneRef.current?.applySafeGpuRecovery();
+              const rebuildTimer = window.setTimeout(() => {
+                contextLossRecoveryRef.current.rebuildTimer = null;
+                scheduleHardRebuild();
+              }, isRecordingRef.current ? 400 : 250);
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer,
+                softRecoveryTimer: null,
+              };
+              if (isRecordingRef.current) {
+                setExportMessage("GPU 오류 — 녹화를 중단하고 미리보기를 복구합니다…");
+              }
+              return;
+            }
+
+            const softRecoveryTimer = window.setTimeout(() => {
+              contextLossRecoveryRef.current.softRecoveryTimer = null;
+              sceneRef.current?.applySafeGpuRecovery();
+            }, 2_000);
+
+            const rebuildTimer = window.setTimeout(() => {
+              contextLossRecoveryRef.current.rebuildTimer = null;
+              if (contextLossRecoveryRef.current.softRecoveryTimer !== null) {
+                window.clearTimeout(contextLossRecoveryRef.current.softRecoveryTimer);
+                contextLossRecoveryRef.current.softRecoveryTimer = null;
+              }
+              scheduleHardRebuild();
+            }, 12_000);
+
+            contextLossRecoveryRef.current = {
+              restoredListener: null,
+              rebuildTimer,
+              softRecoveryTimer,
+            };
+          },
+
+          onWebGLContextRestored: () => {
+            if (loadToken !== sceneLoadTokenRef.current) {
+              return;
+            }
+            lastContextRestoreMsRef.current = Date.now();
+            contextLossStreakRef.current = 0;
+            const pending = contextLossRecoveryRef.current;
+            if (pending.rebuildTimer !== null) {
+              window.clearTimeout(pending.rebuildTimer);
+            }
+            if (pending.softRecoveryTimer !== null) {
+              window.clearTimeout(pending.softRecoveryTimer);
+            }
+            contextLossRecoveryRef.current = {
+              restoredListener: null,
+              rebuildTimer: null,
+              softRecoveryTimer: null,
+            };
+            contextLossRebuildAttemptsRef.current = 0;
+            setWebglRecovering(false);
+            setSceneLoadError(null);
+            setSceneLoadHelp([]);
+            if (sceneRef.current) {
+              setReady(true);
+              webglLiveRef.current = true;
+              const count = imagesRef.current?.length ?? 0;
+              if (count > 0) {
+                setStatus(`${count}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+              }
+            }
+          },
 
         });
 
@@ -526,6 +998,33 @@ export function ShowcaseDashboard() {
         sceneHandle.resize();
 
         setReady(true);
+
+        webglLiveRef.current = true;
+        contextLossRebuildAttemptsRef.current = 0;
+
+        if (gpuSafeSessionRef.current) {
+          sceneHandle.setPlaying(false);
+          playingRef.current = false;
+          setPlaying(false);
+          window.setTimeout(() => {
+            if (!sceneRef.current || !readyRef.current || webglRecovering) {
+              return;
+            }
+            sceneRef.current.setPlaying(true);
+            playingRef.current = true;
+            setPlaying(true);
+          }, getShowcaseConservativePlayingDelayMs({ gpuSafeSession: true }));
+        } else {
+          sceneHandle.setPlaying(true);
+          playingRef.current = true;
+          setPlaying(true);
+        }
+
+        window.setTimeout(() => {
+          if (sceneRef.current && readyRef.current && !webglRecovering) {
+            contextLossRebuildAttemptsRef.current = 0;
+          }
+        }, 6_000);
 
         setStatus(`${snapshot.length}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
 
@@ -589,10 +1088,33 @@ export function ShowcaseDashboard() {
 
       } catch (error) {
 
+        if (error instanceof Error && error.message === SHOWCASE_SCENE_INIT_CANCELLED) {
+
+          return;
+
+        }
+
         const message = error instanceof Error ? error.message : "초기화 실패";
+        lastInitErrorRef.current = message;
+        disposeAllBabylonEngines();
 
-        setStatus(`물리 씬 오류: ${message}`);
+        const help = buildShowcaseWebGLHelp(message, {
+          hadLiveContext:
+            webglLiveRef.current && /context lost/i.test(message),
+        });
+        setSceneLoadHelp(help);
+        setSceneLoadError(help[0] ?? `물리 씬 오류: ${message}`);
 
+        setStatus(
+          isShowcaseElectronPreviewShell()
+            ? "내장 미리보기 WebGL 제한 — Chrome/Edge에서 열어 주세요"
+            : help[0]
+              ? `미리보기 오류: ${help[0]}`
+              : `미리보기 오류: ${message}`
+        );
+
+      } finally {
+        sceneInitInFlightRef.current = false;
       }
 
     })();
@@ -602,6 +1124,19 @@ export function ShowcaseDashboard() {
     return () => {
 
       cancelled = true;
+
+      const pending = contextLossRecoveryRef.current;
+      if (pending.rebuildTimer !== null) {
+        window.clearTimeout(pending.rebuildTimer);
+      }
+      if (pending.softRecoveryTimer !== null) {
+        window.clearTimeout(pending.softRecoveryTimer);
+      }
+      contextLossRecoveryRef.current = {
+        restoredListener: null,
+        rebuildTimer: null,
+        softRecoveryTimer: null,
+      };
 
       if (statusTimer !== null) {
 
@@ -621,7 +1156,7 @@ export function ShowcaseDashboard() {
 
     };
 
-  }, [hasPresentationImages, environmentKey]);
+  }, [hasPresentationImages, environmentKey, sceneRecoveryKey]);
 
 
 
@@ -763,6 +1298,60 @@ export function ShowcaseDashboard() {
 
 
 
+  const toggleVariableSpin = useCallback(() => {
+
+    setPresentationPrefs((prev) => {
+
+      const next = cycleVariableSpinPreference(prev);
+
+      sceneRef.current?.setPresentationPreferences(next);
+
+      return next;
+
+    });
+
+  }, []);
+
+
+
+  const toggleZoomBreathing = useCallback(() => {
+
+    setPresentationPrefs((prev) => {
+
+      const next = { ...prev, zoomBreathingEnabled: !prev.zoomBreathingEnabled };
+
+      sceneRef.current?.setPresentationPreferences(next);
+
+      return next;
+
+    });
+
+  }, []);
+
+
+
+  const patchPresentationPrefs = useCallback(
+    (patch: Partial<ShowcasePresentationPreferences>) => {
+      setPresentationPrefs((prev) => {
+        const next = {
+          ...prev,
+          ...patch,
+          zoomBreathingPeriodMs: clampZoomBreathingPeriodMs(
+            patch.zoomBreathingPeriodMs ?? prev.zoomBreathingPeriodMs
+          ),
+          zoomBreathingAmplitude: clampZoomBreathingAmplitude(
+            patch.zoomBreathingAmplitude ?? prev.zoomBreathingAmplitude
+          ),
+        };
+        sceneRef.current?.setPresentationPreferences(next);
+        return next;
+      });
+    },
+    []
+  );
+
+
+
   const togglePlay = useCallback(() => {
 
     setPlaying((prev) => {
@@ -795,14 +1384,14 @@ export function ShowcaseDashboard() {
       }
 
       const uploadGeneration = ++uploadGenerationRef.current;
+      userImagesOverrideRef.current = true;
 
       const { preview, refinement, usedCloud } = await processShowcaseUpload(sourceImages, {
         applyBackgroundRemoval,
         onStatus: setStatus,
       });
 
-      const nextImages = preview.slice(0, 20);
-      userImagesOverrideRef.current = true;
+      const nextImages = preview.slice(0, 12);
       imagesRef.current = nextImages;
       setImages(nextImages);
       setPlaying(true);
@@ -819,7 +1408,7 @@ export function ShowcaseDashboard() {
         if (uploadGenerationRef.current !== uploadGeneration) {
           return;
         }
-        const refinedImages = refined.slice(0, 20);
+        const refinedImages = refined.slice(0, 12);
         imagesRef.current = refinedImages;
         setImages(refinedImages);
         setStatus(
@@ -856,11 +1445,22 @@ export function ShowcaseDashboard() {
 
     setIsRecording(true);
 
-    setExportMessage(`연출 녹화 중… (약 ${durationSec}초)`);
+    handle.applySafeGpuRecovery();
+    if (backdropMediaRef.current instanceof HTMLVideoElement) {
+      backdropMediaRef.current.pause();
+    }
+
+    setExportMessage(
+      isCloudRenderBackend()
+        ? "클라우드에서 MP4 렌더 중… (1–3분)"
+        : bgmUrl
+          ? `BGM 합성 · 연출 녹화 중… (약 ${durationSec}초)`
+          : `연출 녹화 중… (약 ${durationSec}초)`
+    );
 
     try {
 
-      const { filename } = await exportShowcaseMp4(handle, {
+      const { filename } = await runShowcaseExport(handle, {
 
         imageCount: presentationCount,
 
@@ -877,6 +1477,12 @@ export function ShowcaseDashboard() {
         backgroundPreset: catalog.backgroundPreset,
 
         viewportElement: viewportWrapRef.current,
+
+        bgmUrl,
+
+        bgmVolume: catalog.bgmVolume,
+
+        images: imagesRef.current ?? [],
 
       });
 
@@ -899,6 +1505,20 @@ export function ShowcaseDashboard() {
     }
 
   };
+
+  handleExportVideoRef.current = handleExportVideo;
+
+  useEffect(() => {
+    const job = readRenderJobFromWindow();
+    if (!job && !isRenderJobAutoMode()) {
+      return;
+    }
+    if (!exportReadiness.ready || renderJobAutoTriggeredRef.current) {
+      return;
+    }
+    renderJobAutoTriggeredRef.current = true;
+    void handleExportVideoRef.current();
+  }, [exportReadiness.ready]);
 
 
 
@@ -983,7 +1603,8 @@ export function ShowcaseDashboard() {
             >
 
               <ShowcaseDomMediaBackdrop
-                mediaPath={backdropMediaPath}
+                mediaPath={backdropDeferred ? null : backdropMediaPath}
+                isVideo={backdropMediaIsVideo}
                 opacity={catalog.backgroundMediaOpacity}
                 onReady={handleBackdropReady}
               />
@@ -991,6 +1612,8 @@ export function ShowcaseDashboard() {
               <div ref={spillRef} className="showcase-backdrop-spill" aria-hidden />
 
               <canvas
+
+                key={sceneRecoveryKey}
 
                 ref={canvasRef}
 
@@ -1002,15 +1625,98 @@ export function ShowcaseDashboard() {
 
               {!ready && (
 
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-sm">
+                <div
+                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-4 text-center bg-black/55 backdrop-blur-sm"
+                >
 
-                  <Loader2 className="w-8 h-8 animate-spin text-mbox-gold" aria-hidden />
+                  {!sceneLoadError ? (
+                    <Loader2 className="w-8 h-8 animate-spin text-mbox-gold" aria-hidden />
+                  ) : null}
 
-                  <p className="text-sm text-mbox-muted">Havok WASM 로딩 중…</p>
+                  {!sceneLoadError ? (
+                    <p className="text-sm text-mbox-muted max-w-sm">{status}</p>
+                  ) : null}
+
+                  {sceneLoadError ? (
+                    <div className="max-w-md space-y-2 text-xs leading-relaxed text-amber-200/90">
+                      {sceneLoadHelp.map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                      <p className="text-[11px] text-amber-200/70">
+                        debug: electron=
+                        {String(isShowcaseElectronPreviewShell())}
+                        {" · "}
+                        ctxLost=
+                        {(() => {
+                          const c = canvasRef.current;
+                          return c ? String(isShowcaseCanvasContextLost(c)) : "no-canvas";
+                        })()}
+                        {" · "}
+                        attempts={contextLossRebuildAttemptsRef.current}
+                        {" · "}
+                        probe=
+                        {(() => {
+                          const p = probeWebGLSupport();
+                          return `${p.webgl2 ? "w2" : "w2-"}${p.webgl1 ? "w1" : "w1-"}${p.usable ? "" : "(!)"}`;
+                        })()}
+                        {" · "}
+                        lastErr={(lastInitErrorRef.current ?? "").slice(0, 120)}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {sceneLoadError ? (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <a
+                        href={window.location.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="secondary-btn text-xs font-semibold"
+                      >
+                        Chrome/Edge에서 열기
+                      </a>
+                      <button
+                        type="button"
+                        className="secondary-btn text-xs font-semibold"
+                        onClick={() => {
+                          contextLossRebuildAttemptsRef.current = 0;
+                          contextLossStreakRef.current = 0;
+                          setSceneLoadError(null);
+                          setSceneLoadHelp([]);
+                          setWebglRecovering(false);
+                          sceneRef.current?.dispose();
+                          sceneRef.current = null;
+                          disposeAllBabylonEngines();
+                          webglLiveRef.current = false;
+                          sceneRecoveryKeyRef.current += 1;
+                          setSceneRecoveryKey(sceneRecoveryKeyRef.current);
+                        }}
+                      >
+                        다시 시도
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-btn text-xs font-semibold"
+                        onClick={() => window.location.reload()}
+                      >
+                        새로고침
+                      </button>
+                    </div>
+                  ) : null}
 
                 </div>
 
               )}
+
+              {webglRecovering && ready ? (
+                <div
+                  className="absolute top-2 left-2 z-10 flex items-center gap-1.5 rounded-md bg-black/50 px-2 py-1 text-[11px] text-mbox-muted pointer-events-none"
+                  aria-live="polite"
+                >
+                  <Loader2 className="w-3 h-3 animate-spin text-mbox-gold" aria-hidden />
+                  GPU 복구 중…
+                </div>
+              ) : null}
 
             </div>
 
@@ -1025,6 +1731,10 @@ export function ShowcaseDashboard() {
             onChange={handleCatalogChange}
 
             disabled={!images}
+
+            bgmCustomUrl={bgmCustomUrl}
+
+            onBgmCustomUrlChange={setBgmCustomUrl}
 
           />
 
@@ -1046,15 +1756,106 @@ export function ShowcaseDashboard() {
 
             onClick={toggleFallPhysics}
 
-            disabled={!ready}
-
-            aria-pressed={fallPhysicsEnabled ? "true" : "false"}
+            disabled={!ready || shouldUseKinematicShowcasePreview()}
 
           >
 
             낙하 물리 {fallPhysicsEnabled ? "ON" : "OFF"}
 
           </button>
+
+          <button
+
+            type="button"
+
+            className={`secondary-btn inline-flex items-center gap-2 text-sm font-semibold disabled:opacity-50 ${
+
+              presentationPrefs.variableSpinEnabled ? "ring-1 ring-mbox-gold/40" : ""
+
+            }`}
+
+            onClick={toggleVariableSpin}
+
+            disabled={!ready}
+
+            title={
+              !presentationPrefs.variableSpinEnabled
+                ? "클릭: 복합 회전"
+                : normalizeVariableSpinMode(presentationPrefs.variableSpinMode) === "compound"
+                  ? "복합 — Y 회전 + 피치 흔들림. 클릭: 4방"
+                  : "4방 — 루프마다 좌→우→상→하. 클릭: OFF"
+            }
+
+          >
+
+            난방향 {getVariableSpinUiLabel(presentationPrefs)}
+
+          </button>
+
+          <button
+
+            type="button"
+
+            className={`secondary-btn inline-flex items-center gap-2 text-sm font-semibold disabled:opacity-50 ${
+
+              presentationPrefs.zoomBreathingEnabled ? "ring-1 ring-mbox-gold/40" : ""
+
+            }`}
+
+            onClick={toggleZoomBreathing}
+
+            disabled={!ready}
+
+          >
+
+            호흡 줌 {presentationPrefs.zoomBreathingEnabled ? "ON" : "OFF"}
+
+          </button>
+
+          {presentationPrefs.zoomBreathingEnabled ? (
+            <div className="flex w-full max-w-md flex-col gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80">
+              <label className="flex flex-col gap-1">
+                <span>
+                  줌 주기{" "}
+                  {(presentationPrefs.zoomBreathingPeriodMs / 1000).toFixed(1)}초
+                </span>
+                <input
+                  type="range"
+                  min={SHOWCASE_ZOOM_BREATHING_PERIOD_MIN_MS}
+                  max={SHOWCASE_ZOOM_BREATHING_PERIOD_MAX_MS}
+                  step={200}
+                  value={presentationPrefs.zoomBreathingPeriodMs}
+                  disabled={!ready}
+                  onChange={(e) =>
+                    patchPresentationPrefs({
+                      zoomBreathingPeriodMs: Number(e.target.value),
+                    })
+                  }
+                  className="w-full accent-amber-400"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span>
+                  줌 깊이{" "}
+                  {(presentationPrefs.zoomBreathingAmplitude * 100).toFixed(1)}%
+                </span>
+                <input
+                  type="range"
+                  min={SHOWCASE_ZOOM_BREATHING_AMPLITUDE_MIN}
+                  max={SHOWCASE_ZOOM_BREATHING_AMPLITUDE_MAX}
+                  step={0.005}
+                  value={presentationPrefs.zoomBreathingAmplitude}
+                  disabled={!ready}
+                  onChange={(e) =>
+                    patchPresentationPrefs({
+                      zoomBreathingAmplitude: Number(e.target.value),
+                    })
+                  }
+                  className="w-full accent-amber-400"
+                />
+              </label>
+            </div>
+          ) : null}
 
           <button
 
@@ -1089,6 +1890,8 @@ export function ShowcaseDashboard() {
               multiple
 
               className="sr-only"
+
+              data-testid="showcase-photo-upload"
 
               disabled={isProcessingUpload}
 

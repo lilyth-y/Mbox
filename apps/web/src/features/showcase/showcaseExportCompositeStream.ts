@@ -1,38 +1,9 @@
 /** Composite DOM backdrop + WebGL canvas for MP4 export (captureStream is canvas-only). */
 
-function readSourceSize(source: CanvasImageSource): { width: number; height: number } {
-  if (source instanceof HTMLVideoElement) {
-    return { width: source.videoWidth, height: source.videoHeight };
-  }
-  if (source instanceof HTMLImageElement) {
-    return { width: source.naturalWidth, height: source.naturalHeight };
-  }
-  if (source instanceof HTMLCanvasElement) {
-    return { width: source.width, height: source.height };
-  }
-  if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
-    return { width: source.width, height: source.height };
-  }
-  return { width: 0, height: 0 };
-}
-
-function drawBackdropCover(
-  ctx: CanvasRenderingContext2D,
-  source: CanvasImageSource,
-  width: number,
-  height: number
-): void {
-  const { width: sw, height: sh } = readSourceSize(source);
-  if (sw <= 0 || sh <= 0) {
-    return;
-  }
-  const scale = Math.max(width / sw, height / sh);
-  const dw = sw * scale;
-  const dh = sh * scale;
-  const dx = (width - dw) * 0.5;
-  const dy = (height - dh) * 0.5;
-  ctx.drawImage(source, dx, dy, dw, dh);
-}
+import {
+  drawCanvasImageSourceCover,
+  readCanvasImageSourceSize,
+} from "./babylon/showcaseBackdropCover";
 
 export type PaintShowcaseExportCompositeOptions = {
   sceneCanvas: HTMLCanvasElement;
@@ -57,11 +28,11 @@ export function paintShowcaseExportCompositeFrame(
   ctx.fillRect(0, 0, size, size);
 
   if (backdrop) {
-    const { width: bw, height: bh } = readSourceSize(backdrop);
+    const { width: bw, height: bh } = readCanvasImageSourceSize(backdrop);
     if (bw > 0 && bh > 0) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, backdropOpacity));
-      drawBackdropCover(ctx, backdrop, size, size);
+      drawCanvasImageSourceCover(ctx, backdrop, size, size);
       ctx.restore();
     }
   }
@@ -78,6 +49,8 @@ export type ShowcaseExportCompositeStreamOptions = {
   fallbackColor: string;
   size: number;
   fps: number;
+  /** Manual captureStream(0) — one encoder frame per paint (smooth when GPU < realtime). */
+  manualCapture?: boolean;
   /** Use setInterval cadence instead of rAF-only pacing during export. */
   fixedCadence?: boolean;
   /** Called after each Babylon render — paint composite here. Returns unsubscribe. */
@@ -86,6 +59,9 @@ export type ShowcaseExportCompositeStreamOptions = {
 
 export type ShowcaseExportCompositeStream = {
   stream: MediaStream;
+  getPaintCount: () => number;
+  beginRecording: () => void;
+  waitForRecordedFrames: (frameCount: number, timeoutMs?: number) => Promise<void>;
   dispose: () => void;
   waitForPaintCount: (count: number, timeoutMs?: number) => Promise<void>;
 };
@@ -100,6 +76,7 @@ export function createShowcaseExportCompositeStream(
     fallbackColor,
     size,
     fps,
+    manualCapture = false,
     fixedCadence = false,
     onAfterRender,
   } = options;
@@ -115,7 +92,10 @@ export function createShowcaseExportCompositeStream(
   ctx.imageSmoothingQuality = "high";
 
   let paintCount = 0;
+  let recordPaintCount = 0;
+  let recordingActive = false;
   const paintWaiters: Array<(count: number) => void> = [];
+  const recordWaiters: Array<(count: number) => void> = [];
 
   const notifyPaintWaiters = () => {
     if (paintWaiters.length === 0) {
@@ -125,6 +105,24 @@ export function createShowcaseExportCompositeStream(
     for (const waiter of waiters) {
       waiter(paintCount);
     }
+  };
+
+  const notifyRecordWaiters = () => {
+    if (recordWaiters.length === 0) {
+      return;
+    }
+    const waiters = recordWaiters.splice(0);
+    for (const waiter of waiters) {
+      waiter(recordPaintCount);
+    }
+  };
+
+  const mediaStream = composite.captureStream(manualCapture ? 0 : fps);
+  const videoTrack = mediaStream.getVideoTracks()[0] as MediaStreamTrack & {
+    requestFrame?: () => void;
+  };
+  const requestEncoderFrame = (): void => {
+    videoTrack.requestFrame?.();
   };
 
   const paint = () => {
@@ -138,12 +136,18 @@ export function createShowcaseExportCompositeStream(
 
     paintCount += 1;
     notifyPaintWaiters();
+    if (recordingActive) {
+      recordPaintCount += 1;
+      notifyRecordWaiters();
+    }
+    if (manualCapture) {
+      requestEncoderFrame();
+    }
   };
 
   paint();
 
   const unsubscribeRender = onAfterRender(paint);
-  const stream = composite.captureStream(fps);
 
   let disposed = false;
   let rafId = 0;
@@ -163,7 +167,8 @@ export function createShowcaseExportCompositeStream(
   };
   rafId = requestAnimationFrame(rafLoop);
 
-  if (fixedCadence) {
+  // Export uses onAfterRender only — interval + videoFrame paint caused judder.
+  if (!fixedCadence) {
     intervalId = window.setInterval(() => {
       if (!disposed) {
         paint();
@@ -174,6 +179,7 @@ export function createShowcaseExportCompositeStream(
   let videoFrameHandle = 0;
   let videoFrameActive = false;
   if (
+    !fixedCadence &&
     backdrop instanceof HTMLVideoElement &&
     typeof backdrop.requestVideoFrameCallback === "function"
   ) {
@@ -218,7 +224,9 @@ export function createShowcaseExportCompositeStream(
               `[showcase] export timed out waiting for frames (${current}/${count})`
             )
           );
+          return;
         }
+        paintWaiters.push(waiter);
       };
 
       const cleanup = () => {
@@ -232,8 +240,62 @@ export function createShowcaseExportCompositeStream(
       paintWaiters.push(waiter);
     });
 
+  const waitForRecordedFrames = (frameCount: number, timeoutMs = 120_000): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      if (recordPaintCount >= frameCount) {
+        resolve();
+        return;
+      }
+
+      const deadline = performance.now() + timeoutMs;
+      const watchdog = window.setTimeout(() => {
+        cleanup();
+        reject(
+          new Error(
+            `[showcase] export timed out waiting for frames (${recordPaintCount}/${frameCount})`
+          )
+        );
+      }, timeoutMs);
+
+      const waiter = (current: number) => {
+        if (current >= frameCount) {
+          cleanup();
+          resolve();
+          return;
+        }
+        if (performance.now() >= deadline) {
+          cleanup();
+          reject(
+            new Error(
+              `[showcase] export timed out waiting for frames (${current}/${frameCount})`
+            )
+          );
+          return;
+        }
+        recordWaiters.push(waiter);
+      };
+
+      const cleanup = () => {
+        window.clearTimeout(watchdog);
+        const index = recordWaiters.indexOf(waiter);
+        if (index >= 0) {
+          recordWaiters.splice(index, 1);
+        }
+      };
+
+      recordWaiters.push(waiter);
+    });
+
+  const beginRecording = (): void => {
+    recordingActive = true;
+    recordPaintCount = 0;
+  };
+
   return {
-    stream,
+    stream: mediaStream,
+    getPaintCount: () => paintCount,
+    beginRecording,
+    waitForRecordedFrames,
     waitForPaintCount,
     dispose: () => {
       disposed = true;

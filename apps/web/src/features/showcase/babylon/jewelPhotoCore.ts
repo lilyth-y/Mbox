@@ -3,23 +3,24 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
-import { HOLOGRAM_DISPLAY_SPEC, CUBE_FACE_BG_Z, CUBE_FACE_PHOTO_Z } from "@mbox/shared";
-import { INNER_SIZE, OUTER_SIZE } from "./jewelCubeMaterials";
+import { HOLOGRAM_DISPLAY_SPEC } from "@mbox/shared";
+import { INNER_SIZE } from "./jewelCubeMaterials";
 import {
-  createJewelInnerPhotoMaterial,
+  createJewelPhotoDisplayMaterial,
+  setJewelPhotoDisplayAlpha,
+  type JewelPhotoDisplayMaterial,
+} from "./jewelPhotoMaterialBridge";
+import {
   getInnerPhotoMaterialOptions,
-  setJewelInnerPhotoAlpha,
   tickJewelInnerPhotoMaterial,
-  type JewelInnerPhotoMaterial,
   type JewelInnerPhotoTickContext,
 } from "./jewelInnerPhotoMaterial";
 import {
   computeInnerPhotoMeshPose,
-  createInnerPhotoCubeFaceMeshes,
+  createInnerPhotoCubeMesh,
   createInnerPhotoHeartDualMeshes,
   createInnerPhotoPortraitDualPlateMeshes,
   createInnerPhotoSphereDualDiscMeshes,
-  getCubePhotoCavityMetrics,
   getSphereInnerPhotoDiscMetrics,
   getHeartTablePhotoRadius,
   getPortraitSlabDimensions,
@@ -35,6 +36,7 @@ import type { ShowcasePhotoFramePresetId } from "./showcasePhotoFrameColor";
 import {
   getShowcasePhotoFrameColor3,
   isShowcasePhotoFrameEnabled,
+  resolveShowcaseFramePresetForLayout,
 } from "./showcasePhotoFrameColor";
 import { getShowcaseCatalogColorState } from "./showcaseCatalogColorState";
 import { parseHexColor3 } from "./showcaseColorParse";
@@ -46,7 +48,7 @@ export interface JewelPhotoCoreLayer {
   root: TransformNode;
   mesh: TransformNode;
   faces: Mesh[];
-  material: JewelInnerPhotoMaterial;
+  material: JewelPhotoDisplayMaterial;
   layout: JewelPhotoLayout;
   /** Half-edge for cube-box photo UV (cube layout only). */
   cubeHalf?: number;
@@ -88,9 +90,13 @@ function createInnerPhotoMeshLayer(
   root.position.copyFrom(pose.position);
 
   const photoProfile = getPhotoCrystalPhotoProfile(shapeId);
-  const frameEnabled =
-    photoProfile.frameEnabled && isShowcasePhotoFrameEnabled(framePresetId);
-  const presetColor = getShowcasePhotoFrameColor3(framePresetId);
+  const effectiveFramePreset = resolveShowcaseFramePresetForLayout(
+    framePresetId,
+    shapeId,
+    layout
+  );
+  const frameEnabled = isShowcasePhotoFrameEnabled(effectiveFramePreset);
+  const presetColor = getShowcasePhotoFrameColor3(effectiveFramePreset);
   const { photoFrameColorHex } = getShowcaseCatalogColorState();
   const shapeSpec = resolvePhotoCrystalShape(shapeId);
   const cubeHalf = layout === "cube" ? pose.size * 0.5 : undefined;
@@ -101,30 +107,22 @@ function createInnerPhotoMeshLayer(
     polygonSides: photoProfile.polygonSides,
     heartScale: shapeId === "heart" ? getHeartTablePhotoRadius(shapeId) : undefined,
     circleMask: shapeId === "sphere",
-    photoAspect: shapeSpec.portraitAspect,
-    photoViewportFill: photoProfile.photoViewportFill,
+    ...(layout === "cube"
+      ? { photoAspect: 1, photoViewportFill: 1, cubeFace: true }
+      : {
+          photoAspect: shapeSpec.portraitAspect,
+          photoViewportFill: photoProfile.photoViewportFill,
+        }),
     cubeHalf,
   });
-  const material = createJewelInnerPhotoMaterial(scene, texture, matOptions);
+  const material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
   const faces: Mesh[] = [];
 
   if (layout === "cube") {
-    const cavity = getCubePhotoCavityMetrics(shapeId);
-    const faceZScale = OUTER_SIZE / 3.2;
-    const faceDepth =
-      (kind === "foreground" ? CUBE_FACE_PHOTO_Z : CUBE_FACE_BG_Z) * faceZScale + depthBias;
-    const faceMeshes = createInnerPhotoCubeFaceMeshes(
-      scene,
-      name,
-      pose.size,
-      root,
-      faceDepth,
-      cavity.faceHalf
-    );
-    for (const face of faceMeshes) {
-      face.material = material;
-      faces.push(face);
-    }
+    const box = createInnerPhotoCubeMesh(scene, `${name}-inner-cube`, pose.size);
+    box.parent = root;
+    box.material = material;
+    faces.push(box);
   } else if (shapeId === "heart") {
     const tableRadius = getHeartTablePhotoRadius(shapeId);
     const heartFaces = createInnerPhotoHeartDualMeshes(
@@ -206,7 +204,7 @@ export function createJewelPhotoCoreLayer(
     face.visibility = 1;
     face.isVisible = true;
   }
-  setJewelInnerPhotoAlpha(layer.material, enabled ? 1 : 0);
+  setJewelPhotoDisplayAlpha(layer.material, enabled ? 1 : 0);
   return layer;
 }
 
@@ -216,7 +214,7 @@ export function setJewelPhotoCoreLayerZ(layer: JewelPhotoCoreLayer, localZ: numb
 
 export function setJewelPhotoCoreLayerEnabled(layer: JewelPhotoCoreLayer, enabled: boolean): void {
   layer.root.setEnabled(enabled);
-  setJewelInnerPhotoAlpha(layer.material, enabled ? 1 : 0);
+  setJewelPhotoDisplayAlpha(layer.material, enabled ? 1 : 0);
 }
 
 export function getJewelPhotoCoreZOffset(kind: "background" | "foreground"): number {
@@ -240,14 +238,30 @@ export function tickJewelPhotoCoreLayers(
 ): void {
   const { fxTimeSec, holoPower, shapeId } = rig;
   const shapePhotoMul = getConvexShellPhotoTuning(shapeId).photoPowerMul;
-  const photoGain = Math.min(getCrystalPhotoGain() * shapePhotoMul * 0.52, 9.5);
+  const baseGain = getCrystalPhotoGain();
+  const photoGain =
+    baseGain <= 1.001
+      ? 1
+      : Math.min(baseGain * shapePhotoMul * 0.95, 14);
 
   const tickLayer = (layer: JewelPhotoCoreLayer) => {
-    const ctx: JewelInnerPhotoTickContext = { cameraPos, cubeHalf: layer.cubeHalf };
-    tickJewelInnerPhotoMaterial(layer.material, fxTimeSec, holoPower, lights, ctx);
     const p = Math.max(0, Math.min(1, holoPower));
-    layer.material.setFloat("uPower", (0.72 + p * 0.28) * Math.min(photoGain, 4.5));
-    layer.material.setFloat("uPhotoGain", photoGain);
+    const mat = layer.material;
+    if (mat.getClassName?.() === "StandardMaterial") {
+      const std = mat as import("@babylonjs/core/Materials/standardMaterial").StandardMaterial;
+      const intensity = (0.94 + 0.26 * p) * Math.min(photoGain, 6.5);
+      std.emissiveColor.set(intensity, intensity, intensity);
+      setJewelPhotoDisplayAlpha(std, p < 0.02 ? 0 : 1);
+      return;
+    }
+    if (mat.getClassName?.() !== "ShaderMaterial") {
+      return;
+    }
+    const shaderMat = mat as import("./jewelInnerPhotoMaterial").JewelInnerPhotoMaterial;
+    const ctx: JewelInnerPhotoTickContext = { cameraPos, cubeHalf: layer.cubeHalf };
+    tickJewelInnerPhotoMaterial(shaderMat, fxTimeSec, holoPower, lights, ctx);
+    shaderMat.setFloat("uPower", (0.82 + p * 0.32) * Math.min(photoGain, 6.5));
+    shaderMat.setFloat("uPhotoGain", photoGain);
   };
 
   tickLayer(rig.bgLayerA);
@@ -262,24 +276,7 @@ export function tickJewelPhotoCoreLayers(
   }
 }
 
-function cubeFaceFacingDot(face: Mesh, cameraPos: Vector3): number {
-  const group = face.parent;
-  if (!group) {
-    return -1;
-  }
-  const worldNormal = Vector3.TransformNormal(
-    new Vector3(0, 0, 1),
-    group.getWorldMatrix()
-  ).normalize();
-  const toCam = cameraPos.subtract(face.getAbsolutePosition());
-  if (toCam.lengthSquared() < 1e-8) {
-    return -1;
-  }
-  toCam.normalize();
-  return Vector3.Dot(worldNormal, toCam);
-}
-
-/** Hide side/back cube faces during hero framing — prevents doubled stretched photos. */
+/** Cube six-face layout — always keep all faces visible (closed box). */
 export function updateCubePhotoFaceVisibility(
   rig: {
     photoLayout: JewelPhotoLayout;
@@ -288,9 +285,9 @@ export function updateCubePhotoFaceVisibility(
     fgLayerA: JewelPhotoCoreLayer | null;
     fgLayerB: JewelPhotoCoreLayer | null;
   },
-  cameraPos: Vector3,
-  heroLock: boolean,
-  facingThreshold = 0.72
+  _cameraPos: Vector3,
+  _heroLock: boolean,
+  _facingThreshold = 0.72
 ): void {
   if (rig.photoLayout !== "cube") {
     return;
@@ -305,11 +302,8 @@ export function updateCubePhotoFaceVisibility(
       continue;
     }
     for (const face of layer.faces) {
-      if (!heroLock) {
-        face.isVisible = true;
-        continue;
-      }
-      face.isVisible = cubeFaceFacingDot(face, cameraPos) >= facingThreshold;
+      // Six-face cube must stay closed — hiding sides reads as the box opening.
+      face.isVisible = true;
     }
   }
 }
