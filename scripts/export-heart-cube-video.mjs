@@ -409,7 +409,7 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
-    { exportSize: EXPORT_SIZE, paceFps: Number(process.env.MBOX_E2E_PACE_FPS ?? 12) }
+    { exportSize: EXPORT_SIZE, paceFps: Number(process.env.MBOX_E2E_PACE_FPS ?? 8) }
   );
 
   const page = await context.newPage();

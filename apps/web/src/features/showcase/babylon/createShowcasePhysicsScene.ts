@@ -982,6 +982,9 @@ export async function createShowcasePhysicsScene(
         throw new Error("[showcase] paced export unavailable — scene not renderable");
       }
       const frameMs = 1000 / Math.max(1, fps);
+      const e2eFastPace =
+        typeof window !== "undefined" &&
+        (window as unknown as { __MBOX_E2E_EXPORT__?: boolean }).__MBOX_E2E_EXPORT__ === true;
       engine.stopRenderLoop();
       try {
         for (let i = 0; i < frameCount; i++) {
@@ -996,10 +999,12 @@ export async function createShowcasePhysicsScene(
             console.warn("[showcase] paced export frame failed", error);
             break;
           }
-          const elapsed = performance.now() - frameStart;
-          const waitMs = frameMs - elapsed;
-          if (waitMs > 0) {
-            await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+          if (!e2eFastPace) {
+            const elapsed = performance.now() - frameStart;
+            const waitMs = frameMs - elapsed;
+            if (waitMs > 0) {
+              await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+            }
           }
         }
       } finally {
