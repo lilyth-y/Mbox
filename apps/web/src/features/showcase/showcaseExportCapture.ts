@@ -254,7 +254,8 @@ export async function exportShowcaseMp4(
   const e2ePaceFps = Number(
     (window as unknown as { __MBOX_E2E_PACE_FPS__?: number }).__MBOX_E2E_PACE_FPS__ ?? 12
   );
-  const usePacedExport = (localGpu || workerExport || e2eExport) && !fastExport;
+  const useWallClockCapture = e2eExport && !localGpu;
+  const usePacedExport = (localGpu || workerExport) && !fastExport && !e2eExport;
   const pipelineConfig: ShowcasePipelineConfig = cloudFast
     ? CLOUD_SHOWCASE_PIPELINE_CONFIG
     : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
@@ -391,7 +392,9 @@ export async function exportShowcaseMp4(
 
       manualCapture: usePacedExport,
 
-      fixedCadence: true,
+      fixedCadence: !useWallClockCapture,
+
+      wallClockCapture: useWallClockCapture,
 
       onAfterRender: (paint) => handle.onAfterRender(paint),
 

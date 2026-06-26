@@ -53,6 +53,8 @@ export type ShowcaseExportCompositeStreamOptions = {
   manualCapture?: boolean;
   /** Use setInterval cadence instead of rAF-only pacing during export. */
   fixedCadence?: boolean;
+  /** E2E/cloud: paint composite at fps while wall-clock animation runs (no paced render loop). */
+  wallClockCapture?: boolean;
   /** Called after each Babylon render — paint composite here. Returns unsubscribe. */
   onAfterRender: (paint: () => void) => () => void;
 };
@@ -78,6 +80,7 @@ export function createShowcaseExportCompositeStream(
     fps,
     manualCapture = false,
     fixedCadence = false,
+    wallClockCapture = false,
     onAfterRender,
   } = options;
 
@@ -169,6 +172,14 @@ export function createShowcaseExportCompositeStream(
 
   // Export uses onAfterRender only — interval + videoFrame paint caused judder.
   if (!fixedCadence) {
+    intervalId = window.setInterval(() => {
+      if (!disposed) {
+        paint();
+      }
+    }, frameIntervalMs);
+  }
+
+  if (wallClockCapture) {
     intervalId = window.setInterval(() => {
       if (!disposed) {
         paint();
