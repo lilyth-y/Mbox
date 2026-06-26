@@ -25,4 +25,5 @@ export const DEFAULT_SHOWCASE_CATALOG: ShowcaseCatalogOptions = {
   bgmTrackId: "cinematic_romantic",
   bgmVolume: 0.85,
   bgmWorkspacePath: null,
+  cubePerFacePhotos: false,
 };

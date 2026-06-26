@@ -33,6 +33,10 @@ import {
 
   DEFAULT_SHOWCASE_PIPELINE_CONFIG,
 
+  WEDDING_LUXURY_EXPORT_PIPELINE_CONFIG,
+
+  WEDDING_LUXURY_FAST_EXPORT_PIPELINE_CONFIG,
+
   getShowcaseAerialAnchor,
 
   type ShowcasePipelineConfig,
@@ -450,9 +454,24 @@ export async function createShowcasePhysicsScene(
 
   const pipelineConfig = cloneShowcasePipelineConfig(
     options?.pipelineConfig ??
-      (isRenderWorkerExportSession() || automation
-        ? CLOUD_SHOWCASE_PIPELINE_CONFIG
-        : DEFAULT_SHOWCASE_PIPELINE_CONFIG)
+      (() => {
+        const weddingLuxury =
+          typeof window !== "undefined" &&
+          (window as unknown as { __MBOX_WEDDING_LUXURY_EXPORT__?: boolean })
+            .__MBOX_WEDDING_LUXURY_EXPORT__ === true;
+        const fastExport =
+          typeof window !== "undefined" &&
+          (window as unknown as { __MBOX_FAST_EXPORT__?: boolean }).__MBOX_FAST_EXPORT__ ===
+            true;
+        if (weddingLuxury) {
+          return fastExport
+            ? WEDDING_LUXURY_FAST_EXPORT_PIPELINE_CONFIG
+            : WEDDING_LUXURY_EXPORT_PIPELINE_CONFIG;
+        }
+        return isRenderWorkerExportSession() || automation
+          ? CLOUD_SHOWCASE_PIPELINE_CONFIG
+          : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
+      })()
   );
 
   const camera = new ArcRotateCamera(
@@ -982,6 +1001,9 @@ export async function createShowcasePhysicsScene(
         throw new Error("[showcase] paced export unavailable — scene not renderable");
       }
       const frameMs = 1000 / Math.max(1, fps);
+      const e2eFastPace =
+        typeof window !== "undefined" &&
+        (window as unknown as { __MBOX_E2E_EXPORT__?: boolean }).__MBOX_E2E_EXPORT__ === true;
       engine.stopRenderLoop();
       try {
         for (let i = 0; i < frameCount; i++) {
@@ -996,10 +1018,12 @@ export async function createShowcasePhysicsScene(
             console.warn("[showcase] paced export frame failed", error);
             break;
           }
-          const elapsed = performance.now() - frameStart;
-          const waitMs = frameMs - elapsed;
-          if (waitMs > 0) {
-            await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+          if (!e2eFastPace) {
+            const elapsed = performance.now() - frameStart;
+            const waitMs = frameMs - elapsed;
+            if (waitMs > 0) {
+              await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+            }
           }
         }
       } finally {

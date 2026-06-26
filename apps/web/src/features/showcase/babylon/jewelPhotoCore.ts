@@ -50,6 +50,8 @@ export interface JewelPhotoCoreLayer {
   mesh: TransformNode;
   faces: Mesh[];
   material: JewelPhotoDisplayMaterial;
+  /** Per-face materials when cube uses distinct face textures. */
+  faceMaterials?: JewelPhotoDisplayMaterial[];
   layout: JewelPhotoLayout;
   /** Half-edge for cube-box photo UV (cube layout only). */
   cubeHalf?: number;
@@ -61,6 +63,8 @@ export interface JewelPhotoCoreLayerOptions {
   shapeId?: PhotoCrystalShapeId;
   photoLayout?: PhotoCrystalPhotoLayoutId;
   framePresetId?: ShowcasePhotoFramePresetId;
+  /** Per-face textures for cube layout (6 entries). */
+  faceTextures?: BaseTexture[];
 }
 
 export function resolveJewelPhotoLayout(
@@ -83,7 +87,8 @@ function createInnerPhotoMeshLayer(
   layout: JewelPhotoLayout,
   kind: "background" | "foreground",
   depthBias: number,
-  framePresetId: ShowcasePhotoFramePresetId
+  framePresetId: ShowcasePhotoFramePresetId,
+  faceTextures?: BaseTexture[]
 ): JewelPhotoCoreLayer {
   const pose = computeInnerPhotoMeshPose(shapeId, layout, kind, depthBias);
   const root = new TransformNode(name, scene);
@@ -116,8 +121,9 @@ function createInnerPhotoMeshLayer(
         }),
     cubeHalf,
   });
-  const material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
   const faces: Mesh[] = [];
+  let material: JewelPhotoDisplayMaterial;
+  let faceMaterials: JewelPhotoDisplayMaterial[] | undefined;
 
   if (layout === "cube") {
     const { edgeSize, faceHalf } = getCubePhotoCavityMetrics(shapeId);
@@ -129,11 +135,22 @@ function createInnerPhotoMeshLayer(
       0,
       faceHalf
     );
-    for (const face of cubeFaces) {
-      face.material = material;
-      faces.push(face);
+    if (faceTextures && faceTextures.length >= cubeFaces.length) {
+      faceMaterials = cubeFaces.map((face, index) => {
+        const faceMat = createJewelPhotoDisplayMaterial(scene, faceTextures[index]!, matOptions);
+        face.material = faceMat;
+        return faceMat;
+      });
+      material = faceMaterials[0]!;
+    } else {
+      material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
+      for (const face of cubeFaces) {
+        face.material = material;
+      }
     }
+    faces.push(...cubeFaces);
   } else if (shapeId === "heart") {
+    material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
     const tableRadius = getHeartTablePhotoRadius(shapeId);
     const heartFaces = createInnerPhotoHeartTableMeshes(
       scene,
@@ -147,6 +164,7 @@ function createInnerPhotoMeshLayer(
       faces.push(face);
     }
   } else if (shapeId === "sphere") {
+    material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
     const { diameter, zInset } = getSphereInnerPhotoDiscMetrics(shapeId);
     const sphereFaces = createInnerPhotoSphereDualDiscMeshes(
       scene,
@@ -160,6 +178,7 @@ function createInnerPhotoMeshLayer(
       faces.push(face);
     }
   } else {
+    material = createJewelPhotoDisplayMaterial(scene, texture, matOptions);
     const { width, height } = getPortraitSlabDimensions(shapeId);
     const plateW = photoProfile.useSquarePlate ? Math.max(width, height) : width;
     const plateH = photoProfile.useSquarePlate ? Math.max(width, height) : height;
@@ -178,7 +197,26 @@ function createInnerPhotoMeshLayer(
     }
   }
 
-  return { root, mesh: root, faces, material, layout, cubeHalf };
+  return { root, mesh: root, faces, material, faceMaterials, layout, cubeHalf };
+}
+
+export function disposeJewelPhotoCoreLayer(layer: JewelPhotoCoreLayer): void {
+  if (layer.faceMaterials) {
+    const seen = new Set<JewelPhotoDisplayMaterial>();
+    for (const mat of layer.faceMaterials) {
+      if (seen.has(mat)) {
+        continue;
+      }
+      seen.add(mat);
+      mat.dispose(false, false);
+    }
+  } else {
+    layer.material.dispose(false, false);
+  }
+  for (const face of layer.faces) {
+    face.dispose();
+  }
+  layer.root.dispose();
 }
 
 export function createJewelPhotoCoreLayer(
@@ -206,7 +244,8 @@ export function createJewelPhotoCoreLayer(
     layout,
     kind,
     depthBias,
-    framePresetId
+    framePresetId,
+    options.faceTextures
   );
 
   layer.root.setEnabled(enabled);
@@ -254,9 +293,11 @@ export function tickJewelPhotoCoreLayers(
       ? 1
       : Math.min(baseGain * shapePhotoMul * 0.95, 14);
 
-  const tickLayer = (layer: JewelPhotoCoreLayer) => {
+  const tickMaterial = (
+    mat: JewelPhotoDisplayMaterial,
+    layer: JewelPhotoCoreLayer
+  ) => {
     const p = Math.max(0, Math.min(1, holoPower));
-    const mat = layer.material;
     if (mat.getClassName?.() === "StandardMaterial") {
       const std = mat as import("@babylonjs/core/Materials/standardMaterial").StandardMaterial;
       const intensity = (0.94 + 0.26 * p) * Math.min(photoGain, 6.5);
@@ -272,6 +313,13 @@ export function tickJewelPhotoCoreLayers(
     tickJewelInnerPhotoMaterial(shaderMat, fxTimeSec, holoPower, lights, ctx);
     shaderMat.setFloat("uPower", (0.82 + p * 0.32) * Math.min(photoGain, 6.5));
     shaderMat.setFloat("uPhotoGain", photoGain);
+  };
+
+  const tickLayer = (layer: JewelPhotoCoreLayer) => {
+    const materials = layer.faceMaterials ?? [layer.material];
+    for (const mat of materials) {
+      tickMaterial(mat, layer);
+    }
   };
 
   tickLayer(rig.bgLayerA);
