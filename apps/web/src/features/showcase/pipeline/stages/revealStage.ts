@@ -178,6 +178,10 @@ export const revealStage: ShowcasePipelineStage = {
       const shapeId = ctx.catalog.shapeId;
       const photoLayout = ctx.catalog.photoLayout;
       const framePresetId = ctx.catalog.framePresetId;
+      const cubePerFace =
+        ctx.catalog.cubePerFacePhotos &&
+        shapeId === "cube" &&
+        photoLayout === "cube";
       const spawnOptions = {
         holoContent,
         envTexture: ctx.scene.environmentTexture,
@@ -188,6 +192,16 @@ export const revealStage: ShowcasePipelineStage = {
         spawnX: floatPos.x,
         spawnY: floatPos.y,
         spawnZ: floatPos.z,
+        cubePerFace,
+        ...(cubePerFace
+          ? {
+              faceHoloContents: Array.from({ length: 6 }, (_, index) =>
+                ctx.runtime.getHoloContent(
+                  ctx.imageUrls[index % ctx.imageUrls.length]!
+                )
+              ),
+            }
+          : {}),
       };
 
       if (shouldStageJewelCubeSpawn()) {

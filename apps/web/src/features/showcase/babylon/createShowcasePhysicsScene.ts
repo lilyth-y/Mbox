@@ -33,6 +33,10 @@ import {
 
   DEFAULT_SHOWCASE_PIPELINE_CONFIG,
 
+  WEDDING_LUXURY_EXPORT_PIPELINE_CONFIG,
+
+  WEDDING_LUXURY_FAST_EXPORT_PIPELINE_CONFIG,
+
   getShowcaseAerialAnchor,
 
   type ShowcasePipelineConfig,
@@ -450,9 +454,24 @@ export async function createShowcasePhysicsScene(
 
   const pipelineConfig = cloneShowcasePipelineConfig(
     options?.pipelineConfig ??
-      (isRenderWorkerExportSession() || automation
-        ? CLOUD_SHOWCASE_PIPELINE_CONFIG
-        : DEFAULT_SHOWCASE_PIPELINE_CONFIG)
+      (() => {
+        const weddingLuxury =
+          typeof window !== "undefined" &&
+          (window as unknown as { __MBOX_WEDDING_LUXURY_EXPORT__?: boolean })
+            .__MBOX_WEDDING_LUXURY_EXPORT__ === true;
+        const fastExport =
+          typeof window !== "undefined" &&
+          (window as unknown as { __MBOX_FAST_EXPORT__?: boolean }).__MBOX_FAST_EXPORT__ ===
+            true;
+        if (weddingLuxury) {
+          return fastExport
+            ? WEDDING_LUXURY_FAST_EXPORT_PIPELINE_CONFIG
+            : WEDDING_LUXURY_EXPORT_PIPELINE_CONFIG;
+        }
+        return isRenderWorkerExportSession() || automation
+          ? CLOUD_SHOWCASE_PIPELINE_CONFIG
+          : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
+      })()
   );
 
   const camera = new ArcRotateCamera(

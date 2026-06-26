@@ -83,6 +83,9 @@ export type ShowcaseCatalogOptions = {
   /** User workspace MP3 (`workspace` track) */
   bgmWorkspacePath: string | null;
 
+  /** One distinct photo per cube face (six-face cube mode). */
+  cubePerFacePhotos: boolean;
+
 };
 
 
@@ -304,6 +307,8 @@ const CATALOG_QUERY_KEYS = new Set([
   "crystalGloss",
   "crystalSize",
   "floor",
+  "cubeFaces",
+  "perFace",
 ]);
 
 function resolveShowcaseCatalogBase(params: URLSearchParams): ShowcaseCatalogOptions {
@@ -408,6 +413,12 @@ export function parseShowcaseCatalogFromSearch(search: string): ShowcaseCatalogO
     bgmVolume: base.bgmVolume,
 
     bgmWorkspacePath: base.bgmWorkspacePath,
+
+    cubePerFacePhotos: params.has("cubeFaces")
+      ? params.get("cubeFaces") === "6"
+      : params.has("perFace")
+        ? params.get("perFace") === "1"
+        : base.cubePerFacePhotos,
 
   };
 
@@ -515,6 +526,10 @@ export function buildShowcaseSearchParams(options: ShowcaseCatalogOptions): URLS
 
     params.set("floor", options.groundEnabled ? "on" : "off");
 
+  }
+
+  if (options.cubePerFacePhotos) {
+    params.set("cubeFaces", "6");
   }
 
   return params;

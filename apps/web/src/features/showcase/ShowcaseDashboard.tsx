@@ -83,6 +83,7 @@ import { createShowcaseDemoDataUrl } from "./showcaseDemoImages";
 
 import {
   computeShowcaseExportDurationMs,
+  resolveShowcaseExportImageCount,
 } from "./showcaseExportCapture";
 import { runShowcaseExport } from "./runShowcaseExport";
 import { isCloudRenderBackend } from "../../shared/lib/renderBackend";
@@ -463,6 +464,7 @@ export function ShowcaseDashboard() {
   imagesRef.current = images;
 
   const presentationCount = imageUrls.length;
+  const exportImageCount = resolveShowcaseExportImageCount(presentationCount, catalog);
 
   const hasPresentationImages = presentationCount > 0;
 
@@ -1666,7 +1668,7 @@ export function ShowcaseDashboard() {
 
     const durationSec = Math.round(
 
-      computeShowcaseExportDurationMs(presentationCount) / 1000
+      computeShowcaseExportDurationMs(exportImageCount) / 1000
 
     );
 
@@ -1695,7 +1697,7 @@ export function ShowcaseDashboard() {
 
       const { filename } = await runShowcaseExport(handle, {
 
-        imageCount: presentationCount,
+        imageCount: exportImageCount,
 
         catalog,
 

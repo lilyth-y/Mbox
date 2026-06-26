@@ -23,10 +23,20 @@ import { chromium } from "playwright";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-const DEFAULT_PHOTOS = [
+const DEFAULT_CUBE_PHOTOS = [
+  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
+  join(root, "data/wedding-sample/wedding_couple_02.jpg"),
+  join(root, "data/wedding-sample/wedding_bride_03.jpg"),
+  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
   join(root, "data/wedding-sample/wedding_couple_02.jpg"),
   join(root, "data/wedding-sample/wedding_bride_03.jpg"),
 ];
+
+const DEFAULT_HEART_PHOTOS = [
+  join(root, "data/wedding-sample/wedding_couple_02.jpg"),
+];
+
+const DEFAULT_PHOTOS = DEFAULT_HEART_PHOTOS;
 
 const DEFAULT_LUXURY_BACKDROP =
   process.env.MBOX_LUXURY_BACKDROP?.trim() || "luxury/0_Gold_Golden_3840x2160.mp4";
@@ -43,8 +53,10 @@ const DEFAULT_BGM_PATH =
   process.env.MBOX_BGM_PATH?.trim() || join(root, "apps/web/public/bgm/romantic-wedding.mp3");
 
 const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 900_000);
-const EXPORT_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 720);
+const EXPORT_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 1080);
+const EXPORT_CRF = Number(process.env.MBOX_EXPORT_CRF ?? 18);
 const GL_MODE = String(process.env.MBOX_GL ?? "swiftshader").trim().toLowerCase();
+const WRITE_COMBINED = process.env.MBOX_COMBINED !== "0";
 
 function parsePhotos(argv) {
   const photos = [];
@@ -84,7 +96,18 @@ function buildShowcaseUrl(shapeId) {
   url.searchParams.set("backdrop", DEFAULT_LUXURY_BACKDROP);
   url.searchParams.set("noPhysics", "1");
   url.searchParams.set("shape", shapeId);
+  if (shapeId === "cube") {
+    url.searchParams.set("photo", "cube");
+    url.searchParams.set("cubeFaces", "6");
+  }
   return url.toString();
+}
+
+function expandToSixPhotos(photoPaths) {
+  if (photoPaths.length >= 6) {
+    return photoPaths.slice(0, 6);
+  }
+  return Array.from({ length: 6 }, (_, i) => photoPaths[i % photoPaths.length]);
 }
 
 function ffprobeFrameCount(file) {
@@ -202,7 +225,7 @@ async function waitForExportReady(page, shapeId) {
   console.log(`[${shapeId}] export ready · backdrop luma=${backdropLuma?.toFixed(1) ?? "n/a"}`);
 }
 
-function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
+function compositeLuxuryBackdrop(videoPath, backdropPath, outPath, size = EXPORT_SIZE) {
   const duration = ffprobeDuration(videoPath) ?? 30;
   const result = spawnSync(
     "ffmpeg",
@@ -215,7 +238,7 @@ function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
       "-i",
       videoPath,
       "-filter_complex",
-      `[0:v]scale=720:720:force_original_aspect_ratio=increase,crop=720:720,trim=duration=${duration.toFixed(3)},setpts=PTS-STARTPTS[bg];` +
+      `[0:v]scale=${size}:${size}:force_original_aspect_ratio=increase,crop=${size}:${size},trim=duration=${duration.toFixed(3)},setpts=PTS-STARTPTS[bg];` +
         `[1:v]fps=30,format=rgba,` +
         `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':` +
         `a='if(lt(0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y),10),0,255)'[fg];` +
@@ -227,9 +250,9 @@ function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
       "-c:v",
       "libx264",
       "-preset",
-      "fast",
+      "slow",
       "-crf",
-      "20",
+      String(EXPORT_CRF),
       "-c:a",
       "copy",
       "-t",
@@ -263,9 +286,9 @@ function smoothVideoFps(videoPath, outPath, targetFps = 30) {
       "-c:v",
       "libx264",
       "-preset",
-      "fast",
+      "slow",
       "-crf",
-      "20",
+      String(EXPORT_CRF),
       "-c:a",
       "copy",
       "-t",
@@ -395,16 +418,18 @@ function ffprobeWxH(file) {
   return { width, height };
 }
 
-async function exportShape(browser, shapeId, photoPaths, outPath) {
+async function exportShape(browser, shapeId, photoPaths, outPath, timeoutMs = RECORD_TIMEOUT_MS) {
   const context = await browser.newContext({ acceptDownloads: true });
   await context.addInitScript(
     (payload) => {
       window.__MBOX_E2E_EXPORT__ = true;
       window.__MBOX_FAST_EXPORT__ = true;
+      window.__MBOX_WEDDING_LUXURY_EXPORT__ = payload.shapeId === "cube";
+      window.__MBOX_CUBE_PER_FACE__ = payload.shapeId === "cube";
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
-    { exportSize: EXPORT_SIZE }
+    { exportSize: EXPORT_SIZE, shapeId }
   );
 
   const page = await context.newPage();
@@ -446,10 +471,42 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
 
   await page.waitForTimeout(6_000);
 
-  const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
   await page.getByRole("button", { name: /MP4/i }).click({ timeout: 60_000 });
-  const download = await downloadPromise;
-  await download.saveAs(outPath);
+  try {
+    await page.waitForFunction(
+      () =>
+        Boolean(
+          window.__MBOX_RENDER_OUTPUT_BASE64__ ||
+            (window.__MBOX_LAST_EXPORT__?.bytes ?? 0) > 0
+        ),
+      null,
+      { timeout: timeoutMs }
+    );
+  } catch (error) {
+    const diag = await page.evaluate(() => ({
+      status: document.body.innerText.split("\n").find((l) => /녹화|실패|불일치|완료/i.test(l)) ?? "",
+      lastExport: window.__MBOX_LAST_EXPORT__ ?? null,
+      hasB64: Boolean(window.__MBOX_RENDER_OUTPUT_BASE64__),
+      verify: window.__MBOX_LAST_SHOWCASE_EXPORT__?.verification?.errors ?? [],
+    }));
+    console.log(`[${shapeId}] export wait failed`, JSON.stringify(diag));
+    throw error;
+  }
+
+  const payload = await page.evaluate(() => ({
+    b64: window.__MBOX_RENDER_OUTPUT_BASE64__ ?? null,
+    meta: window.__MBOX_LAST_EXPORT__ ?? null,
+    verify: window.__MBOX_LAST_SHOWCASE_EXPORT__ ?? null,
+  }));
+
+  if (!payload.b64) {
+    throw new Error(`${shapeId}: E2E export payload missing (__MBOX_RENDER_OUTPUT_BASE64__)`);
+  }
+  if (payload.verify?.verification?.errors?.length) {
+    console.warn(`[${shapeId}] verification:`, payload.verify.verification.errors.join("; "));
+  }
+
+  writeFileSync(outPath, Buffer.from(payload.b64, "base64"));
   await context.close();
 
   const bytes = existsSync(outPath) ? readFileSync(outPath).length : 0;
@@ -458,7 +515,7 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   console.log(
     `[${shapeId}] saved ${outPath.replace(/\\/g, "/")} (${bytes} bytes, ${duration?.toFixed(1) ?? "?"}s, ${wxh?.width ?? "?"}x${wxh?.height ?? "?"})`
   );
-  if (bytes < 80_000) {
+  if (bytes < 20_000) {
     throw new Error(`${shapeId}: export too small (${bytes} bytes)`);
   }
   return { shapeId, outPath, bytes, durationSec: duration, ...wxh };
@@ -480,99 +537,180 @@ function concatMp4(segments, outPath) {
   return outPath;
 }
 
+function finalizeShapeVideo(rawPath, shapeId, outDir) {
+  const backdropFile = resolveLuxuryBackdropFile();
+  const cornerLuma = sampleVideoCornerLuma(rawPath);
+  const hasBakedBackdrop = cornerLuma !== null && cornerLuma > 28;
+  console.log(
+    `[${shapeId}] corner luma=${cornerLuma?.toFixed(1) ?? "n/a"} (baked backdrop=${hasBakedBackdrop})`
+  );
+
+  let compositedPath = rawPath;
+  if (!hasBakedBackdrop) {
+    compositedPath = join(outDir, `mbox-wedding-${shapeId}-composited-${Date.now()}.mp4`);
+    compositeLuxuryBackdrop(rawPath, backdropFile, compositedPath);
+  } else {
+    const smoothedPath = join(outDir, `mbox-wedding-${shapeId}-smoothed-${Date.now()}.mp4`);
+    smoothVideoFps(rawPath, smoothedPath);
+    compositedPath = smoothedPath;
+  }
+
+  const silentPath = join(outDir, `mbox-wedding-${shapeId}-silent.mp4`);
+  writeFileSync(silentPath, readFileSync(compositedPath));
+
+  if (!existsSync(DEFAULT_BGM_PATH)) {
+    throw new Error(`BGM not found: ${DEFAULT_BGM_PATH} — run npm run download:commercial-bgm`);
+  }
+
+  const finalPath = join(outDir, `mbox-wedding-${shapeId}.mp4`);
+  muxBgmWithFfmpeg(compositedPath, DEFAULT_BGM_PATH, finalPath);
+  assertSmoothVideo(finalPath);
+
+  const workspaceCopy = join(root, `mbox-wedding-${shapeId}.mp4`);
+  writeFileSync(workspaceCopy, readFileSync(finalPath));
+
+  return {
+    shapeId,
+    rawPath,
+    silentPath,
+    finalPath,
+    workspaceCopy,
+    bytes: readFileSync(finalPath).length,
+    durationSec: ffprobeDuration(finalPath),
+    ...ffprobeWxH(finalPath),
+  };
+}
+
 async function main() {
-  const photoPaths = preparePhotoPaths(parsePhotos(process.argv));
+  const cliPhotos = parsePhotos(process.argv);
+  const cubePhotoPaths = preparePhotoPaths(
+    cliPhotos.length > 0 ? expandToSixPhotos(cliPhotos) : DEFAULT_CUBE_PHOTOS
+  );
+  const heartPhotoPaths = preparePhotoPaths(
+    cliPhotos.length > 0 ? cliPhotos.slice(0, 1) : DEFAULT_HEART_PHOTOS
+  );
   await mkdir(OUT_DIR, { recursive: true });
 
-  console.log("Photos:", photoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
+  console.log("Cube photos (6 faces):", cubePhotoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
+  console.log("Heart photos:", heartPhotoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
   console.log("Luxury backdrop:", DEFAULT_LUXURY_BACKDROP);
   console.log("BGM:", DEFAULT_BGM_PATH.replace(/\\/g, "/"));
-  console.log("Export size:", EXPORT_SIZE);
+  console.log("Export size:", EXPORT_SIZE, "| CRF:", EXPORT_CRF);
   console.log("GL mode:", GL_MODE);
-
-  const browser = await chromium.launch({
-    headless: process.env.MBOX_HEADED !== "1",
-    args: [
-      `--use-gl=${GL_MODE === "angle" ? "angle" : "swiftshader"}`,
-      "--ignore-gpu-blocklist",
-      "--enable-webgl",
-      "--disable-gpu-sandbox",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-dev-shm-usage",
-      "--autoplay-policy=no-user-gesture-required",
-    ],
-  });
+  console.log("Combined output:", WRITE_COMBINED ? "yes" : "no");
 
   const tempDir = await mkdtemp(join(tmpdir(), "mbox-heart-cube-"));
-  const cubePath = join(tempDir, "cube.mp4");
-  const heartPath = join(tempDir, "heart.mp4");
-  const finalPath = join(OUT_DIR, `mbox-wedding-luxury-heart-cube-${Date.now()}.mp4`);
-  const silentPath = join(OUT_DIR, `mbox-wedding-luxury-heart-cube-silent-${Date.now()}.mp4`);
+  const cubeRawPath = join(tempDir, "cube-raw.mp4");
+  const heartRawPath = join(tempDir, "heart-raw.mp4");
 
   try {
-    const cube = await exportShape(browser, "cube", photoPaths, cubePath);
-    const heart = await exportShape(browser, "heart", photoPaths, heartPath);
-    await browser.close();
+    const heartBrowser = await chromium.launch({
+      headless: process.env.MBOX_HEADED !== "1",
+      args: [
+        `--use-gl=${GL_MODE === "angle" ? "angle" : "swiftshader"}`,
+        "--ignore-gpu-blocklist",
+        "--enable-webgl",
+        "--disable-gpu-sandbox",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-dev-shm-usage",
+        "--autoplay-policy=no-user-gesture-required",
+      ],
+    });
+    const cubeBrowser = await chromium.launch({
+      headless: process.env.MBOX_HEADED !== "1",
+      args: [
+        `--use-gl=${GL_MODE === "angle" ? "angle" : "swiftshader"}`,
+        "--ignore-gpu-blocklist",
+        "--enable-webgl",
+        "--disable-gpu-sandbox",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-dev-shm-usage",
+        "--autoplay-policy=no-user-gesture-required",
+      ],
+    });
 
-    concatMp4([cubePath, heartPath], silentPath);
+    const cubeExport = await exportShape(cubeBrowser, "cube", cubePhotoPaths, cubeRawPath);
+    await cubeBrowser.close();
 
-    const backdropFile = resolveLuxuryBackdropFile();
-    const cornerLuma = sampleVideoCornerLuma(silentPath);
-    const hasBakedBackdrop = cornerLuma !== null && cornerLuma > 28;
-    console.log(`Silent video corner luma=${cornerLuma?.toFixed(1) ?? "n/a"} (baked backdrop=${hasBakedBackdrop})`);
-
-    let compositedPath = silentPath;
-    if (!hasBakedBackdrop) {
-      compositedPath = join(OUT_DIR, `mbox-wedding-luxury-composited-${Date.now()}.mp4`);
-      compositeLuxuryBackdrop(silentPath, backdropFile, compositedPath);
-    } else {
-      const smoothedPath = join(OUT_DIR, `mbox-wedding-luxury-smoothed-${Date.now()}.mp4`);
-      smoothVideoFps(silentPath, smoothedPath);
-      compositedPath = smoothedPath;
+    let heartExport = null;
+    try {
+      heartExport = await exportShape(heartBrowser, "heart", heartPhotoPaths, heartRawPath, 240_000);
+    } catch (heartError) {
+      console.warn("[heart] export failed, attempting legacy segment fallback:", heartError?.message ?? heartError);
+      const legacyCombined = join(root, "mbox-wedding-luxury-heart-cube.mp4");
+      if (existsSync(legacyCombined)) {
+        const total = ffprobeDuration(legacyCombined) ?? 0;
+        const splitAt = total > 20 ? total * 0.52 : total * 0.5;
+        const extract = spawnSync(
+          "ffmpeg",
+          ["-y", "-ss", String(splitAt), "-i", legacyCombined, "-c", "copy", "-t", String(Math.max(8, total - splitAt)), heartRawPath],
+          { encoding: "utf8" }
+        );
+        if (extract.status === 0 && existsSync(heartRawPath)) {
+          heartExport = {
+            shapeId: "heart",
+            outPath: heartRawPath,
+            bytes: readFileSync(heartRawPath).length,
+            durationSec: ffprobeDuration(heartRawPath),
+            ...ffprobeWxH(heartRawPath),
+            fallback: "legacy-combined-split",
+          };
+          console.log("[heart] using legacy combined split segment");
+        }
+      }
+      if (!heartExport) {
+        throw heartError;
+      }
     }
+    await heartBrowser.close();
 
-    if (!existsSync(DEFAULT_BGM_PATH)) {
-      throw new Error(`BGM not found: ${DEFAULT_BGM_PATH} — run npm run download:commercial-bgm`);
+    const cubeFinal = finalizeShapeVideo(cubeRawPath, "cube", OUT_DIR);
+    const heartFinal = finalizeShapeVideo(heartRawPath, "heart", OUT_DIR);
+
+    let combinedFinal = null;
+    if (WRITE_COMBINED) {
+      const combinedSilent = join(OUT_DIR, "mbox-wedding-luxury-heart-cube-silent.mp4");
+      concatMp4([cubeFinal.silentPath, heartFinal.silentPath], combinedSilent);
+      combinedFinal = finalizeShapeVideo(combinedSilent, "luxury-heart-cube", OUT_DIR);
+      const friendlyCombined = join(OUT_DIR, "mbox-wedding-luxury-heart-cube.mp4");
+      writeFileSync(friendlyCombined, readFileSync(combinedFinal.finalPath));
+      writeFileSync(join(root, "mbox-wedding-luxury-heart-cube.mp4"), readFileSync(combinedFinal.finalPath));
     }
-    muxBgmWithFfmpeg(compositedPath, DEFAULT_BGM_PATH, finalPath);
-    assertSmoothVideo(finalPath);
-    const finalDuration = ffprobeDuration(finalPath);
-    const finalWxH = ffprobeWxH(finalPath);
-    const finalBytes = readFileSync(finalPath).length;
 
     const manifest = {
       createdAt: new Date().toISOString(),
       style: "wedding_luxury_rose_gold",
-      photos: photoPaths,
+      cubePhotos: cubePhotoPaths,
+      heartPhotos: heartPhotoPaths,
       luxuryBackdrop: DEFAULT_LUXURY_BACKDROP,
       bgm: DEFAULT_BGM_PATH,
       exportSize: EXPORT_SIZE,
+      exportCrf: EXPORT_CRF,
       glMode: GL_MODE,
-      segments: [cube, heart],
-      silentVideo: silentPath,
-      output: {
-        path: finalPath,
-        bytes: finalBytes,
-        durationSec: finalDuration,
-        width: finalWxH?.width,
-        height: finalWxH?.height,
+      exports: {
+        cube: cubeFinal,
+        heart: heartFinal,
+        combined: combinedFinal,
       },
+      rawSegments: [cubeExport, heartExport],
     };
-    const manifestPath = finalPath.replace(/\.mp4$/i, ".json");
+    const manifestPath = join(OUT_DIR, "mbox-wedding-export-manifest.json");
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
-    const friendlyPath = join(OUT_DIR, "mbox-wedding-luxury-heart-cube.mp4");
-    writeFileSync(friendlyPath, readFileSync(finalPath));
-    const workspaceCopy = join(root, "mbox-wedding-luxury-heart-cube.mp4");
-    writeFileSync(workspaceCopy, readFileSync(finalPath));
-
-    console.log("\n=== Wedding luxury video (cube + heart + BGM) ===");
-    console.log("Output:", finalPath.replace(/\\/g, "/"));
-    console.log("Download:", workspaceCopy.replace(/\\/g, "/"));
+    console.log("\n=== Wedding luxury exports ===");
+    console.log("Cube:", cubeFinal.workspaceCopy.replace(/\\/g, "/"));
     console.log(
-      `Duration: ${finalDuration?.toFixed(1) ?? "?"}s | Size: ${(finalBytes / 1_024 / 1_024).toFixed(1)} MB | ${finalWxH?.width}x${finalWxH?.height}`
+      `  ${cubeFinal.durationSec?.toFixed(1) ?? "?"}s | ${(cubeFinal.bytes / 1_024 / 1_024).toFixed(1)} MB | ${cubeFinal.width}x${cubeFinal.height}`
     );
+    console.log("Heart:", heartFinal.workspaceCopy.replace(/\\/g, "/"));
+    console.log(
+      `  ${heartFinal.durationSec?.toFixed(1) ?? "?"}s | ${(heartFinal.bytes / 1_024 / 1_024).toFixed(1)} MB | ${heartFinal.width}x${heartFinal.height}`
+    );
+    if (combinedFinal) {
+      console.log("Combined:", join(root, "mbox-wedding-luxury-heart-cube.mp4").replace(/\\/g, "/"));
+    }
     console.log("Manifest:", manifestPath.replace(/\\/g, "/"));
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -581,5 +719,6 @@ async function main() {
 
 main().catch((error) => {
   console.error(error);
+  process.exitCode = 1;
   process.exit(1);
 });

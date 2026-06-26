@@ -55,7 +55,7 @@ export const rotateStage: ShowcasePipelineStage = {
       return "complete";
     }
 
-    const imageCount = ctx.imageUrls.length;
+    const imageCount = ctx.catalog.cubePerFacePhotos ? 1 : ctx.imageUrls.length;
     const segmentMs = getRotateMorphSegmentMs(
       ctx.config.rotateDurationMs,
       ctx.config.morphDurationMs,

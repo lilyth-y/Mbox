@@ -149,6 +149,26 @@ export const CLOUD_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   pullReturnMs: 2_200,
 };
 
+/** Wedding luxury export — full cinematic timings. */
+export const WEDDING_LUXURY_EXPORT_PIPELINE_CONFIG: ShowcasePipelineConfig = {
+  ...DEFAULT_SHOWCASE_PIPELINE_CONFIG,
+  showcaseCenter: DEFAULT_SHOWCASE_PIPELINE_CONFIG.showcaseCenter.clone(),
+  pullHoldMs: 1_400,
+};
+
+/** Wedding luxury export — compressed timings for E2E / fast export. */
+export const WEDDING_LUXURY_FAST_EXPORT_PIPELINE_CONFIG: ShowcasePipelineConfig = {
+  ...CLOUD_SHOWCASE_PIPELINE_CONFIG,
+  showcaseCenter: CLOUD_SHOWCASE_PIPELINE_CONFIG.showcaseCenter.clone(),
+  revealHoldMs: 250,
+  rotateDurationMs: 1_800,
+  morphDurationMs: 1_200,
+  pullSpinLeadMs: 700,
+  pullDurationMs: 1_800,
+  pullHoldMs: 500,
+  pullReturnMs: 1_800,
+};
+
 export type ShowcaseStageStatus = "continue" | "complete";
 
 export interface ShowcaseSceneRuntime {

@@ -14,6 +14,7 @@ import { bindShowcaseShellGlow } from "./showcaseShellGlow";
 import { configureCrystalShellEdges } from "./jewelCubeMaterials";
 import {
   createJewelPhotoCoreLayer,
+  disposeJewelPhotoCoreLayer,
   resolveJewelPhotoLayout,
   type JewelPhotoCoreLayer,
   type JewelPhotoLayout,
@@ -162,6 +163,18 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
     { material: rig.fgMatA, mesh: rig.collider },
     { material: rig.fgMatB, mesh: rig.collider }
   );
+  for (const layer of [rig.bgLayerA, rig.bgLayerB, rig.fgLayerA, rig.fgLayerB]) {
+    if (!layer?.faceMaterials?.length) {
+      continue;
+    }
+    for (let i = 0; i < layer.faces.length; i++) {
+      const material = layer.faceMaterials[i];
+      const mesh = layer.faces[i];
+      if (material && mesh) {
+        pairs.push({ material, mesh });
+      }
+    }
+  }
   const seen = new Set<Material>();
   const staggerCompile = isLocalGpuSession();
 
@@ -219,6 +232,10 @@ export interface JewelCubeSpawnOptions {
   spawnZ?: number;
   mass?: number;
   restitution?: number;
+  /** Per-face holo content for cube six-face mode. */
+  faceHoloContents?: HoloContentTextures[];
+  /** One distinct photo per cube face — disables morph twin. */
+  cubePerFace?: boolean;
   /** Internal staged spawn — spread GPU work across frames. */
   spawnSlice?: "layerA" | "photos" | "full";
 }
@@ -232,7 +249,8 @@ export function createJewelCubePhysicsRig(
   const spawnZ = options.spawnZ ?? 0;
   const { holoContent } = options;
   const subsystems = resolveShowcaseSubsystemFlags();
-  const morphTwin = usesJewelPhotoMorphTwin(subsystems);
+  const cubePerFace = options.cubePerFace ?? false;
+  const morphTwin = !cubePerFace && usesJewelPhotoMorphTwin(subsystems);
   const hasDepthSplit =
     morphTwin &&
     subsystems.depthSplitForeground &&
@@ -250,6 +268,12 @@ export function createJewelCubePhysicsRig(
   collider.isPickable = false;
 
   const bgTexA = hasDepthSplit ? holoContent.background : holoContent.composite;
+  const faceTextures =
+    cubePerFace && options.faceHoloContents && options.faceHoloContents.length >= 6
+      ? options.faceHoloContents.map((content) =>
+          hasDepthSplit ? content.background : content.composite
+        )
+      : undefined;
   const spawnSlice = options.spawnSlice ?? "full";
   const layerA = createJewelPhotoCoreLayer(
     scene,
@@ -258,7 +282,7 @@ export function createJewelCubePhysicsRig(
     bgTexA,
     false,
     true,
-    { kind: "background", shapeId, photoLayout, framePresetId }
+    { kind: "background", shapeId, photoLayout, framePresetId, faceTextures }
   );
 
   let layerB: JewelPhotoCoreLayer | null = null;
@@ -319,14 +343,6 @@ export function createJewelCubePhysicsRig(
 
     const aggregate = createKinematicPhysicsAggregateStub();
 
-    const disposeLayer = (layer: JewelPhotoCoreLayer) => {
-      layer.material.dispose(false, false);
-      for (const face of layer.faces) {
-        face.dispose();
-      }
-      layer.root.dispose();
-    };
-
     const rigPartial = {
       collider,
       shapeId,
@@ -362,17 +378,17 @@ export function createJewelCubePhysicsRig(
       holoOptics: createHoloOpticsRig(),
       dispose: () => {
         aggregate.dispose();
-        disposeLayer(layerA);
+        disposeJewelPhotoCoreLayer(layerA);
         if (layerB && layerB !== layerA) {
-          disposeLayer(layerB);
+          disposeJewelPhotoCoreLayer(layerB);
         } else if (morphTwin && !layerB) {
           layerBRoot.dispose();
         }
         if (fgLayerA) {
-          disposeLayer(fgLayerA);
+          disposeJewelPhotoCoreLayer(fgLayerA);
         }
         if (fgLayerB) {
-          disposeLayer(fgLayerB);
+          disposeJewelPhotoCoreLayer(fgLayerB);
         }
         bindShowcaseShellGlow(null);
         pendingMat.dispose();
@@ -464,25 +480,17 @@ export function createJewelCubePhysicsRig(
 
   const holoOptics = attachHoloOpticsToJewelRig(rigPartial, scene);
 
-  const disposeLayer = (layer: JewelPhotoCoreLayer) => {
-    layer.material.dispose(false, false);
-    for (const face of layer.faces) {
-      face.dispose();
-    }
-    layer.root.dispose();
-  };
-
   const dispose = () => {
     aggregate.dispose();
-    disposeLayer(layerA);
+    disposeJewelPhotoCoreLayer(layerA);
     if (layerB && layerB !== layerA) {
-      disposeLayer(layerB);
+      disposeJewelPhotoCoreLayer(layerB);
     }
     if (fgLayerA) {
-      disposeLayer(fgLayerA);
+      disposeJewelPhotoCoreLayer(fgLayerA);
     }
     if (fgLayerB) {
-      disposeLayer(fgLayerB);
+      disposeJewelPhotoCoreLayer(fgLayerB);
     }
     bindShowcaseShellGlow(null);
     shellInner?.dispose();
