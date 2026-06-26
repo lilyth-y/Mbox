@@ -55,6 +55,7 @@
     "export:showcase-mp4:qa": "node scripts/export-showcase-mp4-local.mjs --photos data/showcase-qa-corpus/qa_005_portrait.jpg data/showcase-qa-corpus/qa_021_landscape.jpg data/showcase-qa-corpus/qa_012_square.jpg",
     "export:heart-cube-video": "node scripts/export-heart-cube-video.mjs",
     "export:heart-cube-video:qa": "node scripts/export-heart-cube-video.mjs --photos data/showcase-qa-corpus/qa_005_portrait.jpg data/showcase-qa-corpus/qa_021_landscape.jpg data/showcase-qa-corpus/qa_012_square.jpg",
+    "export:wedding-luxury-video": "node scripts/export-heart-cube-video.mjs",
     "open:showcase-gpu": "node scripts/open-showcase-gpu.mjs",
     "open:local-gpu": "node scripts/open-showcase-gpu.mjs"
   },

@@ -24,10 +24,17 @@ import { chromium } from "playwright";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_PHOTOS = [
-  join(root, "data/showcase-qa-corpus/qa_005_portrait.jpg"),
-  join(root, "data/showcase-qa-corpus/qa_021_landscape.jpg"),
-  join(root, "data/showcase-qa-corpus/qa_012_square.jpg"),
+  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
+  join(root, "data/wedding-sample/wedding_couple_02.jpg"),
+  join(root, "data/wedding-sample/wedding_bride_03.jpg"),
 ];
+
+const DEFAULT_LUXURY_BACKDROP =
+  process.env.MBOX_LUXURY_BACKDROP?.trim() ||
+  "luxury/0_Gold_Rings_Abstract_Background_3840x2160.mov";
+
+const DEFAULT_BGM_PATH =
+  process.env.MBOX_BGM_PATH?.trim() || join(root, "apps/web/public/bgm/romantic-wedding.mp3");
 
 const DEFAULT_SHOWCASE_URL =
   "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html";
@@ -73,10 +80,64 @@ function buildShowcaseUrl(shapeId) {
   url.search = "";
   url.hash = "";
   url.searchParams.set("look", "rose_gold_premium");
-  url.searchParams.set("bg", "solid_black");
+  url.searchParams.set("bg", "booth");
+  url.searchParams.set("backdrop", DEFAULT_LUXURY_BACKDROP);
   url.searchParams.set("noPhysics", "1");
   url.searchParams.set("shape", shapeId);
   return url.toString();
+}
+
+async function waitForExportReady(page, shapeId) {
+  await page.waitForFunction(
+    () => {
+      const btn = [...document.querySelectorAll("button")].find((b) => /MP4/i.test(b.textContent ?? ""));
+      if (!btn || btn.disabled) return false;
+      const video = document.querySelector(
+        ".showcase-viewport-wrap video.showcase-dom-backdrop"
+      );
+      if (video instanceof HTMLVideoElement) {
+        return video.videoWidth > 0 && video.readyState >= 2;
+      }
+      return true;
+    },
+    undefined,
+    { timeout: RECORD_TIMEOUT_MS }
+  );
+  console.log(`[${shapeId}] export ready (scene + luxury backdrop)`);
+}
+
+function muxBgmWithFfmpeg(videoPath, bgmPath, outPath, volume = 0.78) {
+  const duration = ffprobeDuration(videoPath);
+  const fadeOutStart = duration ? Math.max(0, duration - 3) : 0;
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i",
+      videoPath,
+      "-i",
+      bgmPath,
+      "-filter_complex",
+      `[1:a]volume=${volume},afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=3[a]`,
+      "-map",
+      "0:v:0",
+      "-map",
+      "[a]",
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-shortest",
+      outPath,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0) {
+    throw new Error(`ffmpeg BGM mux failed:\n${result.stderr}`);
+  }
+  return outPath;
 }
 
 function ffprobeDuration(file) {
@@ -166,16 +227,9 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   await uploadInput.waitFor({ state: "attached", timeout: 60_000 });
   await uploadInput.setInputFiles(photoPaths);
 
-  await page.waitForFunction(
-    () => {
-      const btn = [...document.querySelectorAll("button")].find((b) => /MP4/i.test(b.textContent ?? ""));
-      return Boolean(btn && !btn.disabled);
-    },
-    undefined,
-    { timeout: RECORD_TIMEOUT_MS }
-  );
+  await waitForExportReady(page, shapeId);
 
-  await page.waitForTimeout(4_000);
+  await page.waitForTimeout(6_000);
 
   const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
   await page.getByRole("button", { name: /MP4/i }).click({ timeout: 60_000 });
@@ -216,6 +270,8 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true });
 
   console.log("Photos:", photoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
+  console.log("Luxury backdrop:", DEFAULT_LUXURY_BACKDROP);
+  console.log("BGM:", DEFAULT_BGM_PATH.replace(/\\/g, "/"));
   console.log("Export size:", EXPORT_SIZE);
   console.log("GL mode:", GL_MODE);
 
@@ -236,24 +292,34 @@ async function main() {
   const tempDir = await mkdtemp(join(tmpdir(), "mbox-heart-cube-"));
   const cubePath = join(tempDir, "cube.mp4");
   const heartPath = join(tempDir, "heart.mp4");
-  const finalPath = join(OUT_DIR, `mbox-heart-cube-${Date.now()}.mp4`);
+  const finalPath = join(OUT_DIR, `mbox-wedding-luxury-heart-cube-${Date.now()}.mp4`);
+  const silentPath = join(OUT_DIR, `mbox-wedding-luxury-heart-cube-silent-${Date.now()}.mp4`);
 
   try {
     const cube = await exportShape(browser, "cube", photoPaths, cubePath);
     const heart = await exportShape(browser, "heart", photoPaths, heartPath);
     await browser.close();
 
-    concatMp4([cubePath, heartPath], finalPath);
+    concatMp4([cubePath, heartPath], silentPath);
+
+    if (!existsSync(DEFAULT_BGM_PATH)) {
+      throw new Error(`BGM not found: ${DEFAULT_BGM_PATH} — run npm run download:commercial-bgm`);
+    }
+    muxBgmWithFfmpeg(silentPath, DEFAULT_BGM_PATH, finalPath);
     const finalDuration = ffprobeDuration(finalPath);
     const finalWxH = ffprobeWxH(finalPath);
     const finalBytes = readFileSync(finalPath).length;
 
     const manifest = {
       createdAt: new Date().toISOString(),
+      style: "wedding_luxury_rose_gold",
       photos: photoPaths,
+      luxuryBackdrop: DEFAULT_LUXURY_BACKDROP,
+      bgm: DEFAULT_BGM_PATH,
       exportSize: EXPORT_SIZE,
       glMode: GL_MODE,
       segments: [cube, heart],
+      silentVideo: silentPath,
       output: {
         path: finalPath,
         bytes: finalBytes,
@@ -265,7 +331,7 @@ async function main() {
     const manifestPath = finalPath.replace(/\.mp4$/i, ".json");
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
-    console.log("\n=== Combined video ===");
+    console.log("\n=== Wedding luxury video (cube + heart + BGM) ===");
     console.log("Output:", finalPath.replace(/\\/g, "/"));
     console.log(
       `Duration: ${finalDuration?.toFixed(1) ?? "?"}s | Size: ${(finalBytes / 1_024 / 1_024).toFixed(1)} MB | ${finalWxH?.width}x${finalWxH?.height}`
