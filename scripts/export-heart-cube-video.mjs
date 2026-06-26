@@ -29,11 +29,9 @@ const DEFAULT_PHOTOS = [
   join(root, "data/showcase-qa-corpus/qa_012_square.jpg"),
 ];
 
-const WEB_BASE = (
-  process.env.MBOX_WEB_URL ??
-  process.env.MBOX_SHOWCASE_URL ??
-  "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html"
-).replace(/\.html.*$/, "").replace(/\/$/, "");
+const DEFAULT_SHOWCASE_URL =
+  "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html";
+
 const OUT_DIR = process.env.MBOX_OUT_DIR
   ? join(root, process.env.MBOX_OUT_DIR)
   : join(root, "scripts", "outputs");
@@ -72,8 +70,22 @@ function imageToDataUrl(filePath) {
   return `data:${mime};base64,${base64}`;
 }
 
+function resolveShowcasePageUrl() {
+  const raw =
+    process.env.MBOX_WEB_URL?.trim() ||
+    process.env.MBOX_SHOWCASE_URL?.trim() ||
+    DEFAULT_SHOWCASE_URL;
+  const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+  if (!url.pathname.endsWith(".html")) {
+    url.pathname = `${url.pathname.replace(/\/?$/, "")}/showcase.html`;
+  }
+  return url;
+}
+
 function buildShowcaseUrl(shapeId) {
-  const url = new URL(`${WEB_BASE}/showcase.html`);
+  const url = resolveShowcasePageUrl();
+  url.search = "";
+  url.hash = "";
   url.searchParams.set("look", "rose_gold_premium");
   url.searchParams.set("bg", "solid_black");
   url.searchParams.set("noPhysics", "1");
