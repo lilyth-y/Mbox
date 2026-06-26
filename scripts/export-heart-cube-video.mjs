@@ -26,7 +26,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_PHOTOS = [
   join(root, "data/wedding-sample/wedding_couple_02.jpg"),
   join(root, "data/wedding-sample/wedding_bride_03.jpg"),
-  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
 ];
 
 const DEFAULT_LUXURY_BACKDROP =
@@ -44,7 +43,7 @@ const DEFAULT_BGM_PATH =
   process.env.MBOX_BGM_PATH?.trim() || join(root, "apps/web/public/bgm/romantic-wedding.mp3");
 
 const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 900_000);
-const EXPORT_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 1080);
+const EXPORT_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 720);
 const GL_MODE = String(process.env.MBOX_GL ?? "swiftshader").trim().toLowerCase();
 
 function parsePhotos(argv) {
@@ -297,7 +296,6 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   await context.addInitScript(
     (payload) => {
       window.__MBOX_E2E_EXPORT__ = true;
-      window.__MBOX_LOCAL_GPU_EXPORT__ = true;
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },

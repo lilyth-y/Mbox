@@ -24,6 +24,7 @@ import {
 import {
   isCloudFastCrystalExport,
   isLocalGpuExportSession,
+  isRenderWorkerExportSession,
   resolveCrystalExportProfile,
 } from "../../shared/lib/renderExportProfile";
 
@@ -242,6 +243,8 @@ export async function exportShowcaseMp4(
   const profile = resolveCrystalExportProfile();
   const cloudFast = profile ? isCloudFastCrystalExport(profile) : false;
   const localGpu = isLocalGpuExportSession();
+  const workerExport = isRenderWorkerExportSession();
+  const usePacedExport = localGpu || workerExport;
   const pipelineConfig: ShowcasePipelineConfig = cloudFast
     ? CLOUD_SHOWCASE_PIPELINE_CONFIG
     : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
@@ -366,7 +369,7 @@ export async function exportShowcaseMp4(
 
       fps: exportFps,
 
-      manualCapture: localGpu,
+      manualCapture: usePacedExport,
 
       fixedCadence: true,
 
@@ -407,10 +410,10 @@ export async function exportShowcaseMp4(
     const contentFrames = Math.ceil((contentMs * exportFps) / 1000);
     const pacedRecordTimeoutMs = Math.max(
       180_000,
-      Math.ceil((contentFrames / exportFps) * 2_500)
+      Math.ceil((contentFrames / exportFps) * (usePacedExport && !localGpu ? 4_500 : 2_500))
     );
 
-    if (localGpu) {
+    if (usePacedExport) {
       composite.beginRecording();
       await handle.recordPacedExportFrames(contentFrames, exportFps);
       await composite.waitForRecordedFrames(contentFrames, pacedRecordTimeoutMs);
