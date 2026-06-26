@@ -35,7 +35,6 @@ import type { ShowcaseBackgroundPreset } from "./babylon/weddingChapelEnvironmen
 import type { ShowcaseCatalogOptions } from "./showcaseCatalogOptions";
 
 import {
-  createShowcaseExportBackdrop,
   isShowcaseExportPreviewBackdropReady,
   resolveLiveShowcaseDomBackdrop,
   resolveShowcasePreviewExportBackdrop,
@@ -254,8 +253,8 @@ export async function exportShowcaseMp4(
   const e2ePaceFps = Number(
     (window as unknown as { __MBOX_E2E_PACE_FPS__?: number }).__MBOX_E2E_PACE_FPS__ ?? 12
   );
-  const useWallClockCapture = e2eExport && !localGpu;
-  const usePacedExport = (localGpu || workerExport) && !fastExport && !e2eExport;
+  const useWallClockCapture = false;
+  const usePacedExport = (localGpu || workerExport) && !fastExport;
   const pipelineConfig: ShowcasePipelineConfig = cloudFast
     ? CLOUD_SHOWCASE_PIPELINE_CONFIG
     : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
@@ -321,14 +320,8 @@ export async function exportShowcaseMp4(
     handle.enterExportCompositeMode(options.catalog);
 
     if (wantsBackdrop && backdropMediaPath) {
-      exportBackdrop = await resolveShowcasePreviewExportBackdrop(backdropMediaPath, backdrop);
-
-      if (!exportBackdrop?.source) {
-        try {
-          exportBackdrop = await createShowcaseExportBackdrop(backdropMediaPath, backdrop);
-        } catch (error) {
-          console.warn("[showcase] export dedicated backdrop failed", error);
-        }
+      if (!e2eExport) {
+        exportBackdrop = await resolveShowcasePreviewExportBackdrop(backdropMediaPath, backdrop);
       }
 
       if (!exportBackdrop?.source) {

@@ -181,17 +181,6 @@ async function waitForExportReady(page, shapeId) {
     { timeout: RECORD_TIMEOUT_MS }
   );
 
-  await page.waitForFunction(
-    () => {
-      const video = document.querySelector(
-        ".showcase-viewport-wrap video.showcase-dom-backdrop"
-      );
-      return video instanceof HTMLVideoElement && video.videoWidth > 0 && video.readyState >= 2;
-    },
-    undefined,
-    { timeout: 90_000 }
-  ).catch(() => undefined);
-
   const backdropLuma = await page.evaluate(() => {
     const video = document.querySelector(
       ".showcase-viewport-wrap video.showcase-dom-backdrop"
@@ -227,7 +216,7 @@ function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
       videoPath,
       "-filter_complex",
       `[0:v]scale=720:720:force_original_aspect_ratio=increase,crop=720:720,trim=duration=${duration.toFixed(3)},setpts=PTS-STARTPTS[bg];` +
-        `[1:v]fps=30,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:vsbmc=1,format=rgba,` +
+        `[1:v]fps=30,format=rgba,` +
         `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':` +
         `a='if(lt(0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y),10),0,255)'[fg];` +
         `[bg][fg]overlay=0:0:format=auto[out]`,
@@ -257,6 +246,12 @@ function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
 
 function smoothVideoFps(videoPath, outPath, targetFps = 30) {
   const duration = ffprobeDuration(videoPath) ?? 30;
+  const info = ffprobeFrameCount(videoPath);
+  const sourceFps = info?.duration && info.frames ? info.frames / info.duration : 0;
+  const filter =
+    sourceFps > 0 && sourceFps < targetFps * 0.6
+      ? `fps=${targetFps}`
+      : `minterpolate=fps=${targetFps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1`;
   const result = spawnSync(
     "ffmpeg",
     [
@@ -264,7 +259,7 @@ function smoothVideoFps(videoPath, outPath, targetFps = 30) {
       "-i",
       videoPath,
       "-vf",
-      `minterpolate=fps=${targetFps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1`,
+      filter,
       "-c:v",
       "libx264",
       "-preset",
@@ -405,11 +400,11 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   await context.addInitScript(
     (payload) => {
       window.__MBOX_E2E_EXPORT__ = true;
-      window.__MBOX_E2E_PACE_FPS__ = payload.paceFps;
+      window.__MBOX_FAST_EXPORT__ = true;
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
-    { exportSize: EXPORT_SIZE, paceFps: Number(process.env.MBOX_E2E_PACE_FPS ?? 12) }
+    { exportSize: EXPORT_SIZE }
   );
 
   const page = await context.newPage();
