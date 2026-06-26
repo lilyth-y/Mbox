@@ -16,7 +16,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -54,20 +54,6 @@ function parsePhotos(argv) {
     }
   }
   return photos.length > 0 ? photos : DEFAULT_PHOTOS;
-}
-
-function imageToDataUrl(filePath) {
-  const abs = resolve(filePath);
-  if (!existsSync(abs)) {
-    throw new Error(`Photo not found: ${abs}`);
-  }
-  const base64 = readFileSync(abs).toString("base64");
-  const mime = abs.toLowerCase().endsWith(".png")
-    ? "image/png"
-    : abs.toLowerCase().endsWith(".webp")
-      ? "image/webp"
-      : "image/jpeg";
-  return `data:${mime};base64,${base64}`;
 }
 
 function resolveShowcasePageUrl() {
