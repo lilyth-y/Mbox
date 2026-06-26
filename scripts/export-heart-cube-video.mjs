@@ -29,7 +29,11 @@ const DEFAULT_PHOTOS = [
   join(root, "data/showcase-qa-corpus/qa_012_square.jpg"),
 ];
 
-const WEB_BASE = (process.env.MBOX_WEB_URL ?? "http://localhost:5173").replace(/\/$/, "");
+const WEB_BASE = (
+  process.env.MBOX_WEB_URL ??
+  process.env.MBOX_SHOWCASE_URL ??
+  "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html"
+).replace(/\.html.*$/, "").replace(/\/$/, "");
 const OUT_DIR = process.env.MBOX_OUT_DIR
   ? join(root, process.env.MBOX_OUT_DIR)
   : join(root, "scripts", "outputs");
@@ -70,8 +74,6 @@ function imageToDataUrl(filePath) {
 
 function buildShowcaseUrl(shapeId) {
   const url = new URL(`${WEB_BASE}/showcase.html`);
-  url.searchParams.set("localOnly", "1");
-  url.searchParams.set("fullGpu", "1");
   url.searchParams.set("look", "rose_gold_premium");
   url.searchParams.set("bg", "solid_black");
   url.searchParams.set("noPhysics", "1");
@@ -120,16 +122,15 @@ function ffprobeWxH(file) {
   return { width, height };
 }
 
-async function exportShape(browser, shapeId, sourceUrls, outPath) {
+async function exportShape(browser, shapeId, photoPaths, outPath) {
   const context = await browser.newContext({ acceptDownloads: true });
   await context.addInitScript(
     (payload) => {
       window.__MBOX_E2E_EXPORT__ = true;
       window.__MBOX_RENDER_BACKEND__ = "local";
-      window.__MBOX_RENDER_JOB_SOURCE_URLS__ = payload.sourceUrls;
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
-    { sourceUrls, exportSize: EXPORT_SIZE }
+    { exportSize: EXPORT_SIZE }
   );
 
   const page = await context.newPage();
@@ -163,18 +164,20 @@ async function exportShape(browser, shapeId, sourceUrls, outPath) {
     throw new Error(`${shapeId}: WebGL unavailable`);
   }
 
+  const uploadInput = page.locator('[data-testid="showcase-photo-upload"]');
+  await uploadInput.waitFor({ state: "attached", timeout: 60_000 });
+  await uploadInput.setInputFiles(photoPaths);
+
   await page.waitForFunction(
     () => {
-      const report = window.__MBOX_SHOWCASE_RESOURCE_REPORT__;
-      const jewelReady = report?.phases?.some((p) => p.phase === "jewel_spawn") ?? false;
       const btn = [...document.querySelectorAll("button")].find((b) => /MP4/i.test(b.textContent ?? ""));
-      return jewelReady && btn && !btn.disabled;
+      return Boolean(btn && !btn.disabled);
     },
     undefined,
-    { timeout: 300_000 }
+    { timeout: RECORD_TIMEOUT_MS }
   );
 
-  await page.waitForTimeout(6_000);
+  await page.waitForTimeout(4_000);
 
   const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
   await page.getByRole("button", { name: /MP4/i }).click({ timeout: 60_000 });
@@ -212,7 +215,6 @@ function concatMp4(segments, outPath) {
 
 async function main() {
   const photoPaths = parsePhotos(process.argv);
-  const sourceUrls = photoPaths.map(imageToDataUrl);
   await mkdir(OUT_DIR, { recursive: true });
 
   console.log("Photos:", photoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
@@ -239,8 +241,8 @@ async function main() {
   const finalPath = join(OUT_DIR, `mbox-heart-cube-${Date.now()}.mp4`);
 
   try {
-    const cube = await exportShape(browser, "cube", sourceUrls, cubePath);
-    const heart = await exportShape(browser, "heart", sourceUrls, heartPath);
+    const cube = await exportShape(browser, "cube", photoPaths, cubePath);
+    const heart = await exportShape(browser, "heart", photoPaths, heartPath);
     await browser.close();
 
     concatMp4([cubePath, heartPath], finalPath);
