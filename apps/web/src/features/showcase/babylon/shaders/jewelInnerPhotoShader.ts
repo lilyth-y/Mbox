@@ -508,7 +508,7 @@ export function getInnerPhotoMaterialOptions(
   const preCropped = rasterSpec.preCroppedToPlate;
   return {
     useAlpha,
-    flipV: 1,
+    flipV: 0,
     frameEnabled: profile.frameEnabled && frame?.enabled !== false,
     cubeBox: frame?.cubeBox ?? isCubeLayout,
     cubeFace: frame?.cubeFace ?? isCubeLayout,

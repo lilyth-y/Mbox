@@ -140,7 +140,7 @@ function normalizePhotoForShowcase(inputPath) {
       "-i",
       inputPath,
       "-vf",
-      "transpose=1,scale=1024:1024:force_original_aspect_ratio=increase,crop=1024:1024",
+      "scale=1024:1024:force_original_aspect_ratio=increase,crop=1024:1024",
       "-q:v",
       "2",
       outPath,
