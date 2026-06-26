@@ -19,7 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const runE2e = process.argv.includes("--run-e2e");
 const jsonOut = process.argv.includes("--json");
 
-const NO_FALL_ORDER = ["reveal", "rotate", "morph", "pull", "ascend"];
+const NO_FALL_ORDER = ["reveal", "rotate", "pull", "ascend"];
 
 const versionsPath = join(
   root,

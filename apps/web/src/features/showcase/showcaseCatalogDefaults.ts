@@ -1,4 +1,5 @@
 import { getShowcasePhotoFrameHex } from "./babylon/showcasePhotoFrameColor";
+import { SHOWCASE_DEFAULT_BACKDROP_PATH } from "./showcaseBackgroundMedia";
 
 import type { ShowcaseCatalogOptions } from "./showcaseCatalogOptions";
 
@@ -8,15 +9,20 @@ export const DEFAULT_SHOWCASE_CATALOG: ShowcaseCatalogOptions = {
   framePresetId: "rose_gold",
   backgroundPreset: "booth",
   backgroundMediaSource: "builtin",
-  backgroundMediaPath: "luxury/0_Background_Black_3840x2160 (1).mp4",
+  backgroundMediaPath: SHOWCASE_DEFAULT_BACKDROP_PATH,
+  backgroundMediaIsVideo: true,
   backgroundMediaOpacity: 1,
-  backgroundLightInfluence: 0.82,
+  backgroundLightInfluence: 0.68,
   photoFrameColorHex: getShowcasePhotoFrameHex("rose_gold"),
   crystalShellColorHex: "#c8e8ff",
-  crystalBackdropBlend: 0.88,
-  crystalShellTransparency: 0.78,
-  crystalPhotoClarity: 0.88,
-  crystalGloss: 0.84,
+  crystalBackdropBlend: 0.72,
+  crystalShellTransparency: 0.94,
+  crystalPhotoClarity: 0,
+  crystalGloss: 0.72,
   crystalSizeScale: 1,
   groundEnabled: false,
+  bgmEnabled: false,
+  bgmTrackId: "cinematic_romantic",
+  bgmVolume: 0.85,
+  bgmWorkspacePath: null,
 };

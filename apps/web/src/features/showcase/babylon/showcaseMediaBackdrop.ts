@@ -32,7 +32,7 @@ const BACKDROP_DISTANCE = 72;
 const SAMPLE_INTERVAL_MS = 480;
 const ENV_REBUILD_MIN_MS = 2000;
 const SAMPLE_WIDTH = 40;
-const SAMPLE_HEIGHT = 24;
+const SAMPLE_HEIGHT = 40;
 const ENV_MAP_SIZE = 512;
 
 export type ShowcaseMediaBackdropOptions = {
@@ -94,7 +94,8 @@ function quantizeSampleKey(sample: ReturnType<typeof sampleShowcaseBackdropColor
   if (!sample) {
     return "";
   }
-  const q = (value: number) => (Math.round(value * 10) / 10).toFixed(2);
+  const q = (value: number | undefined) =>
+    Number.isFinite(value) ? (Math.round(value! * 10) / 10).toFixed(2) : "0.00";
   return [
     classifyCrystalHarmonyProfile(sample),
     q(sample.average.r),
@@ -231,12 +232,22 @@ export async function createShowcaseMediaBackdrop(
       return;
     }
 
-    const sample = sampleShowcaseBackdropColors(sampleSource, SAMPLE_WIDTH, SAMPLE_HEIGHT);
+    let sample: ReturnType<typeof sampleShowcaseBackdropColors>;
+    try {
+      sample = sampleShowcaseBackdropColors(sampleSource, SAMPLE_WIDTH, SAMPLE_HEIGHT);
+    } catch {
+      return;
+    }
     if (!sample) {
       return;
     }
 
-    const tuning = computeCrystalHarmonyTuning(sample, influence);
+    let tuning: ReturnType<typeof computeCrystalHarmonyTuning>;
+    try {
+      tuning = computeCrystalHarmonyTuning(sample, influence);
+    } catch {
+      return;
+    }
     setShowcaseBackgroundLightingState({
       sample,
       influence,

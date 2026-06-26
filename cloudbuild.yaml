@@ -26,7 +26,13 @@ substitutions:
   _VITE_WORKSPACE_ID: "default"
   # Cloud vault: images in GCS (cross-device). Requires GCS_VAULT_BUCKET on API + bucket IAM for Cloud Run SA.
   _VITE_USE_SERVER_VAULT: "true"
+  _VITE_RENDER_BACKEND: "cloud"
   _GCS_VAULT_BUCKET: "mbox-vault-newmedia-496107"
+  _WEB_PUBLIC_URL: "https://mbox-web-newmedia-496107.storage.googleapis.com"
+  _RENDER_WORKER_SERVICE: mbox-render-worker
+  # 0 = scale to zero when idle (no warm worker bill). Raise only for cloud MP4 export.
+  _RENDER_WORKER_MIN_INSTANCES: "0"
+  _RENDER_WORKER_MAX_INSTANCES: "1"
   # One-time: create bucket + grant Cloud Run SA roles/storage.objectAdmin on it.
   _VITE_LOCALHOST_DEMO: "false"
   _VITE_ENABLE_DEV_ASSET_BATCH: "false"
@@ -46,6 +52,7 @@ steps:
       - "VITE_API_BASE_URL=${_VITE_API_BASE_URL}"
       - "VITE_WORKSPACE_ID=${_VITE_WORKSPACE_ID}"
       - "VITE_USE_SERVER_VAULT=${_VITE_USE_SERVER_VAULT}"
+      - "VITE_RENDER_BACKEND=${_VITE_RENDER_BACKEND}"
       - "VITE_LOCALHOST_DEMO=${_VITE_LOCALHOST_DEMO}"
       - "VITE_ENABLE_DEV_ASSET_BATCH=${_VITE_ENABLE_DEV_ASSET_BATCH}"
     entrypoint: bash
@@ -87,14 +94,31 @@ steps:
           exit 0
         fi
         gcloud storage rsync --recursive "apps/web/dist" "gs://${_WEB_BUCKET}/"
-        gcloud storage cp "apps/web/dist/index.html" "gs://${_WEB_BUCKET}/index.html" \
-          --cache-control="no-cache, must-revalidate"
+        for page in index.html showcase.html wedding-simple.html studio.html cube-render.html; do
+          if [[ -f "apps/web/dist/$$page" ]]; then
+            gcloud storage cp "apps/web/dist/$$page" "gs://${_WEB_BUCKET}/$$page" \
+              --cache-control="no-cache, must-revalidate"
+          fi
+        done
         if [[ -d data/background ]]; then
           echo "Syncing data/background → gs://${_WEB_BUCKET}/backgrounds/"
           gcloud storage rsync --recursive "data/background" "gs://${_WEB_BUCKET}/backgrounds/"
         else
           echo "WARN: data/background missing in build context — run npm run sync:backgrounds:gcs or ensure .gcloudignore allows data/background."
         fi
+
+  - id: render-worker-image
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["web-build"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        img="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/render-worker"
+        docker build -f apps/render-worker/Dockerfile -t "$$img:${BUILD_ID}" -t "$$img:latest" .
+        docker push "$$img:${BUILD_ID}"
+        docker push "$$img:latest"
 
   - id: api-deploy
     name: gcr.io/cloud-builders/gcloud
@@ -145,3 +169,26 @@ steps:
             echo "WARN: Could not set run.invoker for allUsers (org policy or IAM). If /health returns 403, run add-iam-policy-binding as project owner."
             exit 0
           }
+
+  - id: render-worker-deploy
+    name: gcr.io/cloud-builders/gcloud
+    waitFor: ["render-worker-image", "api-deploy"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        img="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/render-worker:${BUILD_ID}"
+        gcloud run deploy "${_RENDER_WORKER_SERVICE}" \
+          --image="$$img" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --timeout=900 \
+          --cpu=4 \
+          --memory=8Gi \
+          --min-instances="${_RENDER_WORKER_MIN_INSTANCES}" \
+          --max-instances="${_RENDER_WORKER_MAX_INSTANCES}" \
+          --cpu-throttling \
+          --no-allow-unauthenticated \
+          --set-env-vars="^;^GCS_VAULT_BUCKET=${_GCS_VAULT_BUCKET};VITE_API_BASE_URL=${_VITE_API_BASE_URL};MBOX_WEB_BASE_URL=${_WEB_PUBLIC_URL};RENDER_WORKER_POLL_MS=5000;MBOX_RECORD_TIMEOUT_MS=600000" \
+          --set-secrets="API_KEY=${_API_KEY_SECRET}:latest"

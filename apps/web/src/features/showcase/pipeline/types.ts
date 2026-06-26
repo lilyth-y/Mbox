@@ -7,40 +7,30 @@ import type { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { JewelCubePhysicsRig } from "../babylon/jewelCubeFactory";
 import type { ShowcaseCatalogOptions } from "../showcaseCatalogOptions";
+import type {
+  PresentationSpinDirection,
+  ShowcasePresentationPreferences,
+} from "./showcasePresentationPreferences";
 import {
-  DEFAULT_FALL_DROP_HEIGHT,
   JEWEL_CUBE_HALF_EXTENT,
 } from "./pipelineOrder";
 
-/** Ordered showcase process stages. */
-export type ShowcasePipelineStageId =
-  | "reveal"
-  | "rotate"
-  | "fall"
-  | "bounce"
-  | "pull"
-  | "ascend"
-  | "morph"
-  | "swap";
+/** Ordered showcase process stages (rotation-only). */
+export type ShowcasePipelineStageId = "reveal" | "rotate" | "pull" | "ascend";
 
 export const SHOWCASE_PIPELINE_STAGE_ORDER: ShowcasePipelineStageId[] = [
   "reveal",
   "rotate",
-  "fall",
-  "bounce",
   "pull",
   "ascend",
-  "morph",
-  "swap",
 ];
 
-/** Default pipeline when fall physics is on. */
+/** Default pipeline — rotation showcase (no Havok fall). */
 export const ACTIVE_SHOWCASE_PIPELINE: ShowcasePipelineStageId[] = [
   "reveal",
   "rotate",
-  "fall",
-  "bounce",
-  "morph",
+  "pull",
+  "ascend",
 ];
 
 export interface ShowcasePipelineConfig {
@@ -51,12 +41,6 @@ export interface ShowcasePipelineConfig {
   rotateDurationMs: number;
   rotateSpeedY: number;
   showcaseCameraRadius: number;
-  /** Meters above `showcaseCenter.y` before release (scaled to cube size). */
-  fallDropHeight: number;
-  fallMaxMs: number;
-  settleLinearThreshold: number;
-  settleAngularThreshold: number;
-  settleHoldMs: number;
   morphDurationMs: number;
   /** Front-on camera orbit angle (radians). */
   showcaseCameraAlpha: number;
@@ -117,11 +101,6 @@ export const DEFAULT_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   rotateDurationMs: 3_400,
   rotateSpeedY: 0.9,
   showcaseCameraRadius: 3.2,
-  fallDropHeight: DEFAULT_FALL_DROP_HEIGHT,
-  fallMaxMs: 3_200,
-  settleLinearThreshold: 0.22,
-  settleAngularThreshold: 0.85,
-  settleHoldMs: 280,
   morphDurationMs: 2_200,
   showcaseCameraAlpha: -Math.PI / 2,
   showcaseCameraBeta: 1.46,
@@ -138,7 +117,7 @@ export const DEFAULT_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   presentationYawRadians: 0,
   cameraFramingFill: 0.82,
   cameraBounceFramingFill: 0.72,
-  cameraTargetSmoothMs: 240,
+  cameraTargetSmoothMs: 200,
   cameraFallSmoothMs: 150,
   cameraFallBetaGround: 1.28,
   cameraBounceBetaGround: 1.32,
@@ -155,6 +134,19 @@ export const DEFAULT_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   viewerEyeHeightY: 1.58,
   minAerialCenterY: 1.05,
   aerialMotionMode: "fixed",
+};
+
+/** Shorter stage timings for cloud worker exports (same choreography, less wall time). */
+export const CLOUD_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
+  ...DEFAULT_SHOWCASE_PIPELINE_CONFIG,
+  showcaseCenter: DEFAULT_SHOWCASE_PIPELINE_CONFIG.showcaseCenter.clone(),
+  revealHoldMs: 300,
+  rotateDurationMs: 2_200,
+  morphDurationMs: 1_400,
+  pullSpinLeadMs: 900,
+  pullDurationMs: 2_200,
+  pullHoldMs: 600,
+  pullReturnMs: 2_200,
 };
 
 export type ShowcaseStageStatus = "continue" | "complete";
@@ -179,10 +171,16 @@ export interface ShowcaseStageContext {
   totalElapsedMs: number;
   stageId: ShowcasePipelineStageId;
   spinSign: 1 | -1;
+  spinDirection: PresentationSpinDirection;
   /** True while MP4 capture is running (deterministic physics). */
   exportRecording: boolean;
   /** Per-stage scratch (enter/tick/exit). */
   stageState: Record<string, unknown>;
+  /** Signed Y angular velocity (rad/s) — continuous across presentation stages. */
+  spinOmegaY: number;
+  /** Completed ascend cycles — used to skip reveal on loop. */
+  presentationCycle: number;
+  presentationPrefs: ShowcasePresentationPreferences;
 }
 
 export interface ShowcasePipelineStage {

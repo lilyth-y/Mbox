@@ -1,5 +1,12 @@
-import type { CubeBackgroundPlateTheme } from "./cubePresentationDefaults.js";
 import type { CubeBgmTrackId } from "./cube-export.js";
+
+/** Background plate themes for media presentation KPI presets. */
+export type CubeBackgroundPlateTheme =
+  | "original"
+  | "original_blurred"
+  | "classic_hall"
+  | "romantic_garden"
+  | "starry_night";
 
 /** Visual busy-ness scale: 0 = minimal, 10 = very heavy. */
 export const KPI_MEDIA_BUSY_WARN_THRESHOLD = 6;

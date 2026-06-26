@@ -14,9 +14,9 @@ function resolveLayout(
 }
 
 /** Long edge for jewel photo textures — originals are often 2K+. */
-export const JEWEL_PHOTO_TEXTURE_MAX_EDGE = 1536;
+export const JEWEL_PHOTO_TEXTURE_MAX_EDGE = 2048;
 
-export const JEWEL_PHOTO_CUBE_TEXTURE_SIZE = 1024;
+export const JEWEL_PHOTO_CUBE_TEXTURE_SIZE = 1536;
 
 export type JewelPhotoRasterSpec = {
   layout: "cube" | "portrait";
@@ -26,26 +26,31 @@ export type JewelPhotoRasterSpec = {
   preCroppedToPlate: boolean;
 };
 
+export type JewelPhotoRasterBudget = {
+  textureMaxEdge?: number;
+  cubeTextureSize?: number;
+};
+
 export function resolveJewelPhotoRasterSpec(
   shapeId: PhotoCrystalShapeId,
-  photoLayout: PhotoCrystalPhotoLayoutId = "auto"
+  photoLayout: PhotoCrystalPhotoLayoutId = "auto",
+  budget?: JewelPhotoRasterBudget
 ): JewelPhotoRasterSpec {
   const layout = resolveLayout(shapeId, photoLayout);
+  const maxEdge = budget?.textureMaxEdge ?? JEWEL_PHOTO_TEXTURE_MAX_EDGE;
+  const cubeSize = budget?.cubeTextureSize ?? JEWEL_PHOTO_CUBE_TEXTURE_SIZE;
 
   if (layout === "cube") {
-    const size = JEWEL_PHOTO_CUBE_TEXTURE_SIZE;
-    return { layout, width: size, height: size, preCroppedToPlate: false };
+    return { layout, width: cubeSize, height: cubeSize, preCroppedToPlate: false };
   }
 
   // Sphere disc mesh — square raster, not portrait aspect crop.
   if (shapeId === "sphere") {
-    const size = JEWEL_PHOTO_TEXTURE_MAX_EDGE;
-    return { layout, width: size, height: size, preCroppedToPlate: true };
+    return { layout, width: maxEdge, height: maxEdge, preCroppedToPlate: true };
   }
 
   const plate = computePhotoCrystalPortraitLayout(shapeId);
   const aspect = Math.max(plate.width / Math.max(plate.height, 0.001), 0.35);
-  const maxEdge = JEWEL_PHOTO_TEXTURE_MAX_EDGE;
 
   if (aspect >= 1) {
     const width = maxEdge;
@@ -61,10 +66,11 @@ export function resolveJewelPhotoRasterSpec(
 export function resolveJewelPhotoRasterCacheKey(
   imageUrl: string,
   shapeId: PhotoCrystalShapeId,
-  photoLayout: PhotoCrystalPhotoLayoutId = "auto"
+  photoLayout: PhotoCrystalPhotoLayoutId = "auto",
+  budget?: JewelPhotoRasterBudget
 ): string {
   const layout = resolveLayout(shapeId, photoLayout);
-  const spec = resolveJewelPhotoRasterSpec(shapeId, photoLayout);
+  const spec = resolveJewelPhotoRasterSpec(shapeId, photoLayout, budget);
   return `${imageUrl}@${shapeId}@${layout}@${spec.width}x${spec.height}`;
 }
 

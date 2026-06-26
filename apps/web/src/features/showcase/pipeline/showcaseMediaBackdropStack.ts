@@ -34,7 +34,7 @@ export function tickShowcaseMediaBackdrop(
 
 /** @deprecated */
 export function resizeShowcaseMediaBackdrop(): void {
-  /* DOM backdrop resizes with CSS object-fit: cover */
+  /* DOM backdrop resizes with CSS object-fit: cover in the 1:1 viewport */
 }
 
 /** @deprecated use disposeShowcaseBackdropLightingBinding */

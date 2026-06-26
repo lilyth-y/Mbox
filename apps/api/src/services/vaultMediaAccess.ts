@@ -21,7 +21,10 @@ function timingSafeEqualStr(left: string, right: string): boolean {
 }
 
 export function assertSafeVaultObjectPath(objectPath: string): void {
-  if (!objectPath.startsWith("workspaces/") || objectPath.includes("..")) {
+  const allowed =
+    (objectPath.startsWith("workspaces/") || objectPath.startsWith("renders/")) &&
+    !objectPath.includes("..");
+  if (!allowed) {
     throw new Error("Invalid vault object path.");
   }
 }

@@ -1,0 +1,18 @@
+{
+  "sessionId": "YYYY-MM-DD-venue-block1",
+  "condition": "A",
+  "venue": "",
+  "eventDate": "",
+  "blockStartLocal": "",
+  "blockEndLocal": "",
+  "mp4File": "",
+  "mp4ExportedAt": "",
+  "display": {
+    "device": "",
+    "brightness": "",
+    "volume": ""
+  },
+  "guestsSurveyed": 0,
+  "guestsDeclined": 0,
+  "operatorNotes": ""
+}

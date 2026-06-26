@@ -1,0 +1,117 @@
+{
+  "masterKpi": "commercial_gate_pass_rate (PASS gates / measured gates)",
+  "masterTarget": 1,
+  "masterMeasured": 0.875,
+  "masterResult": "FAIL",
+  "masterGap": "Δtarget=0.1250 (7/8 gates PASS)",
+  "currentBottleneck": "booth_aspects",
+  "measurements": [
+    {
+      "id": "stage_rc",
+      "labelKo": "스테이지 maturity ≥ rc",
+      "kpi": "active_pipeline_stages_at_rc_or_above / active_pipeline_stage_count",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000",
+      "notes": "5/5 stages ≥ rc"
+    },
+    {
+      "id": "stage_commercial",
+      "labelKo": "스테이지 maturity ≥ commercial",
+      "kpi": "active_pipeline_stages_at_commercial_or_above / active_pipeline_stage_count",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000",
+      "notes": "5/5 stages ≥ commercial"
+    },
+    {
+      "id": "presets",
+      "labelKo": "판매 룩 프리셋",
+      "kpi": "commercial_look_preset_count",
+      "target": 3,
+      "theoreticalBest": 3,
+      "unit": "count",
+      "measured": 3,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000",
+      "notes": "3 presets"
+    },
+    {
+      "id": "wysiwyg_export",
+      "labelKo": "1080 WYSIWYG export",
+      "kpi": "e2e_export_wysiwyg_passed (binary 1/0)",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000"
+    },
+    {
+      "id": "photo_corpus",
+      "labelKo": "QA 코퍼스 100장",
+      "kpi": "showcase_qa_corpus_image_count",
+      "target": 100,
+      "theoreticalBest": 100,
+      "unit": "count",
+      "measured": 100,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000"
+    },
+    {
+      "id": "photo_batch_100",
+      "labelKo": "100장 전시 합격률",
+      "kpi": "preset_only_pass_count / 100 on fixed corpus",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": null,
+      "result": "SKIP",
+      "gap": "not measured",
+      "notes": "waived — export SHOWCASE_PHOTO_BATCH_REQUIRED=1 to enforce"
+    },
+    {
+      "id": "motion_smooth",
+      "labelKo": "모션 zero-defect (스냅·등속· jerk)",
+      "kpi": "1 - (active_stage_known_motion_issues / active_stage_count)",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000",
+      "notes": "no known motion issues"
+    },
+    {
+      "id": "shapes_validated",
+      "labelKo": "형상별 베스트샷 검증",
+      "kpi": "shapes_with_acceptance_tests / catalog_shape_count",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000",
+      "notes": "6/6"
+    },
+    {
+      "id": "booth_aspects",
+      "labelKo": "부스 종횡비 템플릿 (1:1·9:16·16:9)",
+      "kpi": "validated_export_aspect_templates / 3",
+      "target": 1,
+      "theoreticalBest": 1,
+      "unit": "ratio",
+      "measured": 0.3333333333333333,
+      "result": "FAIL",
+      "gap": "Δtarget=0.6667, Δbest=0.6667",
+      "notes": "1/3 aspects"
+    }
+  ],
+  "attemptLogHint": "Change ONE variable per /goal attempt; re-run: npm run verify:showcase-commercial"
+}

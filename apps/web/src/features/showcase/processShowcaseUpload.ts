@@ -5,6 +5,8 @@ import { processUploadedImages } from "../processing/processImage";
 import { applyBackgroundRemovalBatch } from "../processing/applyBackgroundRemoval";
 
 import { processShowcaseQuickUpload } from "./processShowcaseQuickUpload";
+import { isShowcaseAutomationSession } from "./showcaseAutomation";
+import { isLocalGpuSession } from "../../shared/lib/gpuSession";
 
 
 
@@ -34,12 +36,21 @@ export type ProcessShowcaseUploadResult = {
 
 
 
-/** Cloud Run `/analyze` unless VITE_SHOWCASE_LOCAL_ONLY=true. */
-
+/** Cloud Run `/analyze` — off on localhost / localOnly / VITE_SHOWCASE_LOCAL_ONLY. */
 export function shouldTryCloudAnalyze(): boolean {
-
+  if (isLocalGpuSession()) {
+    return false;
+  }
+  if (typeof window !== "undefined") {
+    const search = new URLSearchParams(window.location.search);
+    if (search.get("localOnly") === "1") {
+      return false;
+    }
+  }
+  if (isShowcaseAutomationSession()) {
+    return false;
+  }
   return import.meta.env.VITE_SHOWCASE_LOCAL_ONLY !== "true";
-
 }
 
 

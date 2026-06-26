@@ -386,7 +386,10 @@ export async function createJewelPhotoTexture(
 
   const shapeId = resolved.shapeId ?? "cube";
 
-  const spec = resolveJewelPhotoRasterSpec(shapeId, resolved.photoLayout);
+  const spec = resolveJewelPhotoRasterSpec(shapeId, resolved.photoLayout, {
+    textureMaxEdge: resolved.textureMaxEdge,
+    cubeTextureSize: resolved.cubeTextureSize,
+  });
 
   const maxAnisotropy = resolved.maxAnisotropy ?? 16;
 
@@ -408,7 +411,10 @@ export async function createJewelPhotoTexture(
 
   if (resolved.preserveAlphaSource && isTransparentMatteDataUrl(imageUrl)) {
 
-    const sq = spec.layout === "cube" ? spec.width : JEWEL_PHOTO_TEXTURE_MAX_EDGE;
+    const sq =
+      spec.layout === "cube"
+        ? spec.width
+        : (resolved.textureMaxEdge ?? JEWEL_PHOTO_TEXTURE_MAX_EDGE);
 
     outWidth = sq;
 

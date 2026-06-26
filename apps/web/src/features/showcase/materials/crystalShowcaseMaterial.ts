@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { configurePresentationTexture } from "../../cube/presentationTextures";
+import { configurePresentationTexture } from "../babylon/configurePresentationTexture";
 import { CRYSTAL_FRAME_GLSL } from "./crystalFrameGlsl";
 
 const vertexShader = `

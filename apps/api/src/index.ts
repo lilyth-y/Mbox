@@ -9,6 +9,7 @@ import {
 import { apiKeyAuth } from "./middleware/apiKeyAuth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { routesRouter } from "./routes/index.js";
+import { renderRouter } from "./routes/render.js";
 
 dotenv.config();
 
@@ -71,6 +72,7 @@ app.use(express.json({ limit: process.env.API_JSON_LIMIT ?? "64mb" }));
 app.use(apiKeyAuth);
 app.use(rateLimit);
 app.use(routesRouter);
+app.use("/render", renderRouter);
 
 app.listen(port, host, () => {
   console.log(`mbox API listening on http://${host}:${port}`);

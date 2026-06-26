@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { configurePresentationTexture } from "../../cube/presentationTextures";
+import { configurePresentationTexture } from "../babylon/configurePresentationTexture";
 
 /** Photo suspended inside the crystal volume (like laser-etched paperweight). */
 export function createInnerPhotoMaterial(texture: THREE.Texture): THREE.MeshBasicMaterial {

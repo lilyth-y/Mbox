@@ -41,7 +41,7 @@ export function applyInnerPhotoTextures(
   material.specularColor = new Color3(0, 0, 0);
   material.ambientColor = new Color3(0, 0, 0);
   material.disableLighting = true;
-  material.backFaceCulling = false;
+  material.backFaceCulling = true;
   if (useAlpha) {
     material.diffuseTexture = photoTexture;
     material.useAlphaFromDiffuseTexture = true;

@@ -13,6 +13,7 @@ import { createJewelPhotoTexture } from "./photoTextureRaster";
 import type { JewelPhotoCropMeta, JewelPhotoTextureOptions } from "./jewelPhotoTextureTypes";
 
 import { resolveJewelPhotoRasterCacheKey } from "./jewelPhotoRasterSpec";
+import { gpuSpreadFrameGap, waitGpuFrames } from "./showcaseGpuLoadScheduler";
 
 
 
@@ -36,13 +37,29 @@ export type HoloRasterProfile = {
 
   photoLayout: PhotoCrystalPhotoLayoutId;
 
+  textureMaxEdge?: number;
+
+  cubeTextureSize?: number;
+
 };
 
 
 
+function rasterBudget(profile: HoloRasterProfile) {
+  return {
+    textureMaxEdge: profile.textureMaxEdge,
+    cubeTextureSize: profile.cubeTextureSize,
+  };
+}
+
 function imageCacheKey(image: ProcessedImage, profile: HoloRasterProfile): string {
 
-  return resolveJewelPhotoRasterCacheKey(image.url, profile.shapeId, profile.photoLayout);
+  return resolveJewelPhotoRasterCacheKey(
+    image.url,
+    profile.shapeId,
+    profile.photoLayout,
+    rasterBudget(profile)
+  );
 
 }
 
@@ -85,6 +102,10 @@ function rasterOptions(
     crop: cropMetaFromImage(image),
 
     maxAnisotropy,
+
+    textureMaxEdge: profile.textureMaxEdge,
+
+    cubeTextureSize: profile.cubeTextureSize,
 
     preserveAlphaSource,
 
@@ -151,7 +172,9 @@ export async function preloadHoloContentTextures(
 
   profile: HoloRasterProfile,
 
-  maxAnisotropy = 16
+  maxAnisotropy = 16,
+
+  options?: { sequential?: boolean; immediateCount?: number }
 
 ): Promise<Map<string, HoloContentTextures>> {
 
@@ -163,24 +186,52 @@ export async function preloadHoloContentTextures(
 
   }
 
+  const entries = [...unique.entries()];
+  const immediateCount = Math.max(1, options?.immediateCount ?? entries.length);
+  const immediate = entries.slice(0, immediateCount);
+  const deferred = entries.slice(immediateCount);
 
+  const map = new Map<string, HoloContentTextures>();
+  const gap = gpuSpreadFrameGap();
+  const loadEntry = async ([key, image]: readonly [string, ProcessedImage]) => {
+    const entry = await loadHoloContentEntry(scene, image, profile, maxAnisotropy);
+    map.set(key, entry);
+  };
 
-  const entries = await Promise.all(
+  if (options?.sequential || deferred.length > 0) {
+    for (const item of immediate) {
+      await loadEntry(item);
+      await waitGpuFrames(gap);
+    }
+    return map;
+  }
 
-    [...unique.entries()].map(async ([key, image]) => {
+  await Promise.all(immediate.map(loadEntry));
+  return map;
+}
 
-      const entry = await loadHoloContentEntry(scene, image, profile, maxAnisotropy);
-
-      return [key, entry] as const;
-
-    })
-
-  );
-
-
-
-  return new Map(entries);
-
+/** Spread remaining photo textures across frames after first jewel is visible. */
+export async function prefetchDeferredHoloContentTextures(
+  scene: Scene,
+  images: ProcessedImage[],
+  profile: HoloRasterProfile,
+  cache: Map<string, HoloContentTextures>,
+  maxAnisotropy = 16,
+  skipCount = 1
+): Promise<void> {
+  const unique = new Map<string, ProcessedImage>();
+  for (const image of images) {
+    unique.set(imageCacheKey(image, profile), image);
+  }
+  const entries = [...unique.entries()].slice(skipCount);
+  const gap = gpuSpreadFrameGap();
+  for (const [key, image] of entries) {
+    if (cache.has(key)) {
+      continue;
+    }
+    cache.set(key, await loadHoloContentEntry(scene, image, profile, maxAnisotropy));
+    await waitGpuFrames(gap);
+  }
 }
 
 
@@ -193,7 +244,12 @@ export function resolveHoloContentCacheKey(
 
 ): string {
 
-  return resolveJewelPhotoRasterCacheKey(sourceUrl, profile.shapeId, profile.photoLayout);
+  return resolveJewelPhotoRasterCacheKey(
+    sourceUrl,
+    profile.shapeId,
+    profile.photoLayout,
+    rasterBudget(profile)
+  );
 
 }
 

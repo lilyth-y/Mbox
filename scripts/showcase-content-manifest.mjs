@@ -19,8 +19,8 @@ const presetsPath = join(root, "packages/shared/src/showcaseCommercialPresets.ts
 
 const fallPhysics = process.argv.includes("--fall");
 
-const NO_FALL_ORDER = ["reveal", "rotate", "morph", "pull", "ascend"];
-const FALL_ORDER = ["reveal", "rotate", "fall", "bounce", "morph", "pull", "ascend"];
+const NO_FALL_ORDER = ["reveal", "rotate", "pull", "ascend"];
+const FALL_ORDER = ["reveal", "fall", "bounce", "rotate", "pull", "ascend"];
 const order = fallPhysics ? FALL_ORDER : NO_FALL_ORDER;
 
 const versionsSrc = readFileSync(versionsPath, "utf8");

@@ -11,7 +11,7 @@ function clamp01(value: number): number {
 export function sampleShowcaseBackdropColors(
   source: CanvasImageSource,
   width = 48,
-  height = 27
+  height = 48
 ): ShowcaseBackdropSample | null {
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -22,7 +22,9 @@ export function sampleShowcaseBackdropColors(
   }
 
   try {
-    ctx.drawImage(source, 0, 0, width, height);
+    if (!drawCanvasImageSourceCover(ctx, source, width, height)) {
+      return null;
+    }
   } catch {
     return null;
   }
@@ -64,7 +66,7 @@ export function sampleShowcaseBackdropColors(
   };
 }
 
-import { computeBackdropCoverTransform } from "./showcaseBackdropCover";
+import { computeBackdropCoverTransform, drawCanvasImageSourceCover } from "./showcaseBackdropCover";
 
 function readMediaDimensions(source: CanvasImageSource, fallbackW: number, fallbackH: number) {
   if (source instanceof HTMLVideoElement) {
@@ -97,13 +99,13 @@ export function drawMediaEnvPanoramaFrame(
   const { width: mediaWidth, height: mediaHeight } = readMediaDimensions(source, width, height);
   const mediaAspect = mediaWidth / Math.max(mediaHeight, 1);
   const panoAspect = width / Math.max(height, 1);
-  const cover = computeBackdropCoverTransform(mediaAspect, panoAspect);
+  const fit = computeBackdropCoverTransform(mediaAspect, panoAspect);
 
   try {
-    const drawWidth = width / Math.max(cover.uScale, 0.001);
-    const drawHeight = height / Math.max(cover.vScale, 0.001);
-    const sx = -cover.uOffset * drawWidth;
-    const sy = -cover.vOffset * drawHeight;
+    const drawWidth = width / Math.max(fit.uScale, 0.001);
+    const drawHeight = height / Math.max(fit.vScale, 0.001);
+    const sx = -fit.uOffset * drawWidth;
+    const sy = -fit.vOffset * drawHeight;
 
     if (blendAlpha >= 0.999) {
       ctx.clearRect(0, 0, width, height);
@@ -148,13 +150,13 @@ export function buildShowcaseEnvPanoramaFromMedia(
 
   const mediaAspect = mediaWidth / Math.max(mediaHeight, 1);
   const panoAspect = width / Math.max(height, 1);
-  const cover = computeBackdropCoverTransform(mediaAspect, panoAspect);
+  const fit = computeBackdropCoverTransform(mediaAspect, panoAspect);
 
   try {
-    const drawWidth = width / Math.max(cover.uScale, 0.001);
-    const drawHeight = height / Math.max(cover.vScale, 0.001);
-    const sx = -cover.uOffset * drawWidth;
-    const sy = -cover.vOffset * drawHeight;
+    const drawWidth = width / Math.max(fit.uScale, 0.001);
+    const drawHeight = height / Math.max(fit.vScale, 0.001);
+    const sx = -fit.uOffset * drawWidth;
+    const sy = -fit.vOffset * drawHeight;
     ctx.drawImage(source, sx, sy, drawWidth, drawHeight);
   } catch {
     return "";

@@ -17,8 +17,9 @@ import {
 } from "./jewelInnerPhotoMaterial";
 import {
   computeInnerPhotoMeshPose,
-  createInnerPhotoCubeMesh,
-  createInnerPhotoHeartDualMeshes,
+  createInnerPhotoCubeFaceMeshes,
+  getCubePhotoCavityMetrics,
+  createInnerPhotoHeartTableMeshes,
   createInnerPhotoPortraitDualPlateMeshes,
   createInnerPhotoSphereDualDiscMeshes,
   getSphereInnerPhotoDiscMetrics,
@@ -108,7 +109,7 @@ function createInnerPhotoMeshLayer(
     heartScale: shapeId === "heart" ? getHeartTablePhotoRadius(shapeId) : undefined,
     circleMask: shapeId === "sphere",
     ...(layout === "cube"
-      ? { photoAspect: 1, photoViewportFill: 1, cubeFace: true }
+      ? { photoAspect: 1, photoViewportFill: 1, cubeFace: true, cubeBox: false }
       : {
           photoAspect: shapeSpec.portraitAspect,
           photoViewportFill: photoProfile.photoViewportFill,
@@ -119,13 +120,22 @@ function createInnerPhotoMeshLayer(
   const faces: Mesh[] = [];
 
   if (layout === "cube") {
-    const box = createInnerPhotoCubeMesh(scene, `${name}-inner-cube`, pose.size);
-    box.parent = root;
-    box.material = material;
-    faces.push(box);
+    const { edgeSize, faceHalf } = getCubePhotoCavityMetrics(shapeId);
+    const cubeFaces = createInnerPhotoCubeFaceMeshes(
+      scene,
+      `${name}-inner`,
+      edgeSize,
+      root,
+      0,
+      faceHalf
+    );
+    for (const face of cubeFaces) {
+      face.material = material;
+      faces.push(face);
+    }
   } else if (shapeId === "heart") {
     const tableRadius = getHeartTablePhotoRadius(shapeId);
-    const heartFaces = createInnerPhotoHeartDualMeshes(
+    const heartFaces = createInnerPhotoHeartTableMeshes(
       scene,
       `${name}-heart`,
       tableRadius,

@@ -2,7 +2,11 @@ import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { EngineStore } from "@babylonjs/core/Engines/engineStore";
 import { isShowcaseAutomationSession } from "../showcaseAutomation";
-import { isLocalGpuExportSession } from "../../../shared/lib/renderExportProfile";
+import {
+  isEmbeddedIdeShell,
+  isGpuSafeMode,
+  isLocalGpuSession,
+} from "../../../shared/lib/gpuSession";
 
 type EngineOptions = ConstructorParameters<typeof Engine>[2];
 
@@ -63,78 +67,98 @@ export function disposeAllBabylonEngines(): void {
   }
 }
 
-export function isWebGLAvailable(): boolean {
-  return probeWebGLSupport().usable;
-}
-
-export type WebGLProbeResult = {
-  webgl2: boolean;
-  webgl1: boolean;
+export type GpuProbeResult = {
+  gpu2: boolean;
+  gpu1: boolean;
   usable: boolean;
   babylonIsSupported: boolean;
+  embeddedIde: boolean;
+  /** @deprecated use embeddedIde */
   electronShell: boolean;
 };
 
+/** @deprecated use GpuProbeResult */
+export type WebGLProbeResult = GpuProbeResult;
+
+const GPU_CONTEXT_ATTRS: WebGLContextAttributes = {
+  failIfMajorPerformanceCaveat: false,
+  powerPreference: "high-performance",
+};
+
 /** Native canvas probe (independent of Babylon cache). */
-export function probeWebGLSupport(): WebGLProbeResult {
-  let webgl2 = false;
-  let webgl1 = false;
+export function probeGpuSupport(): GpuProbeResult {
+  let gpu2 = false;
+  let gpu1 = false;
   try {
     const canvas = document.createElement("canvas");
-    webgl2 = !!canvas.getContext("webgl2");
-    webgl1 = !!(
-      canvas.getContext("webgl") || canvas.getContext("experimental-webgl")
+    gpu2 = !!canvas.getContext("webgl2", GPU_CONTEXT_ATTRS);
+    gpu1 = !!(
+      canvas.getContext("webgl", GPU_CONTEXT_ATTRS) ||
+      canvas.getContext("experimental-webgl", GPU_CONTEXT_ATTRS)
     );
   } catch {
     // leave false
   }
-  const electronShell = /\bElectron\b/i.test(navigator.userAgent);
-  const usable = webgl2 || webgl1;
+  const embeddedIde = isEmbeddedIdeShell();
+  const usable = gpu2 || gpu1;
   return {
-    webgl2,
-    webgl1,
+    gpu2,
+    gpu1,
     usable,
     babylonIsSupported: Engine.IsSupported,
-    electronShell,
+    embeddedIde,
+    electronShell: embeddedIde,
   };
 }
 
-export function isShowcaseElectronPreviewShell(): boolean {
-  return probeWebGLSupport().electronShell;
+/** @deprecated use probeGpuSupport */
+export const probeWebGLSupport = probeGpuSupport;
+
+export function isWebGLAvailable(): boolean {
+  return probeGpuSupport().usable;
 }
 
-export type WebGLHelpContext = {
-  /** Babylon/WebGL had started before this failure (context lost vs never supported). */
+export function isShowcaseElectronPreviewShell(): boolean {
+  return isEmbeddedIdeShell();
+}
+
+export type GpuHelpContext = {
+  /** GPU context had started before this failure (context lost vs never supported). */
   hadLiveContext?: boolean;
 };
 
-export function buildShowcaseWebGLHelp(message: string, ctx?: WebGLHelpContext): string[] {
-  const probe = probeWebGLSupport();
-  const lines: string[] = [];
-  const webglNeverStarted =
-    /webgl not supported/i.test(message) ||
-    (/webgl/i.test(message) && !probe.usable && ctx?.hadLiveContext !== true);
+/** @deprecated use GpuHelpContext */
+export type WebGLHelpContext = GpuHelpContext;
 
-  if (probe.electronShell) {
+export function buildShowcaseGpuHelp(message: string, ctx?: GpuHelpContext): string[] {
+  const probe = probeGpuSupport();
+  const lines: string[] = [];
+  const gpuNeverStarted =
+    /webgl not supported|gpu not supported/i.test(message) ||
+    (/gpu|webgl/i.test(message) && !probe.usable && ctx?.hadLiveContext !== true);
+
+  if (probe.embeddedIde && isLocalGpuSession() && !probe.usable) {
     lines.push(
-      "Cursor/VS Code 등 Electron 내장 미리보기는 WebGL이 꺼져 있는 경우가 많습니다.",
-      "아래 「Chrome/Edge에서 열기」로 시스템 브라우저에서 여세요. (내장 탭에서는 3D가 동작하지 않을 수 있습니다.)"
+      "Cursor 내장 브라우저는 WebGL을 제공하지 않습니다. 로컬 GPU Worker가 미리보기를 중계합니다.",
+      "「로컬 GPU 중계」 표시 후 화면이 나오면 정상입니다. dev 서버가 실행 중이어야 합니다."
     );
     return lines;
   }
 
-  if (webglNeverStarted) {
+  if (probe.embeddedIde && !isLocalGpuSession()) {
     lines.push(
-      "이 브라우저에서 WebGL 컨텍스트를 만들지 못했습니다. (컨텍스트 끊김이 아닙니다.)",
+      "내장 IDE 미리보기에서는 로컬 GPU가 비활성화되어 있을 수 있습니다.",
+      "localhost URL에 ?fullGpu=1&localOnly=1 을 붙이거나 시스템 Chrome에서 여세요."
+    );
+    return lines;
+  }
+
+  if (gpuNeverStarted) {
+    lines.push(
+      "이 브라우저에서 로컬 GPU 컨텍스트를 만들지 못했습니다. (렌더 중 끊김이 아닙니다.)",
       "Chrome 설정 → 시스템 → 「하드웨어 가속 사용」을 켠 뒤 브라우저를 완전히 종료하고 다시 열어 주세요."
     );
-    lines.push(
-      "chrome://gpu 에서 WebGL · WebGL2 가 Disabled 가 아닌지 확인해 주세요."
-    );
-    lines.push(
-      "콘솔(F12)에 다음을 붙여 넣어 true/true 가 나오면 WebGL 자체는 정상입니다: " +
-        "(()=>{const c=document.createElement('canvas');return{webgl2:!!c.getContext('webgl2'),webgl:!!c.getContext('webgl')}})()"
-    );
+    lines.push("chrome://gpu 에서 GPU 가속이 Disabled 가 아닌지 확인해 주세요.");
     return lines;
   }
 
@@ -143,13 +167,13 @@ export function buildShowcaseWebGLHelp(message: string, ctx?: WebGLHelpContext):
     (!probe.usable && ctx?.hadLiveContext === true);
   if (contextLost) {
     lines.push(
-      "WebGL은 시작됐지만 렌더링 중 컨텍스트가 끊겼습니다. (PC WebGL 고장이 아닐 수 있습니다.)",
+      "로컬 GPU는 시작됐지만 렌더링 중 컨텍스트가 끊겼습니다.",
       "Ctrl+Shift+R 로 새로고침하거나, Chrome/Edge를 완전히 종료한 뒤 다시 열어 주세요."
     );
     if (import.meta.env.DEV) {
       lines.push(
-        "브라우저 탭만 닫아도 Vite dev 서버(node)가 5173~5175 포트에 남을 수 있습니다. 터미널에서 npm run dev 를 모두 끄고 하나만 다시 실행하세요.",
-        "터미널에 표시된 포트(예: http://localhost:5176/showcase.html)만 사용하세요."
+        "브라우저 탭만 닫아도 Vite dev 서버가 5173~5175 포트에 남을 수 있습니다. npm run dev:stop 후 하나만 다시 실행하세요.",
+        "터미널에 표시된 포트(예: http://localhost:5173/showcase.html)만 사용하세요."
       );
     } else {
       lines.push(
@@ -160,29 +184,26 @@ export function buildShowcaseWebGLHelp(message: string, ctx?: WebGLHelpContext):
     return lines;
   }
 
-  if (!/webgl/i.test(message)) {
+  if (!/gpu|webgl/i.test(message)) {
     lines.push(message);
     return lines;
   }
 
   if (!probe.usable) {
-    lines.push("이 브라우저에서 WebGL 테스트 컨텍스트를 만들지 못했습니다.");
-    lines.push(
-      "chrome://gpu 에서 WebGL · WebGL2 가 Disabled 가 아닌지, 하드웨어 가속이 켜져 있는지 확인해 주세요."
-    );
-    lines.push(
-      "콘솔(F12)에 다음을 붙여 넣어 true/true 가 나오면 WebGL 자체는 정상입니다: " +
-        "(()=>{const c=document.createElement('canvas');return{webgl2:!!c.getContext('webgl2'),webgl:!!c.getContext('webgl')}})()"
-    );
+    lines.push("이 브라우저에서 GPU 테스트 컨텍스트를 만들지 못했습니다.");
+    lines.push("chrome://gpu 에서 가속이 켜져 있는지 확인해 주세요.");
     return lines;
   }
 
   lines.push(
-    "WebGL은 지원되지만 미리보기 canvas에 붙이지 못했습니다.",
+    "GPU는 지원되지만 미리보기 canvas에 붙이지 못했습니다.",
     "다른 3D 탭을 닫고 새로고침해 보세요."
   );
   return lines;
 }
+
+/** @deprecated use buildShowcaseGpuHelp */
+export const buildShowcaseWebGLHelp = buildShowcaseGpuHelp;
 
 export async function waitForCanvasLayout(
   canvas: HTMLCanvasElement,
@@ -232,26 +253,17 @@ export async function waitForCanvasLayout(
   });
 }
 
-/** Windows / ?safe=1 — simplified GPU tier + WebGL recovery (not a photo count cap). */
+/** @deprecated use isLocalGpuPreview from shared/lib/localGpuPreview */
+export const isShowcaseLocalGpuPreview = isLocalGpuSession;
+
+/** @deprecated use isGpuSafeMode from shared/lib/gpuSession */
 export function isShowcaseLowGpuHost(): boolean {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("fullGpu") === "1") {
-    return false;
-  }
-  if (params.get("safe") === "1") {
-    return true;
-  }
-  const platform = navigator.platform ?? "";
-  const ua = navigator.userAgent ?? "";
-  return /Win/i.test(platform) || /Windows/i.test(ua);
+  return isGpuSafeMode();
 }
 
-/** Windows + Havok + video backdrop often triggers consecutive CONTEXT_LOST without this. */
+/** @deprecated use isGpuSafeMode */
 export function shouldUseConservativeShowcaseWebGl(): boolean {
-  return isShowcaseLowGpuHost();
+  return isGpuSafeMode();
 }
 
 export function isBabylonGlContextLost(engine: Engine): boolean {
@@ -266,19 +278,18 @@ export function isBabylonGlContextLost(engine: Engine): boolean {
   }
 }
 
-export function isShowcaseCanvasContextLost(canvas: HTMLCanvasElement): boolean {
-  try {
-    const gl =
-      canvas.getContext("webgl2") ||
-      canvas.getContext("webgl") ||
-      canvas.getContext("experimental-webgl");
-    if (!gl) {
-      return false;
-    }
-    return (gl as WebGLRenderingContext).isContextLost?.() === true;
-  } catch {
+/**
+ * Never call `canvas.getContext()` here — it binds a WebGL context on the showcase
+ * canvas and makes subsequent Babylon `Engine` creation fail with "WebGL not supported".
+ */
+export function isShowcaseCanvasContextLost(
+  _canvas: HTMLCanvasElement,
+  engine?: Engine | null
+): boolean {
+  if (!engine || engine.isDisposed) {
     return false;
   }
+  return isBabylonGlContextLost(engine);
 }
 
 export type GpuStableFrameResult = "stable" | "cancelled" | "context_lost";
@@ -317,6 +328,15 @@ export async function waitForGpuStableFrames(
   return isBabylonGlContextLost(engine) ? "context_lost" : "stable";
 }
 
+export function createAppBabylonEngine(
+  canvas: HTMLCanvasElement,
+  forceWebGl1 = false
+): Engine {
+  const lowPower =
+    !isLocalGpuSession() && isGpuSafeMode();
+  return createShowcaseBabylonEngine(canvas, lowPower, forceWebGl1);
+}
+
 export function createShowcaseBabylonEngine(
   canvas: HTMLCanvasElement,
   forceLowPower = false,
@@ -325,7 +345,7 @@ export function createShowcaseBabylonEngine(
   disposeBabylonEnginesForCanvas(canvas);
 
   const automation = isShowcaseAutomationSession();
-  const localGpuExport = isLocalGpuExportSession();
+  const localGpuPath = isLocalGpuSession();
 
   const useWebGl1 = forceWebGl1 === true;
 
@@ -340,10 +360,7 @@ export function createShowcaseBabylonEngine(
     });
   }
 
-  const safeMode =
-    forceLowPower ||
-    (typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("safe") === "1");
+  const safeMode = forceLowPower || isGpuSafeMode();
 
   let lastError: unknown;
   const baseList = safeMode
@@ -369,14 +386,22 @@ export function createShowcaseBabylonEngine(
 
   // Headless cloud workers need preserveDrawingBuffer for captureStream frames.
   // Local ANGLE export must not — it doubles VRAM during jewel shader compile and triggers CONTEXT_LOST.
-  const optionsList = automation
+  let optionsList = automation
     ? baseList.map((opt) => ({ ...opt, preserveDrawingBuffer: true }))
     : baseList;
+
+  if (localGpuPath && !automation) {
+    optionsList = [...optionsList].sort((a, b) => {
+      const aa = a?.antialias ? 1 : 0;
+      const bb = b?.antialias ? 1 : 0;
+      return bb - aa;
+    });
+  }
 
   for (const options of optionsList) {
     try {
       const engine = new Engine(canvas, true, options);
-      if (localGpuExport) {
+      if (localGpuPath) {
         try {
           (engine.getCaps() as { parallelShaderCompile?: unknown }).parallelShaderCompile = null;
         } catch {
@@ -395,7 +420,7 @@ export function createShowcaseBabylonEngine(
     throw lastError;
   }
   disposeAllBabylonEngines();
-  throw new Error("WebGL not supported");
+  throw new Error("GPU not supported");
 }
 
 export function isShowcaseEngineWebGl1(engine: AbstractEngine): boolean {
@@ -412,6 +437,11 @@ export function isShowcaseEngineWebGl1(engine: AbstractEngine): boolean {
   }
 }
 
+export function formatShowcaseGpuError(message: string): string {
+  return buildShowcaseGpuHelp(message).join(" ");
+}
+
+/** @deprecated use formatShowcaseGpuError */
 export function formatShowcaseWebGLError(message: string): string {
-  return buildShowcaseWebGLHelp(message).join(" ");
+  return formatShowcaseGpuError(message);
 }

@@ -3,7 +3,10 @@ import {
   tickShowcaseAscendReturn,
   tickShowcasePullEmphasis,
 } from "../showcasePresentation";
-import { resetShowcaseCameraSpring } from "../showcaseCamera";
+import {
+  captureAscendReturnTargets,
+  resetShowcaseCameraSpring,
+} from "../showcaseCamera";
 import { resetHoloDepthParallax } from "../holoDisplayStack";
 import { updateCubePhotoFaceVisibility } from "../../babylon/jewelPhotoCore";
 import type { ShowcasePipelineStage } from "../types";
@@ -12,16 +15,20 @@ import type { ShowcasePipelineStage } from "../types";
 export const pullStage: ShowcasePipelineStage = {
   id: "pull",
   enter(ctx) {
-    if (!ctx.rig || ctx.imageUrls.length <= 1) {
+    if (!ctx.rig) {
       return;
     }
     ctx.stageState.pullStartYaw = getJewelCubeYawRadians(ctx.rig);
+    ctx.stageState.pullEntrySpinY = Math.max(
+      Math.abs(ctx.spinOmegaY),
+      ctx.config.rotateSpeedY * 0.85
+    );
     ctx.stageState.pullAlignCaptured = false;
     delete ctx.stageState.pullAlignStartYaw;
     resetHoloDepthParallax(ctx.rig);
   },
   tick(ctx, dtMs) {
-    if (!ctx.rig || ctx.imageUrls.length <= 1) {
+    if (!ctx.rig) {
       return "complete";
     }
     return tickShowcasePullEmphasis(ctx, dtMs);
@@ -41,6 +48,7 @@ export const ascendStage: ShowcasePipelineStage = {
       return;
     }
     resetShowcaseCameraSpring(ctx.camera);
+    captureAscendReturnTargets(ctx);
     const target = ctx.camera.target;
     ctx.stageState.returnStartAlpha = ctx.camera.alpha;
     ctx.stageState.returnStartBeta = ctx.camera.beta;

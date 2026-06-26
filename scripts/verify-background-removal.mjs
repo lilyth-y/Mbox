@@ -85,7 +85,7 @@ page.on("pageerror", (err) => {
 
 try {
   await check("web loads", async () => {
-    await page.goto(WEB_URL, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.goto(`${WEB_URL}/studio.html`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     await page.waitForFunction(
       () => document.body.innerText.includes("보관함을 불러왔습니다"),
       undefined,

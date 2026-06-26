@@ -52,7 +52,7 @@ import { createShowcaseMediaEnvTextures } from "./showcaseMediaEnvCapture";
 
 const SAMPLE_WIDTH = 40;
 
-const SAMPLE_HEIGHT = 24;
+const SAMPLE_HEIGHT = 40;
 
 const ENV_MAP_SIZE = 512;
 

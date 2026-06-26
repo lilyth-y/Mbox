@@ -1,0 +1,46 @@
+\documentclass{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{booktabs}
+\title{Composite Rose + Cube Focus --- Tier-1 KPI Experiments}
+\date{2026-06-10}
+\begin{document}
+\maketitle
+
+\section{Goal}
+Validate the \texttt{composite\_rose\_cube} ffmpeg pipeline with reproducible pass/fail KPIs.
+
+\section{Tier-1 Results (Attempt 3)}
+\begin{tabular}{@{}llll@{}}
+\toprule
+ID & KPI & Measured & Result \\
+\midrule
+E1 & segment duration gap $\leq 0.15$s & 0.050s & PASS \\
+E2 & part01@58s $\neq$ part02@2s hash & distinct & PASS \\
+E3 & edge luma 1.0 $>$ 1.25 & 7.11 vs 7.15 & FAIL \\
+E4 & center luma screen $>$ colorkey @ 65s & 39.9 vs 27.8 & PASS \\
+E5 & audio with BGM $>$ $-40$ dB & $-20.4$ dB & PASS \\
+E6 & concat gap $\leq 0.15$s & 0.074s & PASS \\
+E7 & rose MP4 in catalog & present & PASS \\
+E8 & npm script registered & yes & PASS \\
+E9 & 720 / 1080 output & match & PASS \\
+E10 & entrance EHI $\geq 1.0$ & gate fail & FAIL \\
+\bottomrule
+\end{tabular}
+
+\section{Conclusions}
+\begin{itemize}
+  \item \textbf{Segment trim fix} (filter trim vs input -ss): E1/E2 PASS.
+  \item \textbf{BlendMode Screen}: improves cube-segment visibility (E4 PASS); not default globally (wedding photo segment untested).
+  \item \textbf{BGM}: \texttt{piano-slideshow.mp3} fixes silent output (E5 PASS).
+  \item \textbf{Cube scale}: edge-luma metric insensitive for dark rose; 1.25 vs 1.0 difference $<1\%$ --- visual QA required.
+  \item \textbf{EHI}: composite file is not entrance hologram export; separate Mbox track.
+\end{itemize}
+
+\section{Commands}
+\begin{verbatim}
+npm run experiment:composite-tier1
+npm run composite:rose-cube
+npm run verify:composite-segments
+\end{verbatim}
+
+\end{document}

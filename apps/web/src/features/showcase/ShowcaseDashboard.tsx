@@ -29,17 +29,24 @@ import {
   type ShowcasePhysicsSceneHandle,
 } from "./babylon/createShowcasePhysicsScene";
 import {
-  buildShowcaseWebGLHelp,
+  buildShowcaseGpuHelp,
   disposeBabylonEnginesForCanvas,
   disposeAllBabylonEngines,
-  probeWebGLSupport,
-  isShowcaseCanvasContextLost,
+  probeGpuSupport,
   isShowcaseElectronPreviewShell,
-  shouldUseConservativeShowcaseWebGl,
+  isShowcaseLocalGpuPreview,
 } from "./babylon/babylonCanvasGuard";
+import { isGpuSafeMode, isEmbeddedIdeShell, resolveGpuSessionMode } from "../../shared/lib/gpuSession";
+import { usesChromeCompanionShell } from "../../shared/lib/gpuPresentation";
+import { isChromeCompanionTarget, postCompanionMessage, applyInboundCompanionCatalog } from "../../shared/lib/showcaseChromeCompanion";
+import { openSystemGpuBrowser } from "../../shared/lib/openSystemGpuBrowser";
+import { ChromeCompanionViewport } from "./ChromeCompanionViewport";
 import {
-  shouldUseKinematicShowcasePreview,
-  shouldDeferHavokUntilJewelStable,
+  useShowcaseChromeCompanionShell,
+  useShowcaseChromeCompanionTarget,
+} from "./useShowcaseChromeCompanion";
+import type { ShowcaseCompanionState } from "../../shared/lib/showcaseChromeCompanion";
+import {
   resolveShowcaseSubsystemFlags,
   getShowcaseConservativePlayingDelayMs,
 } from "./showcaseGpuProfile";
@@ -50,6 +57,8 @@ import {
   resolveActiveShowcasePipeline,
   type ShowcasePipelineStageId,
 } from "./pipeline";
+
+import type { Scene } from "@babylonjs/core/scene";
 
 import { ShowcaseCatalogPanel } from "./ShowcaseCatalogPanel";
 
@@ -66,6 +75,8 @@ import {
   auditShowcaseShapeRuntime,
   type ShowcaseShapeAuditResult,
 } from "./showcaseShapeAcceptance";
+import { auditShowcasePhotoAttachment } from "./showcasePhotoAttachment";
+import { auditShowcaseJewelMeshLeak } from "./showcaseJewelMeshAudit";
 import "./showcase-style.css";
 
 import { createShowcaseDemoDataUrl } from "./showcaseDemoImages";
@@ -75,7 +86,6 @@ import {
 } from "./showcaseExportCapture";
 import { runShowcaseExport } from "./runShowcaseExport";
 import { isCloudRenderBackend } from "../../shared/lib/renderBackend";
-import { isLocalGpuExportSession } from "../../shared/lib/renderExportProfile";
 import { evaluateShowcaseExportReadiness } from "./showcaseExportReadiness";
 import { ShowcaseDomMediaBackdrop } from "./showcaseDomMediaBackdrop";
 import {
@@ -117,17 +127,9 @@ const STAGE_LABEL: Record<ShowcasePipelineStageId, string> = {
 
   rotate: "회전·모핑",
 
-  fall: "낙하",
-
-  bounce: "튕김",
-
   pull: "정면 강조",
 
   ascend: "상승",
-
-  morph: "사진 모핑",
-
-  swap: "사진 교체",
 
 };
 
@@ -250,7 +252,7 @@ export function ShowcaseDashboard() {
   const renderJobBootstrapRef = useRef(false);
   const handleExportVideoRef = useRef<() => Promise<void>>(async () => {});
 
-  const playingRef = useRef(!shouldUseConservativeShowcaseWebGl());
+  const playingRef = useRef(!isGpuSafeMode());
 
   /** User upload must win over async workspace bootstrap. */
   const userImagesOverrideRef = useRef(false);
@@ -272,9 +274,9 @@ export function ShowcaseDashboard() {
   const lastContextRestoreMsRef = useRef(0);
   const contextLossStreakRef = useRef(0);
   const gpuSafeSessionRef = useRef(
-    isLocalGpuExportSession() ? false : shouldUseConservativeShowcaseWebGl()
+    isShowcaseLocalGpuPreview() ? false : isGpuSafeMode()
   );
-  /** WebGL2 first — WebGL1 only after a real context-loss recovery. */
+  /** GPU2 first — legacy GPU1 only after a real context-loss recovery. */
   const webglFallbackRef = useRef(false);
   const backdropMediaRef = useRef<HTMLVideoElement | HTMLImageElement | null>(null);
 
@@ -283,7 +285,11 @@ export function ShowcaseDashboard() {
 
   const sceneImagesKeyRef = useRef<string | null>(null);
 
+  const pendingCompanionStateRef = useRef<ShowcaseCompanionState | null>(null);
+
   const sceneJewelProfileKeyRef = useRef<string | null>(null);
+
+  const jewelProfileUpdateGenRef = useRef(0);
 
   const uploadGenerationRef = useRef(0);
 
@@ -310,9 +316,7 @@ export function ShowcaseDashboard() {
   const [sceneLoadError, setSceneLoadError] = useState<string | null>(null);
   const [sceneLoadHelp, setSceneLoadHelp] = useState<string[]>([]);
 
-  const [playing, setPlaying] = useState(!shouldUseConservativeShowcaseWebGl());
-
-  const [fallPhysicsEnabled, setFallPhysicsEnabled] = useState(false);
+  const [playing, setPlaying] = useState(!isGpuSafeMode());
 
   const [presentationPrefs, setPresentationPrefs] = useState<ShowcasePresentationPreferences>(
     () => ({ ...DEFAULT_SHOWCASE_PRESENTATION_PREFERENCES })
@@ -408,7 +412,7 @@ export function ShowcaseDashboard() {
     if (!resolveShowcaseSubsystemFlags().domBackdropVideo) {
       return;
     }
-    const deferMs = shouldUseConservativeShowcaseWebGl() ? 4_000 : 1_500;
+    const deferMs = isGpuSafeMode() ? 4_000 : 1_500;
     const timer = window.setTimeout(() => setBackdropDeferred(false), deferMs);
     return () => window.clearTimeout(timer);
   }, [ready, webglRecovering]);
@@ -430,10 +434,11 @@ export function ShowcaseDashboard() {
           return;
         }
         try {
+          setStatus(`${nextImages.length}장 · 사진 적용 중…`);
           await handle.setImages(nextImages);
           sceneImagesKeyRef.current = nextKey;
           setCurrentStep(1);
-          setStatus(`${nextImages.length}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+          setStatus(`${nextImages.length}장 · ${describeShowcasePipeline()}`);
         } catch (error) {
           const message = error instanceof Error ? error.message : "사진 텍스처 로드 실패";
           setStatus(message);
@@ -454,42 +459,175 @@ export function ShowcaseDashboard() {
 
   const hasPresentationImages = presentationCount > 0;
 
-  const exportReadiness = useMemo(
-    () =>
-      evaluateShowcaseExportReadiness({
-        sceneReady: ready,
-        presentationCount,
-        isRecording,
-        isProcessingUpload,
-        catalog,
-        backdropMediaPath,
-        backdropSource,
-      }),
+  const chromeCompanionShell = usesChromeCompanionShell();
+  const companionTarget = isChromeCompanionTarget();
+  const skipInTabPreview = chromeCompanionShell;
+  const viewportMaxClass = chromeCompanionShell ? "max-w-[640px]" : "max-w-[1080px]";
+
+  const companionPublishState = useMemo(
+    (): ShowcaseCompanionState | null =>
+      images?.length
+        ? {
+            revision: 0,
+            images,
+            catalog,
+            presentationPrefs,
+            playing,
+            backdropMediaPath,
+          }
+        : null,
     [
-      ready,
+      images,
+      catalog,
+      presentationPrefs,
+      playing,
+      backdropMediaPath,
+    ]
+  );
+
+  const {
+    chromeLive,
+    openChrome: openCompanionChrome,
+    requestExport: requestCompanionExport,
+    exportNotice,
+    clearExportNotice,
+  } = useShowcaseChromeCompanionShell({
+    enabled: chromeCompanionShell,
+    state: companionPublishState,
+    onSyncError: (message) => setStatus(message),
+  });
+
+  const applyCompanionScene = useCallback(async (state: ShowcaseCompanionState) => {
+    const handle = sceneRef.current;
+    if (!handle) {
+      return false;
+    }
+    const inboundCatalog = applyInboundCompanionCatalog(state.catalog);
+    const nextKey = state.images.map((image) => image.url).join("\0");
+    try {
+      setStatus(`${state.images.length}장 · 사진 적용 중…`);
+      const jewelKey = buildJewelProfileKey(inboundCatalog);
+      if (jewelKey !== sceneJewelProfileKeyRef.current) {
+        sceneJewelProfileKeyRef.current = jewelKey;
+        await handle.updateJewelProfile(inboundCatalog, state.images);
+      } else {
+        await handle.setImages(state.images);
+      }
+      handle.updateCatalogDisplay(inboundCatalog);
+      handle.setPresentationPreferences(state.presentationPrefs);
+      handle.setPlaying(state.playing);
+      handle.resize();
+      sceneImagesKeyRef.current = nextKey;
+      setCurrentStep(1);
+      setStatus(`${state.images.length}장 · ${describeShowcasePipeline()}`);
+      return true;
+    } catch (error) {
+      sceneImagesKeyRef.current = null;
+      const message = error instanceof Error ? error.message : "사진 텍스처 로드 실패";
+      setStatus(message);
+      return false;
+    }
+  }, []);
+
+  const applyCompanionState = useCallback((state: ShowcaseCompanionState) => {
+    const inboundCatalog = applyInboundCompanionCatalog(state.catalog);
+    setCatalog(inboundCatalog);
+    syncShowcaseCatalogToUrl(inboundCatalog);
+    setPresentationPrefs(state.presentationPrefs);
+    setPlaying(state.playing);
+    setImages(state.images);
+    setBackdropSource(null);
+    pendingCompanionStateRef.current = state;
+
+    if (!readyRef.current || !sceneRef.current) {
+      return;
+    }
+    pendingCompanionStateRef.current = null;
+    void applyCompanionScene(state);
+  }, [applyCompanionScene]);
+
+  useEffect(() => {
+    const pending = pendingCompanionStateRef.current;
+    if (!ready || !sceneRef.current || !pending) {
+      return;
+    }
+    pendingCompanionStateRef.current = null;
+    void applyCompanionScene(pending);
+  }, [ready, applyCompanionScene]);
+
+  useShowcaseChromeCompanionTarget({
+    enabled: companionTarget,
+    sceneReady: ready,
+    onApplyState: applyCompanionState,
+    onExportRequest: () => {
+      void handleExportVideoRef.current();
+    },
+  });
+
+  useEffect(() => {
+    if (!exportNotice) {
+      return;
+    }
+    if (exportNotice.type === "started") {
+      setExportMessage("MP4 렌더 중… (RTX Chrome)");
+      setIsRecording(true);
+    } else if (exportNotice.type === "done") {
+      setExportMessage(`MP4 저장 완료 · ${exportNotice.filename}`);
+      setIsRecording(false);
+    } else {
+      setExportMessage(exportNotice.message);
+      setIsRecording(false);
+    }
+    clearExportNotice();
+  }, [exportNotice, clearExportNotice]);
+
+  useEffect(() => {
+    if (!chromeCompanionShell) {
+      return;
+    }
+    setReady(true);
+    setSceneLoadError(null);
+    setSceneLoadHelp([]);
+    const count = imagesRef.current?.length ?? 0;
+    setStatus(
+      count > 0
+        ? `${count}장 · RTX Chrome 미리보기 (이 탭은 편집용)`
+        : "RTX Chrome 미리보기 · 이 탭은 편집용"
+    );
+  }, [chromeCompanionShell]);
+
+  const exportReadiness = useMemo(() => {
+    const base = evaluateShowcaseExportReadiness({
+      sceneReady: ready,
       presentationCount,
       isRecording,
       isProcessingUpload,
       catalog,
       backdropMediaPath,
       backdropSource,
-    ]
-  );
+    });
+    if (chromeCompanionShell && !chromeLive) {
+      return { ready: false, reason: "RTX Chrome 미리보기 탭을 여세요" };
+    }
+    return base;
+  }, [
+    chromeCompanionShell,
+    chromeLive,
+    ready,
+    presentationCount,
+    isRecording,
+    isProcessingUpload,
+    catalog,
+    backdropMediaPath,
+    backdropSource,
+  ]);
 
-
-
-  const pipelineLabel = useMemo(
-
-    () => describeShowcasePipeline(fallPhysicsEnabled),
-
-    [fallPhysicsEnabled]
-
-  );
+  const pipelineLabel = useMemo(() => describeShowcasePipeline(), []);
 
   const contentManifestSummary = useMemo(() => {
-    const order = resolveActiveShowcasePipeline(fallPhysicsEnabled);
+    const order = resolveActiveShowcasePipeline();
     return formatShowcaseContentManifestSummary(buildShowcaseContentManifest(order));
-  }, [fallPhysicsEnabled]);
+  }, []);
 
 
 
@@ -543,7 +681,7 @@ export function ShowcaseDashboard() {
 
   useEffect(() => {
 
-    if (shouldUseConservativeShowcaseWebGl()) {
+    if (isGpuSafeMode()) {
       return;
     }
 
@@ -623,10 +761,6 @@ export function ShowcaseDashboard() {
 
 
 
-  const fallPhysicsRef = useRef(fallPhysicsEnabled);
-
-  fallPhysicsRef.current = fallPhysicsEnabled;
-
   const presentationPrefsRef = useRef(presentationPrefs);
 
   presentationPrefsRef.current = presentationPrefs;
@@ -651,7 +785,7 @@ export function ShowcaseDashboard() {
 
     const canvas = canvasRef.current;
 
-    if (!canvas || !hasPresentationImages) {
+    if (skipInTabPreview || !canvas || !hasPresentationImages) {
 
       return;
 
@@ -682,24 +816,10 @@ export function ShowcaseDashboard() {
 
       webglLiveRef.current = false;
 
-      setStatus(
-        shouldUseKinematicShowcasePreview()
-          ? "미리보기 준비 중… (물리 off — ?physics=1)"
-          : shouldUseConservativeShowcaseWebGl()
-            ? "미리보기 준비 중… (GPU 안전 모드)"
-            : "Havok WASM · 물리 씬 로딩…"
-      );
-
-
-
-      const havokPreload =
-        shouldUseKinematicShowcasePreview() || shouldDeferHavokUntilJewelStable()
-          ? Promise.resolve()
-          : import("../premium/babylon/physicsWorld").then((m) => m.preloadHavokPhysics());
+      setStatus("미리보기 준비 중…");
 
       const [{ createShowcasePhysicsScene }] = await Promise.all([
         import("./babylon/createShowcasePhysicsScene"),
-        havokPreload,
       ]);
 
       if (cancelled) {
@@ -728,10 +848,6 @@ export function ShowcaseDashboard() {
 
         sceneHandle = await createShowcasePhysicsScene(canvas, snapshot, {
 
-          fallPhysicsEnabled: shouldUseKinematicShowcasePreview()
-            ? false
-            : fallPhysicsRef.current,
-
           catalog: catalogRef.current,
 
           presentationPrefs: presentationPrefsRef.current,
@@ -740,7 +856,7 @@ export function ShowcaseDashboard() {
 
           backdropSpillElement: spillRef.current,
 
-          gpuSafeSession: isLocalGpuExportSession()
+          gpuSafeSession: isShowcaseLocalGpuPreview()
             ? false
             : gpuSafeSessionRef.current,
 
@@ -754,21 +870,17 @@ export function ShowcaseDashboard() {
             if (loadToken !== sceneLoadTokenRef.current) {
               return;
             }
-            const localGpuExport = isLocalGpuExportSession();
-            const canvasEl = canvasRef.current;
-            if (canvasEl && !isShowcaseCanvasContextLost(canvasEl)) {
-              return;
-            }
-            if (!localGpuExport) {
+            const localGpuPath = isShowcaseLocalGpuPreview();
+            if (!localGpuPath) {
               gpuSafeSessionRef.current = true;
             }
-            if (localGpuExport) {
+            if (localGpuPath) {
               setWebglRecovering(true);
               if (!readyRef.current) {
                 setStatus("GPU 복구 중… (로컬 ANGLE)");
               }
             }
-            if (shouldUseConservativeShowcaseWebGl() && !webglFallbackRef.current) {
+            if (isGpuSafeMode() && !webglFallbackRef.current) {
               webglFallbackRef.current = true;
             }
             const clearContextLossRecovery = () => {
@@ -790,11 +902,9 @@ export function ShowcaseDashboard() {
               clearContextLossRecovery();
               setWebglRecovering(false);
 
-              const canvasNow = canvasRef.current;
               if (
-                canvasNow &&
-                !isShowcaseCanvasContextLost(canvasNow) &&
                 sceneRef.current &&
+                !sceneRef.current.isGlContextLost() &&
                 loadToken === sceneLoadTokenRef.current
               ) {
                 contextLossRebuildAttemptsRef.current = 0;
@@ -804,18 +914,18 @@ export function ShowcaseDashboard() {
                 webglLiveRef.current = true;
                 const count = imagesRef.current?.length ?? 0;
                 if (count > 0) {
-                  setStatus(`${count}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+                  setStatus(`${count}장 · ${describeShowcasePipeline()}`);
                 }
                 return;
               }
 
-              if (contextLossRebuildAttemptsRef.current >= (shouldUseConservativeShowcaseWebGl() ? 8 : 4)) {
-                const help = buildShowcaseWebGLHelp("WebGL context lost", {
+              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() ? 8 : 4)) {
+                const help = buildShowcaseGpuHelp("GPU context lost", {
                   hadLiveContext: true,
                 });
                 setSceneLoadHelp(help);
-                setSceneLoadError(help[0] ?? "WebGL 컨텍스트가 끊겼습니다.");
-                setStatus("WebGL 컨텍스트가 끊겼습니다. 새로고침해 주세요.");
+                setSceneLoadError(help[0] ?? "GPU 컨텍스트가 끊겼습니다.");
+                setStatus("GPU 컨텍스트가 끊겼습니다. 새로고침해 주세요.");
                 setReady(false);
                 return;
               }
@@ -835,8 +945,10 @@ export function ShowcaseDashboard() {
               setBackdropDeferred(true);
               setStatus(
                 webglFallbackRef.current
-                  ? "미리보기 안정화 중… (GPU 안전 모드)"
-                  : "미리보기를 다시 불러오는 중…"
+                  ? "미리보기 안정화 중… (저사양 GPU 폴백)"
+                  : isShowcaseLocalGpuPreview()
+                    ? "로컬 GPU 복구 중…"
+                    : "미리보기를 다시 불러오는 중…"
               );
 
               const rebuildTimer = window.setTimeout(() => {
@@ -859,14 +971,14 @@ export function ShowcaseDashboard() {
             setSceneLoadError(null);
             setSceneLoadHelp([]);
             if (!readyRef.current) {
-              setStatus("WebGL 컨텍스트 복구 대기 중…");
+              setStatus("GPU 컨텍스트 복구 대기 중…");
             }
 
             if (contextLossRecoveryRef.current.rebuildTimer !== null) {
               return;
             }
 
-            if (localGpuExport) {
+            if (localGpuPath) {
               const softRecoveryTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.softRecoveryTimer = null;
                 sceneRef.current?.applySafeGpuRecovery();
@@ -887,7 +999,7 @@ export function ShowcaseDashboard() {
               return;
             }
 
-            if (shouldUseConservativeShowcaseWebGl()) {
+            if (isGpuSafeMode()) {
               const rebuildTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.rebuildTimer = null;
                 scheduleHardRebuild();
@@ -972,7 +1084,7 @@ export function ShowcaseDashboard() {
               webglLiveRef.current = true;
               const count = imagesRef.current?.length ?? 0;
               if (count > 0) {
-                setStatus(`${count}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+                setStatus(`${count}장 · ${describeShowcasePipeline()}`);
               }
             }
           },
@@ -1026,7 +1138,7 @@ export function ShowcaseDashboard() {
           }
         }, 6_000);
 
-        setStatus(`${snapshot.length}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+        setStatus(`${snapshot.length}장 · ${describeShowcasePipeline()}`);
 
 
 
@@ -1042,7 +1154,7 @@ export function ShowcaseDashboard() {
 
             sceneImagesKeyRef.current = latestKey;
 
-            setStatus(`${latest.length}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+            setStatus(`${latest.length}장 · ${describeShowcasePipeline()}`);
 
           }
 
@@ -1084,6 +1196,34 @@ export function ShowcaseDashboard() {
               photoLayout: catalogRef.current.photoLayout,
             });
           };
+          window.__MBOX_SHOWCASE_UPLOAD_AUDIT__ = () => {
+            const handle = sceneRef.current;
+            if (!handle) {
+              return {
+                pass: false,
+                checks: [{ id: "scene", pass: false, detail: "no scene handle" }],
+              };
+            }
+            return auditShowcasePhotoAttachment(handle.director.getRig());
+          };
+          window.__MBOX_SHOWCASE_MESH_AUDIT__ = () => {
+            const handle = sceneRef.current;
+            if (!handle) {
+              return {
+                pass: false,
+                counts: { colliders: 0, shells: 0, jewelMeshes: 0 },
+                checks: [{ id: "scene", pass: false, detail: "no scene handle" }],
+              };
+            }
+            const rig = handle.director.getRig();
+            const profileScene = (
+              window as unknown as { __MBOX_SHOWCASE_PROFILE_SCENE__?: Scene }
+            ).__MBOX_SHOWCASE_PROFILE_SCENE__;
+            const scene = rig?.collider.getScene() ?? profileScene ?? null;
+            return auditShowcaseJewelMeshLeak(scene, {
+              requireActiveRig: rig !== null,
+            });
+          };
         }
 
       } catch (error) {
@@ -1098,7 +1238,7 @@ export function ShowcaseDashboard() {
         lastInitErrorRef.current = message;
         disposeAllBabylonEngines();
 
-        const help = buildShowcaseWebGLHelp(message, {
+        const help = buildShowcaseGpuHelp(message, {
           hadLiveContext:
             webglLiveRef.current && /context lost/i.test(message),
         });
@@ -1106,8 +1246,8 @@ export function ShowcaseDashboard() {
         setSceneLoadError(help[0] ?? `물리 씬 오류: ${message}`);
 
         setStatus(
-          isShowcaseElectronPreviewShell()
-            ? "내장 미리보기 WebGL 제한 — Chrome/Edge에서 열어 주세요"
+          isShowcaseElectronPreviewShell() && !isShowcaseLocalGpuPreview()
+            ? "내장 미리보기 GPU 제한 — Chrome/Edge에서 열어 주세요"
             : help[0]
               ? `미리보기 오류: ${help[0]}`
               : `미리보기 오류: ${message}`
@@ -1146,6 +1286,8 @@ export function ShowcaseDashboard() {
 
       if (window.__MBOX_SHOWCASE_E2E__) {
         delete window.__MBOX_SHOWCASE_SHAPE_AUDIT__;
+        delete window.__MBOX_SHOWCASE_UPLOAD_AUDIT__;
+        delete window.__MBOX_SHOWCASE_MESH_AUDIT__;
       }
 
       sceneHandle?.dispose();
@@ -1156,7 +1298,7 @@ export function ShowcaseDashboard() {
 
     };
 
-  }, [hasPresentationImages, environmentKey, sceneRecoveryKey]);
+  }, [hasPresentationImages, environmentKey, sceneRecoveryKey, skipInTabPreview]);
 
 
 
@@ -1174,21 +1316,32 @@ export function ShowcaseDashboard() {
 
     }
 
+    const updateGen = ++jewelProfileUpdateGenRef.current;
+    const handle = sceneRef.current;
+    const nextCatalog = catalog;
+    const nextImages = images;
+
     sceneJewelProfileKeyRef.current = jewelProfileKey;
 
-    void sceneRef.current.updateJewelProfile(catalog, images).then(() => {
+    void handle.updateJewelProfile(nextCatalog, nextImages).then(() => {
 
-      setStatus(`${images.length}장 · ${describeShowcasePipeline(fallPhysicsRef.current)}`);
+      if (updateGen !== jewelProfileUpdateGenRef.current) {
+
+        return;
+
+      }
+
+      setStatus(`${nextImages.length}장 · ${describeShowcasePipeline()}`);
 
     });
 
-  }, [catalog, images, jewelProfileKey, ready, fallPhysicsEnabled]);
+  }, [catalog, images, jewelProfileKey, ready]);
 
 
 
   useEffect(() => {
 
-    if (!ready || !sceneRef.current || !images?.length) {
+    if (companionTarget || !ready || !sceneRef.current || !images?.length) {
 
       return;
 
@@ -1204,7 +1357,7 @@ export function ShowcaseDashboard() {
 
     void applySceneImages(images);
 
-  }, [applySceneImages, images, ready]);
+  }, [applySceneImages, companionTarget, images, ready]);
 
 
 
@@ -1277,24 +1430,6 @@ export function ShowcaseDashboard() {
     return () => observer.disconnect();
 
   }, [ready]);
-
-
-
-  const toggleFallPhysics = useCallback(() => {
-
-    setFallPhysicsEnabled((prev) => {
-
-      const next = !prev;
-
-      sceneRef.current?.setFallPhysicsEnabled(next);
-
-      setStatus(`${presentationCount}장 · ${describeShowcasePipeline(next)}`);
-
-      return next;
-
-    });
-
-  }, [presentationCount]);
 
 
 
@@ -1398,11 +1533,21 @@ export function ShowcaseDashboard() {
       playingRef.current = true;
       sceneRef.current?.setPlaying(true);
 
+      const pipelineLabel = describeShowcasePipeline();
       setStatus(
-        applyBackgroundRemoval
+        chromeCompanionShell
+          ? `${nextImages.length}장 · RTX Chrome에 사진 전달 중…`
+          : applyBackgroundRemoval
           ? `${nextImages.length}장 · ${usedCloud ? "미리보기 적용 · 분석 중…" : "배경 제거 완료"}`
-          : `${nextImages.length}장 · ${usedCloud ? "미리보기 적용 · 클라우드 분석 중…" : "업로드 완료"}`
+          : `${nextImages.length}장 · ${usedCloud ? "미리보기 적용 · 분석 중…" : `업로드 완료 · ${pipelineLabel}`}`
       );
+
+      if (!chromeCompanionShell && readyRef.current && sceneRef.current) {
+        sceneImagesKeyRef.current = null;
+        void applySceneImages(nextImages);
+      } else if (chromeCompanionShell && !chromeLive) {
+        setStatus(`${nextImages.length}장 · RTX Chrome 탭을 연 뒤 사진이 표시됩니다`);
+      }
 
       void refinement.then(async (refined) => {
         if (uploadGenerationRef.current !== uploadGeneration) {
@@ -1411,11 +1556,19 @@ export function ShowcaseDashboard() {
         const refinedImages = refined.slice(0, 12);
         imagesRef.current = refinedImages;
         setImages(refinedImages);
-        setStatus(
-          applyBackgroundRemoval
-            ? `${refinedImages.length}장 · 클라우드 분석 · 배경 제거 완료`
-            : `${refinedImages.length}장 · 클라우드 분석 · 업로드 완료`
-        );
+        if (usedCloud) {
+          setStatus(
+            applyBackgroundRemoval
+              ? `${refinedImages.length}장 · 클라우드 분석 · 배경 제거 완료`
+              : `${refinedImages.length}장 · 클라우드 분석 · 업로드 완료`
+          );
+        } else {
+          setStatus(`${refinedImages.length}장 · ${describeShowcasePipeline()}`);
+        }
+        if (!chromeCompanionShell && readyRef.current && sceneRef.current) {
+          sceneImagesKeyRef.current = null;
+          void applySceneImages(refinedImages);
+        }
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "업로드 실패";
@@ -1429,6 +1582,16 @@ export function ShowcaseDashboard() {
 
   const handleExportVideo = async () => {
 
+    if (chromeCompanionShell) {
+      if (!exportReadiness.ready) {
+        return;
+      }
+      setIsRecording(true);
+      setExportMessage("RTX Chrome에서 MP4 렌더 중…");
+      requestCompanionExport();
+      return;
+    }
+
     const handle = sceneRef.current;
 
     if (!handle || !exportReadiness.ready) {
@@ -1439,15 +1602,21 @@ export function ShowcaseDashboard() {
 
     const durationSec = Math.round(
 
-      computeShowcaseExportDurationMs(presentationCount, fallPhysicsEnabled) / 1000
+      computeShowcaseExportDurationMs(presentationCount) / 1000
 
     );
 
     setIsRecording(true);
 
-    handle.applySafeGpuRecovery();
+    if (handle) {
+      handle.applySafeGpuRecovery();
+    }
     if (backdropMediaRef.current instanceof HTMLVideoElement) {
       backdropMediaRef.current.pause();
+    }
+
+    if (companionTarget) {
+      postCompanionMessage({ type: "exportStarted" });
     }
 
     setExportMessage(
@@ -1463,8 +1632,6 @@ export function ShowcaseDashboard() {
       const { filename } = await runShowcaseExport(handle, {
 
         imageCount: presentationCount,
-
-        fallPhysicsEnabled,
 
         catalog,
 
@@ -1487,12 +1654,18 @@ export function ShowcaseDashboard() {
       });
 
       setExportMessage(`${filename} 다운로드 완료`);
+      if (companionTarget) {
+        postCompanionMessage({ type: "exportDone", filename });
+      }
 
     } catch (error) {
 
       const message = error instanceof Error ? error.message : "MP4 생성 실패";
 
       setExportMessage(message);
+      if (companionTarget) {
+        postCompanionMessage({ type: "exportFailed", message });
+      }
 
       window.alert(message);
 
@@ -1548,7 +1721,7 @@ export function ShowcaseDashboard() {
 
           <p className="text-mbox-muted text-sm mt-1">
 
-            Havok 홀로그램 디스플레이 · 크리스탈 스택 ({pipelineLabel})
+            회전 쇼케이스 · 크리스탈 스택 ({pipelineLabel})
 
           </p>
 
@@ -1584,7 +1757,12 @@ export function ShowcaseDashboard() {
 
           <Box size={20} />
 
-          <h2 className="font-bold text-mbox-text">3D 쇼케이스 미리보기</h2>
+          <h2 className="font-bold text-mbox-text">
+            3D 쇼케이스 미리보기
+            {chromeCompanionShell ? (
+              <span className="ml-2 text-xs font-normal text-mbox-muted">RTX Chrome 동반</span>
+            ) : null}
+          </h2>
 
         </div>
 
@@ -1598,7 +1776,7 @@ export function ShowcaseDashboard() {
 
               ref={viewportWrapRef}
 
-              className="showcase-viewport-wrap relative mx-auto w-full max-w-[640px] rounded-xl bg-black overflow-hidden"
+              className={`showcase-viewport-wrap relative mx-auto w-full ${viewportMaxClass} rounded-xl bg-black overflow-hidden`}
 
             >
 
@@ -1617,13 +1795,20 @@ export function ShowcaseDashboard() {
 
                 ref={canvasRef}
 
-                className="showcase-canvas"
+                className={`showcase-canvas${skipInTabPreview ? " hidden" : ""}`}
 
                 aria-label="3D physics showcase viewport"
 
               />
 
-              {!ready && (
+              {chromeCompanionShell ? (
+                <ChromeCompanionViewport
+                  chromeLive={chromeLive}
+                  onOpenChrome={openCompanionChrome}
+                />
+              ) : null}
+
+              {!ready && !chromeCompanionShell && (
 
                 <div
                   className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-4 text-center bg-black/55 backdrop-blur-sm"
@@ -1643,21 +1828,22 @@ export function ShowcaseDashboard() {
                         <p key={line}>{line}</p>
                       ))}
                       <p className="text-[11px] text-amber-200/70">
-                        debug: electron=
-                        {String(isShowcaseElectronPreviewShell())}
+                        debug: mode={resolveGpuSessionMode()}
+                        {" · "}
+                        electron=
+                        {String(isEmbeddedIdeShell())}
                         {" · "}
                         ctxLost=
-                        {(() => {
-                          const c = canvasRef.current;
-                          return c ? String(isShowcaseCanvasContextLost(c)) : "no-canvas";
-                        })()}
+                        {sceneRef.current
+                          ? String(sceneRef.current.isGlContextLost())
+                          : "no-engine"}
                         {" · "}
                         attempts={contextLossRebuildAttemptsRef.current}
                         {" · "}
                         probe=
                         {(() => {
-                          const p = probeWebGLSupport();
-                          return `${p.webgl2 ? "w2" : "w2-"}${p.webgl1 ? "w1" : "w1-"}${p.usable ? "" : "(!)"}`;
+                          const p = probeGpuSupport();
+                          return `${p.gpu2 ? "g2" : "g2-"}${p.gpu1 ? "g1" : "g1-"}${p.usable ? "" : "(!)"}`;
                         })()}
                         {" · "}
                         lastErr={(lastInitErrorRef.current ?? "").slice(0, 120)}
@@ -1667,6 +1853,15 @@ export function ShowcaseDashboard() {
 
                   {sceneLoadError ? (
                     <div className="flex flex-wrap items-center justify-center gap-2">
+                      {isEmbeddedIdeShell() ? (
+                        <button
+                          type="button"
+                          className="primary-btn text-xs font-semibold"
+                          onClick={() => void openSystemGpuBrowser()}
+                        >
+                          RTX Chrome에서 열기
+                        </button>
+                      ) : null}
                       <a
                         href={window.location.href}
                         target="_blank"
@@ -1743,26 +1938,6 @@ export function ShowcaseDashboard() {
 
 
         <div className="flex flex-wrap items-center justify-center gap-3">
-
-          <button
-
-            type="button"
-
-            className={`secondary-btn inline-flex items-center gap-2 text-sm font-semibold disabled:opacity-50 ${
-
-              fallPhysicsEnabled ? "ring-1 ring-mbox-gold/40" : ""
-
-            }`}
-
-            onClick={toggleFallPhysics}
-
-            disabled={!ready || shouldUseKinematicShowcasePreview()}
-
-          >
-
-            낙하 물리 {fallPhysicsEnabled ? "ON" : "OFF"}
-
-          </button>
 
           <button
 

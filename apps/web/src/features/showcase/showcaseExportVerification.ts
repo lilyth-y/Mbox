@@ -1,4 +1,4 @@
-import { looksLikeIsoMp4 } from "../cube/cubeRecorder";
+import { looksLikeIsoMp4 } from "./export/showcaseRecorder";
 import type { ShowcaseContentManifest } from "./pipeline/showcaseStageVersions";
 import { SHOWCASE_DEVICE_EXPORT_SIZE } from "./showcaseExportSpecs";
 import {

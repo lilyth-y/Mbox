@@ -1,0 +1,75 @@
+{
+  "url": "http://127.0.0.1:4176/showcase.html?profile=1&localOnly=1",
+  "waitJewelMs": 20000,
+  "contextLost": false,
+  "ui": {
+    "error": false,
+    "status": "1장 · 표출 → 회전·모핑 → 정면 강조 → 복귀 · 정면 강조 · 1/1",
+    "canvas": {
+      "w": 76,
+      "h": 76
+    },
+    "nonBlack": true,
+    "snippet": "mbox 메인\n크리스털 쇼케이스\n\nHavok 홀로그램 디스플레이 · 크리스탈 스택 (표출 → 회전·모핑 → 정면 강조 → 복귀)\n\n콘텐츠 v1.4.0-commercial · 목표 상업 런칭 · 병목 commercial · 준비됨\n\n로즈골드 프리미엄 · 큐브 · 자동 · 로즈골드 · 미디어 · mf001.mp4 · 바닥 OFF\n\n1장 · 표출 → 회전·모핑 → 정면 강조 → 복귀 · 정면 강조 · 1/1\n\n3D 쇼케이스 미리보기\n크리스탈 카탈로그\n\n형태·배경·바닥을 바꾸면 미리보기가 새로 로드됩니다. 외부 크리스탈 셸이 배경 빛을 반사·조화합니다(내부 사진 레이어는 별도).\n\n판매 룩 적용 중 — 슬라이더 없이 바로 시연·export 가능합니다.\n\n판매 룩 (베타)\n로즈골드 프리미엄\n클래식\n모던 블랙\n형태\n큐"
+  },
+  "report": {
+    "enabled": true,
+    "kinematicPreview": false,
+    "gpuTier": "full",
+    "phases": [
+      {
+        "phase": "engine",
+        "ms": 54,
+        "detail": "scaling=1"
+      },
+      {
+        "phase": "havok",
+        "ms": 4
+      },
+      {
+        "phase": "chapel",
+        "ms": 121,
+        "detail": "panorama=false env=512"
+      },
+      {
+        "phase": "holo_textures",
+        "ms": 0,
+        "detail": "3 images maxEdge=1536"
+      },
+      {
+        "phase": "camera_lights",
+        "ms": 5
+      },
+      {
+        "phase": "backdrop",
+        "ms": 0,
+        "detail": "static"
+      },
+      {
+        "phase": "director",
+        "ms": 1
+      }
+    ],
+    "network": {
+      "wasmKb": 2046,
+      "babylonJsKb": 536,
+      "onnxWasmKb": null,
+      "videoKb": null
+    },
+    "scene": {
+      "meshCount": 0,
+      "materialCount": 0,
+      "textureCount": 3,
+      "textureGpuBytesEstimate": 12582912,
+      "hardwareScalingLevel": 8,
+      "renderWidth": 76,
+      "renderHeight": 76,
+      "drawCallsLastFrame": null
+    },
+    "totalInitMs": 184,
+    "recommendations": [
+      "All phases within budget — no automatic downgrade suggested."
+    ]
+  },
+  "measuredAt": "2026-06-24T13:14:02.056Z"
+}

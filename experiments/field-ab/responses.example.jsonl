@@ -1,0 +1,2 @@
+{"sessionId":"2026-06-07-venue-demo-A1","condition":"A","venue":"Demo Hall","eventDate":"2026-06-07","guestId":"G001","collector":"operator","watchedSec":45,"answers":{"fit":4,"natural":3,"motion":3,"wow":3,"overall":3},"notes":"pilot example"}
+{"sessionId":"2026-06-07-venue-demo-B1","condition":"B","venue":"Demo Hall","eventDate":"2026-06-07","guestId":"G002","collector":"operator","watchedSec":50,"answers":{"fit":5,"natural":4,"motion":5,"wow":4,"overall":5},"notes":"pilot example"}

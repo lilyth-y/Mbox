@@ -29,7 +29,7 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 try {
   await check("web loads", async () => {
-    await page.goto(WEB_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.goto(`${WEB_URL}/studio.html`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     return page.url();
   });
 

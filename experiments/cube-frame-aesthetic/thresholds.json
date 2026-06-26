@@ -1,0 +1,24 @@
+{
+  "version": "2026-06-04",
+  "metric": "FQI",
+  "description": "Frame Quality Index — lab proxy for wedding cube frame visual polish",
+  "thresholds": {
+    "fqiMin": 0.72,
+    "componentMin": 0.55,
+    "matFrameDeltaEMin": 6,
+    "matFrameDeltaEMax": 70,
+    "frameBandLumaStdMin": 8,
+    "coreLumaStdMin": 12
+  },
+  "tier1Synthetic": {
+    "referenceFqiMin": 0.75,
+    "brokenFqiMax": 0.55
+  },
+  "tier2LabRender": {
+    "allPresetsPass": true
+  },
+  "tier3Capture": {
+    "requiresDevServer": true,
+    "note": "Run npm run dev + npm run measure:cube-frame-fqi:capture for live WebGL screenshots"
+  }
+}

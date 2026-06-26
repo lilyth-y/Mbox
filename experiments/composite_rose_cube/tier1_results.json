@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-06-10T15:05:42.565Z",
+  "tier": 1,
+  "pass": 9,
+  "fail": 2,
+  "skip": 0,
+  "results": [
+    {
+      "id": "E1_segment_duration",
+      "kpi": "gapProbeSec",
+      "target": 0.15,
+      "measured": 0.050299999999992906,
+      "result": "PASS",
+      "theoreticalBest": 0,
+      "sourceDurationSec": 177.9497,
+      "sumProbedSec": 178,
+      "partCount": 3
+    },
+    {
+      "id": "E2_boundary_seek",
+      "kpi": "part01@58s hash != part02@2s hash (no duplicate segment)",
+      "target": true,
+      "measured": true,
+      "result": "PASS",
+      "hashes": {
+        "part1_58s": "54cb718a0667e5ad0a5e92e04b9a84cc",
+        "part2_2s": "6205793b4d2565cc8038120e4463293f"
+      }
+    },
+    {
+      "id": "E3_cube_scale_edge_bg",
+      "kpi": "edgeStripYavg_1.0 > edgeStripYavg_1.25",
+      "target": true,
+      "measured": false,
+      "edgeStripYavg100": 7.11328125,
+      "edgeStripYavg125": 7.15234375,
+      "result": "FAIL",
+      "note": "Smaller cube leaves more rose on edge; 1.25 vs 1.5 both overflow canvas"
+    },
+    {
+      "id": "E4_blend_cube_luma",
+      "kpi": "centerYavg_screen > centerYavg_colorkey @ cube segment",
+      "target": true,
+      "measured": true,
+      "centerYavgColorKey": 27.7890625,
+      "centerYavgScreen": 39.859375,
+      "result": "PASS",
+      "theoreticalBest": "screen removes black without eating dark suit"
+    },
+    {
+      "id": "E5_audio_bgm",
+      "kpi": "audioMeanDb with BGM > -40",
+      "target": -40,
+      "measured": -20.4,
+      "result": "PASS",
+      "audioMeanDbNoBgm": -91,
+      "audioMeanDbWithBgm": -20.4
+    },
+    {
+      "id": "E6_concat_duration",
+      "kpi": "abs(concatDur - sourceDur) <= 0.15s",
+      "target": 0.15,
+      "measured": 0.07352000000000203,
+      "result": "PASS",
+      "sourceDurationSec": 177.9497,
+      "concatDurationSec": 178.02322,
+      "ps1Exit": 1
+    },
+    {
+      "id": "E7_catalog_registration",
+      "kpi": "2026_06_10 11_31.mp4 in catalog 배경동영상",
+      "target": true,
+      "measured": true,
+      "result": "PASS"
+    },
+    {
+      "id": "E8_npm_script_registered",
+      "kpi": "composite:rose-cube in package.json",
+      "target": true,
+      "measured": true,
+      "result": "PASS"
+    },
+    {
+      "id": "E9_resolution_720",
+      "kpi": "output 720x720",
+      "target": 720,
+      "measured": true,
+      "result": "PASS",
+      "width": 720,
+      "height": 720
+    },
+    {
+      "id": "E9_resolution_1080",
+      "kpi": "output 1080x1080",
+      "target": 1080,
+      "measured": true,
+      "result": "PASS",
+      "width": 1080,
+      "height": 1080
+    },
+    {
+      "id": "E10_entrance_ehi_gate",
+      "kpi": "EHI >= 1.0 (entrance hologram baseline)",
+      "target": 1,
+      "measured": "gate_fail",
+      "result": "FAIL",
+      "note": "Measures Mbox entrance export, not composite file directly"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "E3_scale_1",
+      "variable": "CubeScale=1",
+      "edgeStripYavg": 7.11328125
+    },
+    {
+      "id": "E3_scale_1.25",
+      "variable": "CubeScale=1.25",
+      "edgeStripYavg": 7.15234375
+    }
+  ],
+  "recommendedNext": []
+}

@@ -1,0 +1,6 @@
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part01.mp4'
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part02.mp4'
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part03.mp4'
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part04.mp4'
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part05.mp4'
+file 'C:/startingup/Mbox/experiments/composite_rose_cube/tier1_clips/e6_concat_test/seg_test_part06.mp4'

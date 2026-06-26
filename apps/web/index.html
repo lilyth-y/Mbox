@@ -3,12 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="./favicon.ico" sizes="32x32" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>mbox</title>
+    <title>mbox — Crystal Showcase</title>
+    <meta http-equiv="refresh" content="0;url=./showcase.html" />
+    <script>
+      location.replace("./showcase.html" + location.search + location.hash);
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <p><a href="./showcase.html">크리스탈 쇼케이스</a></p>
   </body>
 </html>

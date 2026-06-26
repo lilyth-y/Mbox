@@ -1,5 +1,4 @@
 import {
-  DEFAULT_CUBE_PRESENTATION_OPTIONS,
   isTransparentMatteDataUrl,
   resolveCubeFaceDisplayUrl,
   resolveSubjectForegroundUrl,
@@ -54,8 +53,7 @@ export async function applyPresentationPrepare(
   const hasAiCutout =
     existingKind === "ai_cutout" && Boolean(existingFg && isTransparentMatteDataUrl(existingFg));
   const wantsAiCutout =
-    options.useAiForegroundCutout ??
-    DEFAULT_CUBE_PRESENTATION_OPTIONS.voluMaxAiForegroundCutout;
+    options.useAiForegroundCutout ?? true;
   const forceRegenerate = options.forceRegenerateLayers === true;
   let hasFgMatte = Boolean(existingFg && isTransparentMatteDataUrl(existingFg));
   /** Cached soft matte must not block a new AI cutout request. */

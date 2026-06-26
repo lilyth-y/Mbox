@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "locale": "ko-KR",
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "labels": {
+      "1": "전혀 아니다",
+      "2": "아니다",
+      "3": "보통",
+      "4": "그렇다",
+      "5": "매우 그렇다"
+    }
+  },
+  "questions": [
+    {
+      "id": "fit",
+      "text": "이 홀로그램 연출이 결혼식 입구 분위기와 잘 어울렸나요?",
+      "weight": 1
+    },
+    {
+      "id": "natural",
+      "text": "사진/영상이 자연스럽게 보였나요? (어지럽거나 불편하지 않았나요?)",
+      "weight": 1.2
+    },
+    {
+      "id": "motion",
+      "text": "큐브 회전·움직임이 편안했나요?",
+      "weight": 1.2
+    },
+    {
+      "id": "wow",
+      "text": "입구에서 '와' 하는 감동이 있었나요?",
+      "weight": 1
+    },
+    {
+      "id": "overall",
+      "text": "전체 만족도",
+      "weight": 1.5
+    }
+  ],
+  "gsi": {
+    "name": "Guest Satisfaction Index (GSI)",
+    "formula": "weighted_mean(questions) / 5, range 0..1"
+  },
+  "metadataFields": [
+    "sessionId",
+    "condition",
+    "venue",
+    "eventDate",
+    "guestId",
+    "collector",
+    "watchedSec",
+    "notes"
+  ]
+}

@@ -13,8 +13,7 @@ console.log(`Web (Vite dev)     ${WEB_URL}  (MBOX_WEB_DEV_PORT=${MBOX_WEB_DEV_PO
 console.log(`Web (Vite preview) http://localhost:${MBOX_WEB_PREVIEW_PORT}  (MBOX_WEB_PREVIEW_PORT)`);
 console.log(`API                ${API_URL}  (API_PORT=${MBOX_API_DEV_PORT})`);
 console.log("");
-console.log("Entry points");
-console.log(`  Main app         ${WEB_URL}/`);
-console.log(`  Wedding simple   ${WEB_URL}/wedding-simple/`);
-console.log(`  Showcase         ${WEB_URL}/showcase/`);
-console.log(`  Premium          ${WEB_URL}/premium/`);
+console.log("Crystal Showcase");
+console.log(`  Cursor shell     ${WEB_URL}/showcase.html`);
+console.log(`  RTX Chrome GPU   ${WEB_URL}/showcase.html?localOnly=1&fullGpu=1&companionTarget=1&noPhysics=1`);
+console.log(`  npm run open:showcase-gpu`);

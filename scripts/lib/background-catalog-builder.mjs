@@ -21,6 +21,7 @@ export const ASSET_DISPLAY_LABELS = {
   "0_Diamond_Gemstone_3840x2160.mp4": "다이아몬드 4K",
   "0_Gold_Golden_3840x2160.mp4": "골드 4K",
   "0_Crystals_Geometric_3840x2160.mp4": "크리스탈 지오메트릭",
+  "럭셔리13.mp4": "럭셔리 13",
 };
 
 export function resolveAssetDisplayLabel(file) {

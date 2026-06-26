@@ -111,6 +111,8 @@ export function getPhotoCrystalPhotoProfile(shapeId: PhotoCrystalShapeId): Photo
 
         ...portraitDefaults,
 
+        photoViewportFill: 1,
+
       };
 
     default:

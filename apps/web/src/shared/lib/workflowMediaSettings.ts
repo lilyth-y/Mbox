@@ -1,5 +1,4 @@
 import type { CubeBgmTrackId } from "@mbox/shared";
-import { DEFAULT_CUBE_PRESENTATION_OPTIONS } from "@mbox/shared";
 
 const WORKFLOW_MEDIA_KEY = "mbox.workflowMedia";
 const LEGACY_ROSE_COMPOSITE_KEY = "mbox.compositeRoseSettings";
@@ -15,10 +14,10 @@ export interface PersistedWorkflowMedia {
 
 export const DEFAULT_WORKFLOW_MEDIA: PersistedWorkflowMedia = {
   viewportBackdropPath: null,
-  bgmEnabled: DEFAULT_CUBE_PRESENTATION_OPTIONS.bgmEnabled,
+  bgmEnabled: true,
   bgmTrackId: "none",
   bgmWorkspacePath: null,
-  cubeSizeScale: DEFAULT_CUBE_PRESENTATION_OPTIONS.cubeSizeScale,
+  cubeSizeScale: 1,
 };
 
 export function loadWorkflowMedia(): PersistedWorkflowMedia {

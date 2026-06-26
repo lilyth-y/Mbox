@@ -28,6 +28,7 @@ import {
   getCrystalShellViewClearFactor,
   getShowcaseCatalogColorState,
 } from "../showcaseCatalogColorState";
+import { resolveShowcaseGpuTier } from "../../showcaseGpuProfile";
 
 const VERTEX = `
 precision highp float;
@@ -121,8 +122,8 @@ void main(void) {
 
   vec3 ice = uIceTint;
   float layerMul = isFront ? 1.0 : 0.55;
-  float body = (1.0 - reflectMask * 0.72) * (0.22 + fres * 0.38);
-  vec3 col = ice * body * uGlossBoost * 1.12 * layerMul;
+  float body = (1.0 - reflectMask * 0.68) * (0.28 + fres * 0.44);
+  vec3 col = ice * body * uGlossBoost * 1.22 * layerMul;
   float facetValley = pow(1.0 - ndv, 2.35);
   col *= mix(1.0, 0.72, facetValley * 0.38);
   col += ice * facetValley * 0.22 * uGlossBoost * layerMul;
@@ -139,7 +140,7 @@ void main(void) {
     facetSpec(nFacet, v, uOrbitLightPos3, 34.0) * 1.22 +
     facetSpec(nFacet, v, uKeyLightPos, 52.0) * 1.02 +
     facetSpec(nFacet, v, uRimLightPos, 46.0) * 0.88;
-  col += vec3(1.0) * spec * uGlossBoost * edge * layerMul * mix(0.62, 1.85, fres);
+  col += vec3(1.0) * spec * uGlossBoost * edge * layerMul * mix(0.48, 1.42, fres);
 
   vec3 lMix = normalize(
     normalize(uOrbitLightPos - vWorldPos) +
@@ -148,11 +149,11 @@ void main(void) {
   );
   float facet = pow(max(dot(nFacet, lMix), 0.0), 6.0);
   float pulse = 0.5 + 0.5 * sin(uTime * 1.8 + dot(n, vec3(7.1, 9.3, 5.7)));
-  col += vec3(1.0) * facet * pulse * 1.45 * uGlossBoost * edge * layerMul;
+  col += vec3(1.0) * facet * pulse * 1.05 * uGlossBoost * edge * layerMul;
 
   float silhouette = pow(1.0 - abs(dot(normalize(vWorldNormal), v)), 3.2);
-  col += ice * silhouette * 0.42 * uGlossBoost;
-  col += vec3(1.0) * fres * edge * 0.38 * uGlossBoost * layerMul;
+  col += ice * silhouette * 0.28 * uGlossBoost;
+  col += vec3(1.0) * fres * edge * 0.24 * uGlossBoost * layerMul;
 
   float vis = edge * (0.68 + fres * 0.62);
   float alpha = clamp(
@@ -162,29 +163,134 @@ void main(void) {
   );
   float viewThrough = pow(ndv, 1.12);
   float iceFade = clamp(uIceSuppress * viewThrough, 0.0, 1.0);
-  col *= mix(1.0, 0.38, iceFade * 0.55);
+  col *= mix(1.0, 0.52, iceFade * 0.38);
   alpha *= mix(1.0, uViewClear, viewThrough * 0.82);
-  alpha *= mix(1.0, 0.78, iceFade * 0.35);
+  alpha = min(alpha + iceFade * 0.14 * viewThrough, uAlphaMax);
+  alpha *= mix(1.0, 0.88, iceFade * 0.22);
   if (alpha < 0.025) {
     discard;
   }
-  col *= mix(vec3(1.0), ice, 0.58);
+  col *= mix(vec3(1.0), ice, 0.48);
+  gl_FragColor = vec4(col, alpha);
+}
+`;
+
+/** Preview-safe shell — no cubemap, no refract, single specular (Windows simplified). */
+const FRAGMENT_LITE = `
+precision mediump float;
+uniform float uPower;
+uniform float uShellAlpha;
+uniform float uGlossBoost;
+uniform vec3 uIceTint;
+uniform vec3 uKeyLightPos;
+uniform vec3 uBackdropAvg;
+uniform float uShellOpacityScale;
+uniform float uAlphaMax;
+varying vec3 vWorldNormal;
+varying vec3 vWorldPos;
+varying vec3 vViewDir;
+
+void main(void) {
+  vec3 n = normalize(vWorldNormal);
+  if (!gl_FrontFacing) {
+    n = -n;
+  }
+  vec3 v = normalize(vViewDir);
+  float ndv = clamp(dot(n, v), 0.0, 1.0);
+  float fres = pow(1.0 - ndv, 2.6);
+  float edge = smoothstep(0.14, 0.68, fres);
+
+  vec3 col = uIceTint * (0.32 + fres * 0.42) * uGlossBoost;
+  col += uBackdropAvg * edge * 0.22;
+
+  vec3 l = normalize(uKeyLightPos - vWorldPos);
+  vec3 h = normalize(l + v);
+  float spec = pow(max(dot(n, h), 0.0), 22.0) * edge;
+  col += vec3(1.0) * spec * uGlossBoost * 0.85;
+
+  float alpha = clamp(
+    uShellAlpha * edge * uPower * uShellOpacityScale,
+    0.0,
+    uAlphaMax
+  );
+  if (alpha < 0.03) {
+    discard;
+  }
   gl_FragColor = vec4(col, alpha);
 }
 `;
 
 Effect.ShadersStore["jewelCrystalShellVertexShader"] = VERTEX;
 Effect.ShadersStore["jewelCrystalShellFragmentShader"] = FRAGMENT;
+Effect.ShadersStore["jewelCrystalShellLiteVertexShader"] = VERTEX;
+Effect.ShadersStore["jewelCrystalShellLiteFragmentShader"] = FRAGMENT_LITE;
+
+export function shouldUseLiteCrystalShellShader(): boolean {
+  if (typeof window !== "undefined") {
+    if (new URLSearchParams(window.location.search).get("fullShell") === "1") {
+      return false;
+    }
+  }
+  return resolveShowcaseGpuTier() === "simplified";
+}
+
+export function isJewelCrystalShellLiteMaterial(material: JewelCrystalShellMaterial): boolean {
+  return material.name.includes("jewel-crystal-shell-lite");
+}
 
 export type JewelCrystalShellMaterial = ShaderMaterial;
 
 const DEFAULT_LIGHT_POS = new Vector3(2.5, 3.2, 4.5);
 const SHOWCASE_SHELL_ALPHA = 0.62;
 
+function createLiteJewelCrystalShellMaterial(scene: Scene): JewelCrystalShellMaterial {
+  const spec = HOLOGRAM_DISPLAY_SPEC;
+  const mat = new ShaderMaterial(
+    "jewel-crystal-shell-lite",
+    scene,
+    { vertex: "jewelCrystalShellLite", fragment: "jewelCrystalShellLite" },
+    {
+      attributes: ["position", "normal"],
+      uniforms: [
+        "worldViewProjection",
+        "world",
+        "view",
+        "uPower",
+        "uShellAlpha",
+        "uGlossBoost",
+        "uIceTint",
+        "uKeyLightPos",
+        "uBackdropAvg",
+        "uShellOpacityScale",
+        "uAlphaMax",
+      ],
+      needAlphaBlending: true,
+    }
+  );
+  mat.setFloat("uPower", 1);
+  mat.setFloat("uShellAlpha", Math.max(spec.paperweightShellAlpha, SHOWCASE_SHELL_ALPHA));
+  mat.setFloat("uGlossBoost", 1.45);
+  mat.setVector3("uIceTint", new Vector3(0.9, 0.96, 1));
+  mat.setVector3("uKeyLightPos", DEFAULT_LIGHT_POS);
+  mat.setVector3("uBackdropAvg", new Vector3(0.08, 0.09, 0.11));
+  mat.setFloat("uShellOpacityScale", 1);
+  mat.setFloat("uAlphaMax", 0.48);
+  mat.backFaceCulling = true;
+  mat.alpha = 1;
+  mat.transparencyMode = Material.MATERIAL_ALPHABLEND;
+  mat.alphaMode = Engine.ALPHA_COMBINE;
+  mat.forceDepthWrite = false;
+  mat.disableDepthWrite = true;
+  return mat;
+}
+
 export function createJewelCrystalShellMaterial(
   scene: Scene,
   envTexture: BaseTexture | null
 ): JewelCrystalShellMaterial {
+  if (shouldUseLiteCrystalShellShader()) {
+    return createLiteJewelCrystalShellMaterial(scene);
+  }
   const spec = HOLOGRAM_DISPLAY_SPEC;
   const mat = new ShaderMaterial(
     "jewel-crystal-shell",
@@ -259,6 +365,13 @@ export function applyConvexCrystalShellTuning(
   const tuning = getConvexShellPhotoTuning(shapeId);
   const alphaMul = getCrystalShellAlphaMultiplier();
   const glossMul = getCrystalShellGlossMultiplier();
+  if (isJewelCrystalShellLiteMaterial(material)) {
+    material.setFloat("uShellOpacityScale", tuning.shellOpacityScale * alphaMul);
+    material.setFloat("uAlphaMax", tuning.alphaMax * Math.max(alphaMul, 0.35));
+    material.setFloat("uGlossBoost", tuning.glossBoost * glossMul * 0.9);
+    material.setFloat("uShellAlpha", tuning.shellAlpha * alphaMul);
+    return;
+  }
   const viewClear = getCrystalShellViewClearFactor();
   const iceSuppress = getCrystalShellIceSuppress();
   const reflectionScale = getCrystalBackdropReflectionScale();
@@ -341,6 +454,9 @@ export function setJewelCrystalShellEnv(
   material: JewelCrystalShellMaterial,
   envTexture: BaseTexture | null
 ): void {
+  if (isJewelCrystalShellLiteMaterial(material)) {
+    return;
+  }
   setJewelCrystalShellEnvMaps(material, envTexture, envTexture);
 }
 
@@ -349,6 +465,9 @@ export function setJewelCrystalShellEnvMaps(
   colorEnv: BaseTexture | null,
   mediaEnv: BaseTexture | null
 ): void {
+  if (isJewelCrystalShellLiteMaterial(material)) {
+    return;
+  }
   if (colorEnv) {
     material.setTexture("uEnvColor", colorEnv);
   }
@@ -365,9 +484,32 @@ export function tickJewelCrystalShellMaterial(
   innerMaterial?: JewelCrystalShellMaterial | null,
   shapeId?: PhotoCrystalShapeId
 ): void {
+  if (typeof material.setFloat !== "function") {
+    return;
+  }
   const p = Math.max(0, Math.min(1, power));
   const uPower = 0.88 + p * 0.52;
   material.setFloat("uPower", uPower);
+
+  if (isJewelCrystalShellLiteMaterial(material)) {
+    applyUserCrystalSurfaceColor(material);
+    if (shapeId) {
+      applyConvexCrystalShellTuning(material, shapeId);
+    } else {
+      material.setFloat("uGlossBoost", 1.35 + p * 1.2);
+    }
+    const sample = getSmoothedBackdropSample();
+    if (sample) {
+      material.setVector3(
+        "uBackdropAvg",
+        new Vector3(sample.average.r, sample.average.g, sample.average.b)
+      );
+    }
+    if (lights) {
+      material.setVector3("uKeyLightPos", lights.key);
+    }
+    return;
+  }
 
   const backdrop = getShowcaseBackgroundLightingState();
   const sample = getSmoothedBackdropSample();

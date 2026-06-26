@@ -18,10 +18,11 @@ export type CrystalHarmonyTuning = {
 };
 
 export function classifyCrystalHarmonyProfile(sample: ShowcaseBackdropSample): CrystalHarmonyProfile {
-  if (sample.luminance < 0.16) {
+  const luminance = Number.isFinite(sample.luminance) ? sample.luminance : 0;
+  if (luminance < 0.16) {
     return "dark";
   }
-  if (sample.luminance > 0.52) {
+  if (luminance > 0.52) {
     return "bright";
   }
   return "neutral";
@@ -41,7 +42,8 @@ export function computeCrystalHarmonyTuningForProfile(
   profile: CrystalHarmonyProfile
 ): CrystalHarmonyTuning {
   const t = Math.max(0, Math.min(1, influence));
-  const { average, bright } = sample;
+  const average = sample.average ?? { r: 0.07, g: 0.09, b: 0.13 };
+  const bright = sample.bright ?? { r: 0.16, g: 0.22, b: 0.36 };
 
   const iceTint = new Color3(
     average.r * 0.35 + bright.r * 0.25 + 0.4,
@@ -133,6 +135,9 @@ export function applyCrystalHarmonyToShell(
   tuning: CrystalHarmonyTuning,
   power: number
 ): void {
+  if (typeof shellMaterial.setFloat !== "function") {
+    return;
+  }
   const p = Math.max(0, Math.min(1, power));
   const alphaMul = getCrystalShellAlphaMultiplier();
   shellMaterial.setFloat("uShellAlpha", tuning.shellAlpha * alphaMul);

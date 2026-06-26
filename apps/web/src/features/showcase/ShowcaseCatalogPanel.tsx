@@ -1,4 +1,8 @@
-import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+
+import type { CubeBgmTrackId } from "@mbox/shared";
+
+import { SHOWCASE_BGM_TRACKS, probeBgmAvailability } from "./export/bgmTracks";
 
 import { PHOTO_CRYSTAL_SHAPES } from "./babylon/photoCrystalShapeCatalog";
 
@@ -28,7 +32,7 @@ import {
 
 } from "./showcaseBackgroundMedia";
 
-
+import { isBackgroundVideoPath } from "../../shared/lib/backgroundAssetCatalog";
 
 type ShowcaseCatalogPanelProps = {
 
@@ -37,6 +41,10 @@ type ShowcaseCatalogPanelProps = {
   onChange: (next: ShowcaseCatalogOptions) => void;
 
   disabled?: boolean;
+
+  bgmCustomUrl?: string | null;
+
+  onBgmCustomUrlChange?: (url: string | null) => void;
 
 };
 
@@ -120,9 +128,36 @@ function CatalogOption({
 
 
 
-export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCatalogPanelProps) {
+export function ShowcaseCatalogPanel({
+  value,
+  onChange,
+  disabled,
+  bgmCustomUrl,
+  onBgmCustomUrlChange,
+}: ShowcaseCatalogPanelProps) {
 
   const uploadRef = useRef<HTMLInputElement>(null);
+  const bgmUploadRef = useRef<HTMLInputElement>(null);
+  const [bgmAvailable, setBgmAvailable] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!value.bgmEnabled) {
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      SHOWCASE_BGM_TRACKS.map(async (track) =>
+        [track.id, await probeBgmAvailability(track.publicPath)] as const
+      )
+    ).then((entries) => {
+      if (!cancelled) {
+        setBgmAvailable(Object.fromEntries(entries));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [value.bgmEnabled]);
 
   const mediaActive = value.backgroundMediaSource !== "none";
 
@@ -142,6 +177,8 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
 
       backgroundMediaPath: null,
 
+      backgroundMediaIsVideo: false,
+
     });
 
   };
@@ -157,6 +194,8 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
       backgroundMediaSource: "builtin",
 
       backgroundMediaPath: path,
+
+      backgroundMediaIsVideo: isBackgroundVideoPath(path),
 
     });
 
@@ -190,6 +229,20 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
 
     }
 
+    const isVideo =
+      file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+
+    if (isVideo) {
+      const objectUrl = URL.createObjectURL(file);
+      onChange({
+        ...value,
+        backgroundMediaSource: "custom",
+        backgroundMediaPath: objectUrl,
+        backgroundMediaIsVideo: true,
+      });
+      return;
+    }
+
     const dataUrl = await new Promise<string>((resolve, reject) => {
 
       const reader = new FileReader();
@@ -212,7 +265,81 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
 
       backgroundMediaPath: dataUrl,
 
+      backgroundMediaIsVideo: false,
+
     });
+
+  };
+
+
+
+  const handleBgmUpload = (event: ChangeEvent<HTMLInputElement>) => {
+
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+
+      return;
+
+    }
+
+    const isAudio =
+
+      file.type.startsWith("audio/") || /\.(mp3|m4a|wav|aac|ogg)$/i.test(file.name);
+
+    if (!isAudio) {
+
+      return;
+
+    }
+
+    if (bgmCustomUrl?.startsWith("blob:")) {
+
+      URL.revokeObjectURL(bgmCustomUrl);
+
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+
+    onBgmCustomUrlChange?.(objectUrl);
+
+    onChange({
+
+      ...value,
+
+      bgmEnabled: true,
+
+      bgmTrackId: "custom",
+
+      bgmWorkspacePath: null,
+
+    });
+
+  };
+
+
+
+  const selectBuiltinBgm = (trackId: CubeBgmTrackId) => {
+
+    onChange({
+
+      ...value,
+
+      bgmEnabled: true,
+
+      bgmTrackId: trackId,
+
+      bgmWorkspacePath: null,
+
+    });
+
+    if (trackId !== "custom") {
+
+      onBgmCustomUrlChange?.(null);
+
+    }
 
   };
 
@@ -392,22 +519,22 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
         <OptionGroup legend="크리스탈 · 사진">
         <label className="showcase-catalog-slider">
           <span>
-            크리스탈 유리 투명도 {((1 - value.crystalShellTransparency) * 100).toFixed(0)}%
+            크리스탈 유리 두께 {(value.crystalShellTransparency * 100).toFixed(0)}%
           </span>
           <span className="text-mbox-muted text-xs">
-            0% = 얇은 유리 · 100% = 두꺼운 보석 유리 (멋진 페이퍼웨이트)
+            0% = 얇은 투명 유리 · 100% = 두꺼운 불투명 페이퍼웨이트
           </span>
           <input
             type="range"
             min={0}
             max={1}
-            step={0.02}
-            value={1 - value.crystalShellTransparency}
+            step={0.01}
+            value={value.crystalShellTransparency}
             disabled={disabled}
             onChange={(event) =>
               onChange({
                 ...value,
-                crystalShellTransparency: 1 - Number(event.target.value),
+                crystalShellTransparency: Number(event.target.value),
               })
             }
           />
@@ -416,13 +543,13 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
         <label className="showcase-catalog-slider">
           <span>내부 사진 선명도 {(value.crystalPhotoClarity * 100).toFixed(0)}%</span>
           <span className="text-mbox-muted text-xs">
-            100% = 부스용 최대 가독성 · 유리 두께와 별도 조절
+            0% = 원본 밝기 · 100% = 부스용 최대 가독성 (유리 두께와 별도)
           </span>
           <input
             type="range"
             min={0}
             max={1}
-            step={0.02}
+            step={0.01}
             value={value.crystalPhotoClarity}
             disabled={disabled}
             onChange={(event) =>
@@ -530,6 +657,10 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
 
         <OptionGroup legend="배경 미디어">
 
+          <p className="showcase-catalog-hint col-span-full text-xs text-mbox-muted/90">
+            캔버스 뒤 레이어에 사진·동영상(MP4)이 표시됩니다. MP4보내기에도 합성됩니다.
+          </p>
+
           <CatalogOption
 
             label="내 사진·동영상"
@@ -615,6 +746,116 @@ export function ShowcaseCatalogPanel({ value, onChange, disabled }: ShowcaseCata
               />
 
             </label>
+
+          </div>
+
+        ) : null}
+
+
+
+        <OptionGroup legend="배경음악 (BGM)">
+
+          <CatalogOption
+
+            label="BGM OFF"
+
+            selected={!value.bgmEnabled}
+
+            disabled={disabled}
+
+            onClick={() => onChange({ ...value, bgmEnabled: false, bgmTrackId: "none" })}
+
+          />
+
+          {SHOWCASE_BGM_TRACKS.map((track) => {
+
+            const unavailable = value.bgmEnabled && bgmAvailable[track.id] === false;
+
+            return (
+
+              <CatalogOption
+
+                key={track.id}
+
+                label={track.label}
+
+                selected={value.bgmEnabled && value.bgmTrackId === track.id}
+
+                disabled={disabled || unavailable}
+
+                onClick={() => selectBuiltinBgm(track.id)}
+
+              />
+
+            );
+
+          })}
+
+          <CatalogOption
+
+            label="MP3 업로드"
+
+            selected={value.bgmEnabled && value.bgmTrackId === "custom"}
+
+            disabled={disabled}
+
+            onClick={() => bgmUploadRef.current?.click()}
+
+          />
+
+          <input
+
+            ref={bgmUploadRef}
+
+            type="file"
+
+            accept="audio/mpeg,audio/mp3,audio/mp4,audio/wav,audio/*"
+
+            className="sr-only"
+
+            onChange={handleBgmUpload}
+
+          />
+
+        </OptionGroup>
+
+
+
+        {value.bgmEnabled ? (
+
+          <div className="showcase-catalog-sliders">
+
+            <label className="showcase-catalog-slider">
+
+              <span>음악 볼륨 {(value.bgmVolume * 100).toFixed(0)}%</span>
+
+              <input
+
+                type="range"
+
+                min={0.2}
+
+                max={1}
+
+                step={0.05}
+
+                value={value.bgmVolume}
+
+                disabled={disabled}
+
+                onChange={(e) => onChange({ ...value, bgmVolume: Number(e.target.value) })}
+
+              />
+
+            </label>
+
+            <p className="text-xs text-mbox-muted/90">
+
+              미리보기 재생과 MP4보내기에 포함됩니다. 기본 제공 곡은{" "}
+
+              <code className="text-[0.7rem]">npm run setup:bgm</code> 설치가 필요할 수 있습니다.
+
+            </p>
 
           </div>
 

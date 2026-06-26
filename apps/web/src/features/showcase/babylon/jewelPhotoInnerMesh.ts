@@ -14,21 +14,22 @@ import {
   SPHERE_SHELL_RADIUS,
   SHELL_INNER_WALL_INSET,
 } from "./photoCrystalShapeGeometry";
-import { createHeartDualPhotoMeshes, createHeartTablePhotoMesh, getHeartGemMetrics } from "./heartCrystalMesh";
+import { createHeartTablePhotoMesh, getHeartGemMetrics } from "./heartCrystalMesh";
 import { getPhotoCrystalPhotoProfile } from "./photoCrystalPhotoProfile";
 import { getBrilliantCutFlatSpan } from "./crystalShellMesh";
 import { SHELL_FLAT_CAVITY_RATIO } from "./photoCrystalShapeGeometry";
 
-/** Stay inside facet flat — snug to inner cavity. */
-const CUBE_PHOTO_FACE_MARGIN = 0.996;
-/** Face plane depth — slightly inside flat table toward cavity center. */
-const CUBE_PHOTO_FACE_DEPTH_MUL = 0.965;
+/** Weld margin — slight overlap so inner photo cube meets brilliant-cut flats without gaps. */
+export const CUBE_PHOTO_FACE_SEAM_OVERLAP = 1.008;
 
 export type InnerPhotoMeshPose = {
   size: number;
   position: Vector3;
   slabDepth: number;
 };
+
+/** Face mount depth — slightly inside brilliant-cut flat toward cavity center. */
+const CUBE_PHOTO_FACE_DEPTH_MUL = 0.965;
 
 export function getCubePhotoCavityMetrics(shapeId: PhotoCrystalShapeId): {
   edgeSize: number;
@@ -40,7 +41,7 @@ export function getCubePhotoCavityMetrics(shapeId: PhotoCrystalShapeId): {
   const flatSpan = getBrilliantCutFlatSpan(outerSpan);
   const flatHalf = flatSpan * 0.5;
   const faceHalf = flatHalf * CUBE_PHOTO_FACE_DEPTH_MUL;
-  const edgeSize = flatSpan * CUBE_PHOTO_FACE_DEPTH_MUL * CUBE_PHOTO_FACE_MARGIN;
+  const edgeSize = 2 * faceHalf * CUBE_PHOTO_FACE_SEAM_OVERLAP;
   return { edgeSize, faceHalf };
 }
 
@@ -194,7 +195,8 @@ export function createInnerPhotoHeartTableMesh(
   return createHeartTablePhotoMesh(scene, name, tableRadius);
 }
 
-export function createInnerPhotoHeartDualMeshes(
+/** Single heart table recessed inside the gem cavity (no front/back twin plates). */
+export function createInnerPhotoHeartTableMeshes(
   scene: Scene,
   name: string,
   tableRadius: number,
@@ -203,7 +205,19 @@ export function createInnerPhotoHeartDualMeshes(
   const shape = resolvePhotoCrystalShape(shapeId ?? "heart");
   const metrics = getHeartGemMetrics();
   const halfDepth = metrics.halfDepth * shape.outerScale.z;
-  return createHeartDualPhotoMeshes(scene, name, tableRadius, halfDepth);
+  const zInset = halfDepth * 0.78;
+  const table = createHeartTablePhotoMesh(scene, `${name}-table`, tableRadius, zInset, false);
+  return [table];
+}
+
+/** @deprecated use createInnerPhotoHeartTableMeshes */
+export function createInnerPhotoHeartDualMeshes(
+  scene: Scene,
+  name: string,
+  tableRadius: number,
+  shapeId?: PhotoCrystalShapeId
+): Mesh[] {
+  return createInnerPhotoHeartTableMeshes(scene, name, tableRadius, shapeId);
 }
 
 export function getHeartTablePhotoRadius(shapeId?: PhotoCrystalShapeId): number {

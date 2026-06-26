@@ -16,10 +16,12 @@ import {
 } from "./babylon/jewelPhotoRasterSpec";
 import type { ShowcaseCatalogOptions } from "./showcaseCatalogOptions";
 import {
+  CLOUD_SHOWCASE_PIPELINE_CONFIG,
   DEFAULT_SHOWCASE_PIPELINE_CONFIG,
   type ShowcasePipelineConfig,
   type ShowcasePipelineSnapshot,
 } from "./pipeline/types";
+import { isShowcaseAutomationSession } from "./showcaseAutomation";
 
 export const SHOWCASE_SHAPE_IDS = PHOTO_CRYSTAL_SHAPES.map((s) => s.id);
 
@@ -266,7 +268,12 @@ export function evaluateShowcaseShapeRuntimeAcceptance(input: {
   config?: ShowcasePipelineConfig;
 }): ShowcaseShapeRuntimeAcceptance {
   const checks: ShowcaseShapeAcceptanceCheck[] = [];
-  const { pullEndMs, pullHoldEndMs } = computeShowcasePullHoldWindow(input.config);
+  const pipelineConfig =
+    input.config ??
+    (isShowcaseAutomationSession()
+      ? CLOUD_SHOWCASE_PIPELINE_CONFIG
+      : DEFAULT_SHOWCASE_PIPELINE_CONFIG);
+  const { pullEndMs, pullHoldEndMs } = computeShowcasePullHoldWindow(pipelineConfig);
 
   checks.push({
     id: "rig_shape_match",
@@ -322,6 +329,7 @@ export function auditShowcaseShapeRuntime(input: {
   rigShapeId?: string | null;
   canvas: HTMLCanvasElement | null;
   photoLayout?: ShowcaseCatalogOptions["photoLayout"];
+  config?: ShowcasePipelineConfig;
 }): ShowcaseShapeAuditResult {
   const staticResult = evaluateShowcaseShapeStaticAcceptance(
     input.shapeId,
@@ -332,6 +340,7 @@ export function auditShowcaseShapeRuntime(input: {
     snapshot: input.snapshot,
     rigShapeId: input.rigShapeId,
     canvas: input.canvas,
+    config: input.config,
   });
 
   return {

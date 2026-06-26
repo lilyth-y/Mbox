@@ -1,6 +1,6 @@
 import { DEFAULT_LOCAL_API_URL } from "@mbox/shared";
 import { buildApiHeaders } from "./headers";
-import { formatApiConnectionError } from "./connectionErrors";
+import { formatApiConnectionError, formatWorkspaceApiError } from "./connectionErrors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_LOCAL_API_URL;
 
@@ -30,7 +30,11 @@ async function fetchWithRetry<T>(
       });
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`API request failed (${response.status}): ${errorBody}`);
+        throw new Error(
+          response.status === 401
+            ? formatWorkspaceApiError(response.status, errorBody, API_BASE_URL)
+            : `API request failed (${response.status}): ${errorBody}`,
+        );
       }
       return (await response.json()) as T;
     } catch (error) {

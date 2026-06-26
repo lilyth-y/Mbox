@@ -64,14 +64,14 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   rotate: {
     id: "rotate",
-    version: "1.2.0",
+    version: "1.3.0",
     maturity: "commercial",
-    labelKo: "회전",
-    summaryKo: "Y축 ease-in/out 회전 + 부유 + 호흡 줌",
+    labelKo: "회전·모핑",
+    summaryKo: "연속 ease-in-cruise 스핀 + 사진 모핑 (구간 경계 무정지)",
     acceptanceKo: [
-      "3.4s 단일 방향 spin — 총 각도 등속 구간과 동일(적분 매핑)",
-      "ease-in/out 각속도 — 구간 경계 스냅 없음",
-      "카메라 presentation follow 유지",
+      "rotate+morph 단일 cruise envelope — 끝에서 peak 유지",
+      "spinOmega 관성 브리지 — stage enter 시 ω 리셋 없음",
+      "pull 진입 decay — handoff ω에서 연속 감속",
     ],
     changelog: [
       {
@@ -91,86 +91,6 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
         version: "1.0.0",
         date: "2026-06-01",
         notesKo: ["presentation tick 기본 회전"],
-      },
-    ],
-  },
-  fall: {
-    id: "fall",
-    version: "1.0.0",
-    maturity: "alpha",
-    labelKo: "낙하",
-    summaryKo: "Havok 낙하 + 바닥 접근 카메라",
-    acceptanceKo: ["낙하 물리 ON 파이프라인에서만 활성"],
-    knownIssuesKo: ["export 시 결정론적 스폰 offset"],
-    changelog: [
-      {
-        version: "1.0.0",
-        date: "2026-06-01",
-        notesKo: ["낙하 물리 스테이지"],
-      },
-    ],
-  },
-  bounce: {
-    id: "bounce",
-    version: "1.0.0",
-    maturity: "alpha",
-    labelKo: "튕김",
-    summaryKo: "안착 대기 + bounce 카메라",
-    acceptanceKo: ["settleHoldMs 후 morph 전환"],
-    changelog: [
-      {
-        version: "1.0.0",
-        date: "2026-06-01",
-        notesKo: ["바닥 안착 스테이지"],
-      },
-    ],
-  },
-  morph: {
-    id: "morph",
-    version: "1.3.0",
-    maturity: "commercial",
-    labelKo: "사진 모핑",
-    summaryKo: "L2 dual-layer crossfade + integral spin",
-    acceptanceKo: [
-      "smootherstep 대칭 crossfade",
-      "모핑 중 integral ease spin·부유 유지",
-      "프레임·aspect shape별 유지",
-    ],
-    changelog: [
-      {
-        version: "1.3.0",
-        date: "2026-06-21",
-        notesKo: ["commercial maturity lock"],
-      },
-      {
-        version: "1.2.0",
-        date: "2026-06-21",
-        notesKo: ["computeIntegralEaseSpinSpeedY morph spin", "maturity rc"],
-      },
-      {
-        version: "1.1.0",
-        date: "2026-06-18",
-        notesKo: ["dual-sided framed photo", "sphere disc branch"],
-      },
-      {
-        version: "1.0.0",
-        date: "2026-06-01",
-        notesKo: ["bg A/B crossfade"],
-      },
-    ],
-  },
-  swap: {
-    id: "swap",
-    version: "1.1.0",
-    maturity: "beta",
-    labelKo: "사진 교체",
-    summaryKo: "morph alias — 동일 1.1.0 계약",
-    acceptanceKo: ["morphStage와 동일 동작"],
-    changelog: [
-      {
-        version: "1.1.0",
-        date: "2026-06-18",
-        notesKo: ["morph와 버전 동기"],
       },
     ],
   },
@@ -225,14 +145,14 @@ export const SHOWCASE_STAGE_VERSIONS: Record<
   },
   ascend: {
     id: "ascend",
-    version: "1.2.0",
+    version: "1.3.0",
     maturity: "commercial",
     labelKo: "상승",
-    summaryKo: "hero → presentation ease-in-out zoom-out + integral spin ramp",
+    summaryKo: "hero → presentation ease-in-out zoom-out + cruise spin handoff",
     acceptanceKo: [
       "pullReturnMs 대칭 easeInOutCubic 카메라 복귀",
-      "스프링 vel 리셋 — 이중 추적 없음",
-      "repositionJewelCube 없이 integral spin ramp",
+      "returnEndRadius 고정 — 호흡 줌 jerk 제거",
+      "ease-in-cruise spin — 루프 rotate에 ω 전달",
     ],
     changelog: [
       {

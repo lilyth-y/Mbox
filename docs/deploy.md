@@ -47,10 +47,20 @@ export VITE_API_KEY=your-api-key
 export VITE_USE_SERVER_VAULT=true
 export VITE_LOCALHOST_DEMO=false
 export VITE_ENABLE_DEV_ASSET_BATCH=false
+# Optional: cloud MP4 render (requires render worker — see docs/cloud-render-spec.md)
+# export VITE_RENDER_BACKEND=cloud
 npm run build --workspace @mbox/web
 ```
 
-Deploy `apps/web/dist` to your static host. Point SPA fallback to `index.html`.
+Deploy `apps/web/dist` to your static host. Default entry `index.html` redirects to **Crystal** (`showcase.html`). Legacy studio: `studio.html`.
+
+## 2b. Cloud render worker (optional)
+
+See [cloud-render-spec.md](cloud-render-spec.md). Run `node scripts/render-worker.mjs` against API + web, or deploy `apps/render-worker/Dockerfile`.
+
+```bash
+export VITE_RENDER_BACKEND=cloud
+```
 
 ## 3. Workspace API
 

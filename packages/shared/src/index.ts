@@ -12,3 +12,4 @@ export * from "./mediaPresentationGuide.js";
 export * from "./showcaseCommercialSpec.js";
 export * from "./showcaseCommercialPresets.js";
 export * from "./showcaseCommercialGoals.js";
+export * from "./renderJob.js";

@@ -8,18 +8,9 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
-import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
-
-import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
-
-import { HOLOGRAM_DISPLAY_SPEC } from "@mbox/shared";
-
-import { enableHavokPhysics } from "../../premium/babylon/physicsWorld";
-import { upgradeJewelRigToHavokPhysics } from "./jewelCubeFactory";
 import {
   createShowcaseBabylonEngine,
   isBabylonGlContextLost,
-  shouldUseConservativeShowcaseWebGl,
   waitForCanvasLayout,
   waitForGpuStableFrames,
 } from "./babylonCanvasGuard";
@@ -108,10 +99,11 @@ import {
 import { applyShowcaseCrystalCatalogToShell } from "./showcaseCrystalColor";
 import { applyShowcaseFrameSettingsToRig } from "./showcasePhotoFrameColor";
 import { applyJewelCrystalScale } from "./showcaseJewelScale";
-import { resolveShowcaseGpuBudget, shouldDeferHavokUntilJewelStable } from "../showcaseGpuProfile";
+import { resolveShowcaseGpuBudget, type ShowcaseGpuBudget } from "../showcaseGpuProfile";
 import { gpuSpreadFrameGap, waitGpuFrames } from "./showcaseGpuLoadScheduler";
 import { resolveShowcaseBackgroundMediaPath } from "../showcaseBackgroundMedia";
 import { isShowcaseAutomationSession } from "../showcaseAutomation";
+import { isGpuSafeMode, isLocalGpuSession } from "../../../shared/lib/gpuSession";
 import { isLocalGpuExportSession } from "../../../shared/lib/renderExportProfile";
 import {
   finalizeShowcaseResourceReport,
@@ -161,10 +153,6 @@ export interface ShowcasePhysicsSceneHandle {
   getImageIndex: () => number;
 
   setPlaying: (playing: boolean) => void;
-
-  setFallPhysicsEnabled: (enabled: boolean) => void;
-
-  getFallPhysicsEnabled: () => boolean;
 
   setPresentationPreferences: (prefs: ShowcasePresentationPreferences) => void;
 
@@ -228,6 +216,8 @@ export interface ShowcasePhysicsSceneHandle {
   /** Lighter recovery than full scene teardown — drop video lighting / glow, lower resolution. */
   applySafeGpuRecovery: () => void;
 
+  isGlContextLost: () => boolean;
+
   dispose: () => void;
 
 }
@@ -246,6 +236,28 @@ function disposePartialShowcaseScene(engine: Engine, scene: Scene): void {
   engine.dispose();
 }
 
+function resolveHoloPreloadImmediateCount(imageCount: number, localGpuPath: boolean): number {
+  if (imageCount <= 0) {
+    return 1;
+  }
+  if (localGpuPath) {
+    return imageCount;
+  }
+  return imageCount > 1 ? 1 : imageCount;
+}
+
+function buildHoloPreloadOptions(
+  imageCount: number,
+  localGpuPath: boolean,
+  tier: ShowcaseGpuBudget["tier"]
+) {
+  const immediateCount = resolveHoloPreloadImmediateCount(imageCount, localGpuPath);
+  return {
+    sequential: tier === "simplified" || (imageCount > 1 && !localGpuPath),
+    immediateCount,
+  };
+}
+
 
 
 export async function createShowcasePhysicsScene(
@@ -255,7 +267,6 @@ export async function createShowcasePhysicsScene(
   images: ProcessedImage[],
 
   options?: {
-    fallPhysicsEnabled?: boolean;
     catalog?: ShowcaseCatalogOptions;
     /** DOM video/img behind canvas — background plays as-is. */
     backdropMediaElement?: HTMLVideoElement | HTMLImageElement | null;
@@ -286,7 +297,7 @@ export async function createShowcasePhysicsScene(
     images.length
   );
   const recoveryAttempt = Math.max(0, options?.contextLossRecoveryAttempt ?? 0);
-  const localGpuExport = isLocalGpuExportSession();
+  const localGpuPath = isLocalGpuSession();
 
   let partialEngine: Engine | null = null;
   let partialScene: Scene | null = null;
@@ -298,16 +309,17 @@ export async function createShowcasePhysicsScene(
 
   const engine = createShowcaseBabylonEngine(
     canvas,
-    gpuSafeSession || shouldUseConservativeShowcaseWebGl(),
+    !isLocalGpuSession() && (gpuSafeSession || isGpuSafeMode()),
     options?.forceWebGl1 ?? false
   );
   partialEngine = engine;
   const automation = isShowcaseAutomationSession();
+  const scalingBase =
+    automation && !localGpuPath
+      ? Math.max(8, gpuBudget.hardwareScalingLevel)
+      : gpuBudget.hardwareScalingLevel;
   try {
-    engine.setHardwareScalingLevel(
-      (automation ? Math.max(8, gpuBudget.hardwareScalingLevel) : gpuBudget.hardwareScalingLevel) +
-        recoveryAttempt * 1.5
-    );
+    engine.setHardwareScalingLevel(scalingBase + recoveryAttempt * 1.5);
   } catch {
     // ignore
   }
@@ -315,7 +327,7 @@ export async function createShowcasePhysicsScene(
 
   const scene = new Scene(engine);
   partialScene = scene;
-  if (localGpuExport) {
+  if (localGpuPath) {
     scene.blockMaterialDirtyMechanism = true;
   }
   bindShowcaseProfileScene(engine, scene);
@@ -343,24 +355,16 @@ export async function createShowcasePhysicsScene(
     catalog.backgroundMediaSource !== "none" &&
     Boolean(resolveShowcaseBackgroundMediaPath(catalog));
   const subsystems = gpuBudget.subsystems;
-  const kinematicPreview = !subsystems.physics;
-  const deferHavokUntilJewel = shouldDeferHavokUntilJewelStable(subsystems, gpuBudget.tier);
+  const kinematicPreview = true;
   const skipChapelPanorama =
     usesDomBackdrop ||
     !subsystems.chapelPanorama ||
     (isLocalGpuExportSession() && catalog.backgroundPreset !== "booth");
 
-  const holoImmediateCount =
-    images.length > 1 ? 1 : Math.max(1, images.length);
-  const holoPreloadOptions = {
-    sequential:
-      gpuBudget.tier === "simplified" ||
-      images.length > 1 ||
-      isLocalGpuExportSession(),
-    immediateCount: holoImmediateCount,
-  };
+  const holoPreloadOptions = buildHoloPreloadOptions(images.length, localGpuPath, gpuBudget.tier);
+  const holoImmediateCount = holoPreloadOptions.immediateCount;
 
-  if (gpuBudget.tier === "simplified" || isLocalGpuExportSession()) {
+  if (gpuBudget.tier === "simplified" || localGpuPath) {
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
@@ -368,92 +372,43 @@ export async function createShowcasePhysicsScene(
     assertContextAlive();
   }
 
-  const attachChapelGroundPhysics = (): void => {
-    if (!chapel.ground) {
-      return;
-    }
-    new PhysicsAggregate(
-      chapel.ground,
-      PhysicsShapeType.BOX,
-      { mass: 0, restitution: 0.5, friction: 0.52 },
-      scene
-    );
-  };
-
   let chapel: Awaited<ReturnType<typeof createWeddingChapelEnvironment>>;
   let holoContentCache: Map<string, HoloContentTextures>;
+  let jewelProfileUpdateGen = 0;
 
-  if (gpuBudget.tier === "simplified" || isLocalGpuExportSession()) {
-    chapel = await createWeddingChapelEnvironment(scene, {
-      backgroundPreset: catalog.backgroundPreset,
-      groundEnabled: catalog.groundEnabled && subsystems.physics,
-      skipPanorama: skipChapelPanorama,
-      panoramaCanvasSize: gpuBudget.panoramaCanvasSize,
-      envCubemapSize: gpuBudget.envCubemapSize,
-      photoDomeResolution: gpuBudget.photoDomeResolution,
-    });
-    assertShowcaseSceneInitContinues(options?.shouldContinue);
-    assertContextAlive();
-    markShowcaseInitPhase(
-      "chapel",
-      `panorama=${!skipChapelPanorama} env=${gpuBudget.envCubemapSize}`
-    );
+  chapel = await createWeddingChapelEnvironment(scene, {
+    backgroundPreset: catalog.backgroundPreset,
+    groundEnabled: false,
+    skipPanorama: skipChapelPanorama,
+    panoramaCanvasSize: gpuBudget.panoramaCanvasSize,
+    envCubemapSize: gpuBudget.envCubemapSize,
+    photoDomeResolution: gpuBudget.photoDomeResolution,
+  });
+  assertShowcaseSceneInitContinues(options?.shouldContinue);
+  assertContextAlive();
+  markShowcaseInitPhase(
+    "chapel",
+    `panorama=${!skipChapelPanorama} env=${gpuBudget.envCubemapSize}`
+  );
 
+  if (gpuBudget.tier === "simplified" || localGpuPath) {
     await waitGpuFrames(gpuSpreadFrameGap());
     assertShowcaseSceneInitContinues(options?.shouldContinue);
     assertContextAlive();
-
-    holoContentCache = await preloadHoloContentTextures(
-      scene,
-      images,
-      holoRasterProfile,
-      maxAnisotropy,
-      holoPreloadOptions
-    );
-    assertContextAlive();
-    markShowcaseInitPhase(
-      "holo_textures",
-      `${images.length} images maxEdge=${gpuBudget.textureMaxEdge}`
-    );
-  } else {
-    if (subsystems.physics) {
-      await enableHavokPhysics(scene);
-      markShowcaseInitPhase("havok");
-      assertShowcaseSceneInitContinues(options?.shouldContinue);
-      assertContextAlive();
-    }
-
-    chapel = await createWeddingChapelEnvironment(scene, {
-      backgroundPreset: catalog.backgroundPreset,
-      groundEnabled: catalog.groundEnabled && subsystems.physics,
-      skipPanorama: skipChapelPanorama,
-      panoramaCanvasSize: gpuBudget.panoramaCanvasSize,
-      envCubemapSize: gpuBudget.envCubemapSize,
-      photoDomeResolution: gpuBudget.photoDomeResolution,
-    });
-    assertShowcaseSceneInitContinues(options?.shouldContinue);
-    assertContextAlive();
-
-    holoContentCache = await preloadHoloContentTextures(
-      scene,
-      images,
-      holoRasterProfile,
-      maxAnisotropy,
-      holoPreloadOptions
-    );
-    assertContextAlive();
-    markShowcaseInitPhase(
-      "chapel",
-      `panorama=${!skipChapelPanorama} env=${gpuBudget.envCubemapSize}`
-    );
-    markShowcaseInitPhase(
-      "holo_textures",
-      `${images.length} images maxEdge=${gpuBudget.textureMaxEdge}`
-    );
-    if (subsystems.physics) {
-      attachChapelGroundPhysics();
-    }
   }
+
+  holoContentCache = await preloadHoloContentTextures(
+    scene,
+    images,
+    holoRasterProfile,
+    maxAnisotropy,
+    holoPreloadOptions
+  );
+  assertContextAlive();
+  markShowcaseInitPhase(
+    "holo_textures",
+    `${images.length} images maxEdge=${gpuBudget.textureMaxEdge}`
+  );
 
   assertShowcaseSceneInitContinues(options?.shouldContinue);
 
@@ -614,7 +569,7 @@ export async function createShowcasePhysicsScene(
     if (engine.isDisposed || scene.isDisposed) {
       return;
     }
-    if (hadContextLoss && !isLocalGpuExportSession()) {
+    if (hadContextLoss && !isLocalGpuSession()) {
       applyLightGpuRecovery();
     }
     if (!canSceneRender()) {
@@ -726,15 +681,8 @@ export async function createShowcasePhysicsScene(
       throw new Error(SHOWCASE_SCENE_INIT_CANCELLED);
     }
     assertContextAlive();
-    markShowcaseInitPhase("stable_frames", "pre-havok");
-    if (!kinematicPreview && !deferHavokUntilJewel) {
-      await enableHavokPhysics(scene);
-      markShowcaseInitPhase("havok");
-      assertShowcaseSceneInitContinues(options?.shouldContinue);
-      assertContextAlive();
-      attachChapelGroundPhysics();
-    }
-  } else if (localGpuExport) {
+    markShowcaseInitPhase("stable_frames", "pre-director");
+  } else if (localGpuPath) {
     const preDirectorStable = await waitForGpuStableFrames(
       engine,
       4,
@@ -757,14 +705,13 @@ export async function createShowcasePhysicsScene(
     runtime,
     config: pipelineConfig,
     catalog,
-    fallPhysicsEnabled: options?.fallPhysicsEnabled ?? HOLOGRAM_DISPLAY_SPEC.fallPhysicsDefault,
     presentationPrefs:
       options?.presentationPrefs ?? DEFAULT_SHOWCASE_PRESENTATION_PREFERENCES,
   });
   markShowcaseInitPhase("director");
 
   /** Compile jewel shaders before the render loop — parallel draw + compile causes CONTEXT_LOST on ANGLE. */
-  if (localGpuExport) {
+  if (localGpuPath) {
     director.setPlaying(true);
     const jewelBootstrapDeadline = performance.now() + 180_000;
     while (!director.getRig() && performance.now() < jewelBootstrapDeadline) {
@@ -830,20 +777,14 @@ export async function createShowcasePhysicsScene(
   let exportPacedStepActive = false;
   const cloudRenderWorker =
     isShowcaseAutomationSession() &&
-    !localGpuExport &&
+    !isLocalGpuExportSession() &&
     gpuBudget.tier === "simplified";
-  const directorTickEnabledAt = cloudRenderWorker
-    ? 0
-    : gpuBudget.tier === "simplified" ||
-        localGpuExport ||
-        isShowcaseAutomationSession()
-      ? performance.now() +
-        (kinematicPreview ? 3_000 : deferHavokUntilJewel ? 5_000 : 4_000) +
-        recoveryAttempt * 2_000
-      : 0;
-
-  let jewelStableFrames = 0;
-  let havokUpgradeStarted = false;
+  const directorTickEnabledAt =
+    cloudRenderWorker || localGpuPath || isShowcaseAutomationSession()
+      ? 0
+      : gpuBudget.tier === "simplified"
+        ? performance.now() + recoveryAttempt * 500
+        : 0;
 
   const observer = scene.onBeforeRenderObservable.add(() => {
     if (!canSceneRender()) {
@@ -907,34 +848,6 @@ export async function createShowcasePhysicsScene(
         getShowcaseAerialAnchor(pipelineConfig, director.totalElapsedMs)
     );
 
-    if (
-      deferHavokUntilJewel &&
-      !havokUpgradeStarted &&
-      director.getRig() &&
-      now >= directorTickEnabledAt
-    ) {
-      jewelStableFrames += 1;
-      if (jewelStableFrames >= 120) {
-        havokUpgradeStarted = true;
-        void (async () => {
-          try {
-            if (!canSceneRender()) {
-              return;
-            }
-            await enableHavokPhysics(scene);
-            markShowcaseInitPhase("havok", "post-jewel");
-            attachChapelGroundPhysics();
-            const rig = director.getRig();
-            if (rig) {
-              upgradeJewelRigToHavokPhysics(rig, scene);
-            }
-          } catch (error) {
-            console.warn("[showcase] deferred Havok upgrade skipped", error);
-          }
-        })();
-      }
-    }
-
     } catch (error) {
       if (isBabylonGlContextLost(engine)) {
         engine.stopRenderLoop();
@@ -947,7 +860,7 @@ export async function createShowcasePhysicsScene(
 
 
 
-  if (!localGpuExport) {
+  if (!localGpuPath) {
     runSafeRenderLoop();
     registerShowcaseRenderResume(engine, runSafeRenderLoop);
   }
@@ -955,12 +868,12 @@ export async function createShowcasePhysicsScene(
   assertShowcaseSceneInitContinues(options?.shouldContinue);
   assertContextAlive();
 
-  if (gpuBudget.tier === "simplified" || localGpuExport) {
+  if (gpuBudget.tier === "simplified" || localGpuPath) {
     const postPhysicsStable = await waitForGpuStableFrames(
       engine,
-      localGpuExport ? 6 : 3,
+      localGpuPath ? 6 : 3,
       options?.shouldContinue,
-      localGpuExport ? 18_000 : 12_000
+      localGpuPath ? 18_000 : 12_000
     );
     if (postPhysicsStable === "cancelled") {
       throw new Error(SHOWCASE_SCENE_INIT_CANCELLED);
@@ -970,7 +883,7 @@ export async function createShowcasePhysicsScene(
       throw new Error(SHOWCASE_SCENE_INIT_CANCELLED);
     }
     assertContextAlive();
-    if (localGpuExport) {
+    if (localGpuPath) {
       runSafeRenderLoop();
       registerShowcaseRenderResume(engine, runSafeRenderLoop);
     }
@@ -1052,10 +965,6 @@ export async function createShowcasePhysicsScene(
 
     setPlaying: (playing) => director.setPlaying(playing),
 
-    setFallPhysicsEnabled: (enabled) => director.setFallPhysicsEnabled(enabled),
-
-    getFallPhysicsEnabled: () => director.fallPhysicsEnabled,
-
     setPresentationPreferences: (prefs) => director.setPresentationPreferences(prefs),
 
     getPresentationPreferences: () => director.getPresentationPreferences(),
@@ -1101,17 +1010,33 @@ export async function createShowcasePhysicsScene(
     },
 
     setImages: (nextImages) => {
+      const holoPreloadOptions = buildHoloPreloadOptions(
+        nextImages.length,
+        localGpuPath,
+        gpuBudget.tier
+      );
+      const holoImmediateCount = holoPreloadOptions.immediateCount;
 
-      return preloadHoloContentTextures(scene, nextImages, holoRasterProfile, maxAnisotropy)
-
+      return preloadHoloContentTextures(
+        scene,
+        nextImages,
+        holoRasterProfile,
+        maxAnisotropy,
+        holoPreloadOptions
+      )
         .then((nextCache) => {
-
           mergeHoloCache(nextCache);
-
-          director.reset();
-
           director.setImageUrls(nextImages.map((image) => image.url));
-
+          if (nextImages.length > holoImmediateCount) {
+            return prefetchDeferredHoloContentTextures(
+              scene,
+              nextImages,
+              holoRasterProfile,
+              holoContentCache,
+              maxAnisotropy,
+              holoImmediateCount
+            );
+          }
         })
 
         .catch((error) => {
@@ -1250,13 +1175,15 @@ export async function createShowcasePhysicsScene(
     },
 
     applySafeGpuRecovery: () => {
-      if (isLocalGpuExportSession()) {
+      if (isLocalGpuSession()) {
         runSafeRenderLoop();
         return;
       }
       applyLightGpuRecovery();
       runSafeRenderLoop();
     },
+
+    isGlContextLost: () => isBabylonGlContextLost(engine),
 
     updateCatalogDisplay: (nextCatalog) => {
       bindShowcaseCatalogColors(nextCatalog);
@@ -1280,10 +1207,13 @@ export async function createShowcasePhysicsScene(
     },
 
     updateJewelProfile: async (nextCatalog, nextImages) => {
+      const updateGen = ++jewelProfileUpdateGen;
       holoRasterProfile.shapeId = nextCatalog.shapeId;
       holoRasterProfile.photoLayout = nextCatalog.photoLayout;
       director.setCatalog(nextCatalog);
       bindShowcaseCatalogColors(nextCatalog);
+
+      disposeHoloContentCache(holoContentCache);
 
       const nextCache = await preloadHoloContentTextures(
         scene,
@@ -1291,7 +1221,15 @@ export async function createShowcasePhysicsScene(
         holoRasterProfile,
         maxAnisotropy
       );
+      if (updateGen !== jewelProfileUpdateGen) {
+        disposeHoloContentCache(nextCache);
+        return;
+      }
       mergeHoloCache(nextCache);
+
+      if (updateGen !== jewelProfileUpdateGen) {
+        return;
+      }
 
       const urls = nextImages.map((image) => image.url);
       director.reset();

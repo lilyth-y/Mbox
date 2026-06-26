@@ -56,11 +56,11 @@ function createSeededRandom(seed: number): () => number {
 
 /** Dark wedding holo booth — luminous subject, void surround. */
 
-export function createHoloBoothPanoramaDataUrl(): string {
+export function createHoloBoothPanoramaDataUrl(panoramaCanvasSize = CHAPEL_PANORAMA_SIZE): string {
 
-  const width = CHAPEL_PANORAMA_SIZE;
+  const width = panoramaCanvasSize;
 
-  const height = Math.floor(CHAPEL_PANORAMA_SIZE / 2);
+  const height = Math.floor(panoramaCanvasSize / 2);
 
   const canvas = document.createElement("canvas");
 
@@ -225,6 +225,9 @@ export async function createWeddingChapelEnvironment(
     groundEnabled?: boolean;
     /** When a photo/video backdrop drives the scene, skip the booth dome. */
     skipPanorama?: boolean;
+    panoramaCanvasSize?: number;
+    envCubemapSize?: number;
+    photoDomeResolution?: number;
   }
 ): Promise<WeddingChapelEnvironment> {
 
@@ -232,10 +235,15 @@ export async function createWeddingChapelEnvironment(
   const backgroundPreset: ShowcaseBackgroundPreset = options?.backgroundPreset ?? "booth";
   const groundEnabled = options?.groundEnabled ?? true;
   const skipPanorama = options?.skipPanorama ?? false;
+  const panoramaCanvasSize = options?.panoramaCanvasSize ?? CHAPEL_PANORAMA_SIZE;
+  const envCubemapSize = options?.envCubemapSize ?? 512;
+  const photoDomeResolution = options?.photoDomeResolution ?? 64;
 
   if (skipPanorama) {
     scene.clearColor = new Color4(0, 0, 0, 0);
     scene.fogMode = 0;
+    scene.environmentTexture = null;
+    scene.environmentIntensity = 0;
   } else if (backgroundPreset === "solid_black") {
     scene.clearColor = new Color4(0, 0, 0, 1);
   } else if (backgroundPreset === "soft_gray") {
@@ -267,16 +275,27 @@ export async function createWeddingChapelEnvironment(
   let envTex: EquiRectangularCubeTexture | null = null;
 
   if (backgroundPreset === "booth" && !skipPanorama) {
-    const panoramaUrl = createHoloBoothPanoramaDataUrl();
-    dome = new PhotoDome("holo-booth-dome", panoramaUrl, { resolution: 64, size: 48 }, scene);
+    const panoramaUrl = createHoloBoothPanoramaDataUrl(panoramaCanvasSize);
+    dome = new PhotoDome(
+      "holo-booth-dome",
+      panoramaUrl,
+      { resolution: photoDomeResolution, size: 48 },
+      scene
+    );
     dome.mesh.isPickable = false;
-    envTex = new EquiRectangularCubeTexture(panoramaUrl, scene, 512, false, true);
+    envTex = new EquiRectangularCubeTexture(panoramaUrl, scene, envCubemapSize, false, true);
     scene.environmentTexture = envTex;
     scene.environmentIntensity = spec.envIntensity;
   } else {
     const studioUrl = createStudioReflectionPanoramaDataUrl();
-    if (studioUrl) {
-      envTex = new EquiRectangularCubeTexture(studioUrl, scene, 256, false, true);
+    if (studioUrl && !skipPanorama) {
+      envTex = new EquiRectangularCubeTexture(
+        studioUrl,
+        scene,
+        Math.min(envCubemapSize, 256),
+        false,
+        true
+      );
       scene.environmentTexture = envTex;
     } else {
       scene.environmentTexture = null;

@@ -1,0 +1,227 @@
+{
+  "measuredAt": "2026-06-24T13:13:19.729Z",
+  "results": [
+    {
+      "id": "default",
+      "url": "http://127.0.0.1:4176/showcase.html?localOnly=1&profile=1",
+      "contextLost": false,
+      "ui": {
+        "error": false,
+        "status": "1장 · 표출 → 회전·모핑 → 정면 강조 → 복귀 · 정면 강조 · 1/1"
+      },
+      "report": {
+        "enabled": true,
+        "kinematicPreview": false,
+        "gpuTier": "simplified",
+        "phases": [
+          {
+            "phase": "engine",
+            "ms": 52,
+            "detail": "scaling=5"
+          },
+          {
+            "phase": "chapel",
+            "ms": 18,
+            "detail": "panorama=false env=128"
+          },
+          {
+            "phase": "holo_textures",
+            "ms": 428,
+            "detail": "1 images maxEdge=768"
+          },
+          {
+            "phase": "camera_lights",
+            "ms": 4
+          },
+          {
+            "phase": "backdrop",
+            "ms": 1,
+            "detail": "static"
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 201,
+            "detail": "pre-havok"
+          },
+          {
+            "phase": "director",
+            "ms": 0
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 252,
+            "detail": "post-director"
+          }
+        ],
+        "network": {
+          "wasmKb": 2046,
+          "babylonJsKb": 536,
+          "onnxWasmKb": null,
+          "videoKb": null
+        },
+        "scene": {
+          "meshCount": 3,
+          "materialCount": 3,
+          "textureCount": 1,
+          "textureGpuBytesEstimate": 2359296,
+          "hardwareScalingLevel": 8,
+          "renderWidth": 76,
+          "renderHeight": 76,
+          "drawCallsLastFrame": null
+        },
+        "totalInitMs": 955,
+        "recommendations": [
+          "All phases within budget — no automatic downgrade suggested."
+        ]
+      }
+    },
+    {
+      "id": "no_physics",
+      "url": "http://127.0.0.1:4176/showcase.html?localOnly=1&noPhysics=1&profile=1",
+      "contextLost": false,
+      "ui": {
+        "error": false,
+        "status": "1장 · 표출 → 회전·모핑 → 정면 강조 → 복귀 · 정면 강조 · 1/1"
+      },
+      "report": {
+        "enabled": true,
+        "kinematicPreview": true,
+        "gpuTier": "simplified",
+        "phases": [
+          {
+            "phase": "engine",
+            "ms": 58,
+            "detail": "scaling=5"
+          },
+          {
+            "phase": "chapel",
+            "ms": 18,
+            "detail": "panorama=false env=128"
+          },
+          {
+            "phase": "holo_textures",
+            "ms": 351,
+            "detail": "1 images maxEdge=768"
+          },
+          {
+            "phase": "camera_lights",
+            "ms": 3
+          },
+          {
+            "phase": "backdrop",
+            "ms": 0,
+            "detail": "static"
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 133,
+            "detail": "pre-havok"
+          },
+          {
+            "phase": "director",
+            "ms": 0
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 234,
+            "detail": "post-director"
+          }
+        ],
+        "network": {
+          "wasmKb": 2046,
+          "babylonJsKb": 536,
+          "onnxWasmKb": null,
+          "videoKb": null
+        },
+        "scene": {
+          "meshCount": 3,
+          "materialCount": 3,
+          "textureCount": 1,
+          "textureGpuBytesEstimate": 2359296,
+          "hardwareScalingLevel": 8,
+          "renderWidth": 76,
+          "renderHeight": 76,
+          "drawCallsLastFrame": null
+        },
+        "totalInitMs": 798,
+        "recommendations": [
+          "All phases within budget — no automatic downgrade suggested."
+        ]
+      }
+    },
+    {
+      "id": "safe",
+      "url": "http://127.0.0.1:4176/showcase.html?localOnly=1&safe=1&profile=1",
+      "contextLost": false,
+      "ui": {
+        "error": false,
+        "status": "1장 · 표출 → 회전·모핑 → 정면 강조 → 복귀 · 정면 강조 · 1/1"
+      },
+      "report": {
+        "enabled": true,
+        "kinematicPreview": true,
+        "gpuTier": "simplified",
+        "phases": [
+          {
+            "phase": "engine",
+            "ms": 56,
+            "detail": "scaling=5"
+          },
+          {
+            "phase": "chapel",
+            "ms": 17,
+            "detail": "panorama=false env=128"
+          },
+          {
+            "phase": "holo_textures",
+            "ms": 510,
+            "detail": "1 images maxEdge=768"
+          },
+          {
+            "phase": "camera_lights",
+            "ms": 4
+          },
+          {
+            "phase": "backdrop",
+            "ms": 0,
+            "detail": "static"
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 174,
+            "detail": "pre-havok"
+          },
+          {
+            "phase": "director",
+            "ms": 0
+          },
+          {
+            "phase": "stable_frames",
+            "ms": 318,
+            "detail": "post-director"
+          }
+        ],
+        "network": {
+          "wasmKb": 2046,
+          "babylonJsKb": 536,
+          "onnxWasmKb": null,
+          "videoKb": null
+        },
+        "scene": {
+          "meshCount": 3,
+          "materialCount": 3,
+          "textureCount": 1,
+          "textureGpuBytesEstimate": 2359296,
+          "hardwareScalingLevel": 8,
+          "renderWidth": 76,
+          "renderHeight": 76,
+          "drawCallsLastFrame": null
+        },
+        "totalInitMs": 1080,
+        "recommendations": [
+          "All phases within budget — no automatic downgrade suggested."
+        ]
+      }
+    }
+  ]
+}

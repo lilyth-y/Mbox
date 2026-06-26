@@ -14,9 +14,13 @@ export type RunShowcaseExportOptions = ShowcaseExportVideoOptions & {
 };
 
 export async function runShowcaseExport(
-  handle: ShowcasePhysicsSceneHandle,
+  handle: ShowcasePhysicsSceneHandle | null,
   params: RunShowcaseExportOptions
 ): Promise<{ filename: string }> {
+  if (!handle) {
+    throw new Error("씬이 준비되지 않았습니다.");
+  }
+
   if (!isCloudRenderBackend()) {
     return exportShowcaseMp4(handle, params);
   }
@@ -30,7 +34,6 @@ export async function runShowcaseExport(
       kind: "crystal_showcase",
       catalogOptions: { ...params.catalog },
       imageCount: params.imageCount,
-      fallPhysicsEnabled: params.fallPhysicsEnabled,
       backdropMediaPath: params.backdropMediaPath ?? null,
     },
   };

@@ -4,8 +4,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture";
-import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
-import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import type { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import type { Scene } from "@babylonjs/core/scene";
 import type { PhotoCrystalPhotoLayoutId, PhotoCrystalShapeId } from "./photoCrystalShapeCatalog";
 import { createJewelPhotoMorphState, type JewelPhotoMorphState } from "./jewelCubePhotoMorph";
@@ -39,10 +38,10 @@ import {
 import {
   resolveShowcaseSubsystemFlags,
   resolveShowcaseGpuTier,
-  shouldDeferHavokUntilJewelStable,
-  shouldUseKinematicShowcasePreview,
+  usesJewelPhotoMorphTwin,
 } from "../showcaseGpuProfile";
-import { isLocalGpuExportSession, isRenderWorkerExportSession } from "../../../shared/lib/renderExportProfile";
+import { isRenderWorkerExportSession } from "../../../shared/lib/renderExportProfile";
+import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
 import { isShowcaseAutomationSession } from "../showcaseAutomation";
 import { createKinematicPhysicsAggregateStub } from "./jewelKinematicStub";
 import { spreadGpuWork, waitGpuFrames } from "./showcaseGpuLoadScheduler";
@@ -95,10 +94,35 @@ export interface JewelCubePhysicsRig {
   dispose: () => void;
 }
 
+export function isJewelShellRenderable(rig: JewelCubePhysicsRig): boolean {
+  return !rig.shellMesh.name.includes("pending");
+}
+
+function createJewelShellStub(
+  scene: Scene,
+  collider: Mesh,
+  label: string
+): { shellMesh: Mesh; shellMaterial: JewelCrystalShellMaterial } {
+  const shellMesh = MeshBuilder.CreateBox(`jewel-shell-pending-${label}`, { size: 0.01 }, scene);
+  shellMesh.parent = collider;
+  shellMesh.isVisible = false;
+  shellMesh.isPickable = false;
+  const shellMaterial = new StandardMaterial(`jewel-shell-pending-mat-${label}`, scene);
+  shellMaterial.alpha = 0;
+  shellMesh.material = shellMaterial;
+  return {
+    shellMesh,
+    shellMaterial: shellMaterial as unknown as JewelCrystalShellMaterial,
+  };
+}
+
 function collectJewelRigDrawMeshes(rig: JewelCubePhysicsRig): Mesh[] {
-  const meshes: Mesh[] = [rig.shellMesh];
-  if (rig.shellInnerMesh) {
-    meshes.push(rig.shellInnerMesh);
+  const meshes: Mesh[] = [];
+  if (isJewelShellRenderable(rig)) {
+    meshes.push(rig.shellMesh);
+    if (rig.shellInnerMesh) {
+      meshes.push(rig.shellInnerMesh);
+    }
   }
   for (const layer of [rig.bgLayerA, rig.bgLayerB, rig.fgLayerA, rig.fgLayerB]) {
     if (!layer) {
@@ -125,22 +149,26 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
     mesh.isVisible = false;
   }
 
-  const pairs: Array<{ material: Material | null; mesh: Mesh }> = [
-    { material: rig.shellMaterial, mesh: rig.shellMesh },
-    { material: rig.shellInnerMaterial, mesh: rig.shellInnerMesh ?? rig.shellMesh },
+  const pairs: Array<{ material: Material | null; mesh: Mesh }> = [];
+  if (isJewelShellRenderable(rig)) {
+    pairs.push(
+      { material: rig.shellMaterial, mesh: rig.shellMesh },
+      { material: rig.shellInnerMaterial, mesh: rig.shellInnerMesh ?? rig.shellMesh }
+    );
+  }
+  pairs.push(
     { material: rig.bgMatA, mesh: rig.collider },
     { material: rig.bgMatB, mesh: rig.collider },
     { material: rig.fgMatA, mesh: rig.collider },
-    { material: rig.fgMatB, mesh: rig.collider },
-  ];
+    { material: rig.fgMatB, mesh: rig.collider }
+  );
   const seen = new Set<Material>();
-  const staggerCompile = isLocalGpuExportSession();
+  const staggerCompile = isLocalGpuSession();
 
   const compileOne = async (material: Material, mesh: Mesh): Promise<void> => {
     try {
       await material.forceCompilationAsync(mesh, {
         useInstances: false,
-        disableParallelCompilation: true,
       });
     } catch (error) {
       console.warn("[jewel] shader compile failed", error);
@@ -202,11 +230,11 @@ export function createJewelCubePhysicsRig(
   const spawnY = options.spawnY ?? 7.2;
   const spawnX = options.spawnX ?? 0;
   const spawnZ = options.spawnZ ?? 0;
-  const mass = options.mass ?? 1.35;
-  const restitution = options.restitution ?? 0.58;
   const { holoContent } = options;
   const subsystems = resolveShowcaseSubsystemFlags();
+  const morphTwin = usesJewelPhotoMorphTwin(subsystems);
   const hasDepthSplit =
+    morphTwin &&
     subsystems.depthSplitForeground &&
     holoContent.hasDepthSplit &&
     holoContent.foreground !== null;
@@ -234,7 +262,7 @@ export function createJewelCubePhysicsRig(
   );
 
   let layerB: JewelPhotoCoreLayer | null = null;
-  if (spawnSlice !== "layerA") {
+  if (morphTwin && spawnSlice !== "layerA") {
     layerB = createJewelPhotoCoreLayer(
       scene,
       collider,
@@ -269,36 +297,27 @@ export function createJewelCubePhysicsRig(
     );
   }
 
+  const resolvedLayerB = layerB ?? layerA;
+
   if (spawnSlice === "layerA" || spawnSlice === "photos") {
-    const shellPending = MeshBuilder.CreateBox(
-      `jewel-shell-pending-${collider.name}`,
-      { size: 0.01 },
-      scene
+    const { shellMesh: shellPending, shellMaterial: pendingMat } = createJewelShellStub(
+      scene,
+      collider,
+      collider.name
     );
-    shellPending.parent = collider;
-    shellPending.isVisible = false;
-    shellPending.isPickable = false;
-    const pendingMat = new StandardMaterial(`jewel-shell-pending-mat-${collider.name}`, scene);
-    pendingMat.alpha = 0;
-    shellPending.material = pendingMat;
 
     const layerBRoot =
       layerB?.root ??
-      (() => {
-        const pending = new TransformNode(`jewel-bg-b-pending-${collider.name}`, scene);
-        pending.parent = collider;
-        pending.setEnabled(false);
-        return pending;
-      })();
+      (morphTwin
+        ? (() => {
+            const pending = new TransformNode(`jewel-bg-b-pending-${collider.name}`, scene);
+            pending.parent = collider;
+            pending.setEnabled(false);
+            return pending;
+          })()
+        : layerA.root);
 
-    const aggregate = shouldUseKinematicShowcasePreview() || shouldDeferHavokUntilJewelStable()
-      ? createKinematicPhysicsAggregateStub()
-      : new PhysicsAggregate(
-          collider,
-          PhysicsShapeType.BOX,
-          { mass, restitution, friction: 0.38 },
-          scene
-        );
+    const aggregate = createKinematicPhysicsAggregateStub();
 
     const disposeLayer = (layer: JewelPhotoCoreLayer) => {
       layer.material.dispose(false, false);
@@ -318,17 +337,17 @@ export function createJewelCubePhysicsRig(
       fgA: fgLayerA?.root ?? null,
       fgB: fgLayerB?.root ?? null,
       bgLayerA: layerA,
-      bgLayerB: layerB ?? layerA,
+      bgLayerB: resolvedLayerB,
       fgLayerA: fgLayerA,
       fgLayerB: fgLayerB,
       bgMatA: layerA.material,
-      bgMatB: layerB?.material ?? layerA.material,
+      bgMatB: resolvedLayerB.material,
       fgMatA: fgLayerA?.material ?? null,
       fgMatB: fgLayerB?.material ?? null,
       innerA: layerA.root,
       innerB: layerB?.root ?? layerBRoot,
       materialA: layerA.material,
-      materialB: layerB?.material ?? layerA.material,
+      materialB: resolvedLayerB.material,
       aggregate,
       photoTexture: holoContent.composite,
       shellMesh: shellPending,
@@ -344,9 +363,9 @@ export function createJewelCubePhysicsRig(
       dispose: () => {
         aggregate.dispose();
         disposeLayer(layerA);
-        if (layerB) {
+        if (layerB && layerB !== layerA) {
           disposeLayer(layerB);
-        } else {
+        } else if (morphTwin && !layerB) {
           layerBRoot.dispose();
         }
         if (fgLayerA) {
@@ -365,48 +384,47 @@ export function createJewelCubePhysicsRig(
     return rigPartial as JewelCubePhysicsRig;
   }
 
-  const shellMaterial = createJewelCrystalShellMaterial(scene, options.envTexture);
-  const shell = createPhotoCrystalShellMesh(scene, `jewel-shell-${collider.name}`, shapeId);
-  shell.parent = collider;
-  shell.material = shellMaterial;
-  shell.renderingGroupId = 2;
-  shell.isPickable = false;
-  shell.inheritVisibility = false;
-  configureCrystalShellEdges(shell);
-  shellMaterial.backFaceCulling = false;
-
+  let shell: Mesh;
+  let shellMaterial: JewelCrystalShellMaterial;
   let shellInner: Mesh | null = null;
   let shellInnerMaterial: JewelCrystalShellMaterial | null = null;
-  if (subsystems.shellInnerLayer && shapeUsesCrystalShellInnerLayer(shapeId, photoLayout)) {
-    shellInnerMaterial = createJewelCrystalShellInnerMaterial(scene, options.envTexture);
-    shellInner = createCrystalShellInnerLayer(shell, getCrystalShellInnerInset(shapeId));
-    shellInner.material = shellInnerMaterial;
-    shellInner.renderingGroupId = 0;
-    configureCrystalShellEdges(shellInner);
-    shellInnerMaterial.backFaceCulling = false;
-    shellInnerMaterial.setFloat("uShellAlpha", 0.06);
-    shellInnerMaterial.setFloat("uGlossBoost", 0.52);
+
+  if (subsystems.crystalShell) {
+    shellMaterial = createJewelCrystalShellMaterial(scene, options.envTexture);
+    shell = createPhotoCrystalShellMesh(scene, `jewel-shell-${collider.name}`, shapeId);
+    shell.parent = collider;
+    shell.material = shellMaterial;
+    shell.renderingGroupId = 2;
+    shell.isPickable = false;
+    shell.inheritVisibility = false;
+    configureCrystalShellEdges(shell);
+    shellMaterial.backFaceCulling = true;
+    shellMaterial.zOffset = 0;
+
+    if (subsystems.shellInnerLayer && shapeUsesCrystalShellInnerLayer(shapeId, photoLayout)) {
+      shellInnerMaterial = createJewelCrystalShellInnerMaterial(scene, options.envTexture);
+      shellInner = createCrystalShellInnerLayer(shell, getCrystalShellInnerInset(shapeId));
+      shellInner.material = shellInnerMaterial;
+      shellInner.renderingGroupId = 0;
+      configureCrystalShellEdges(shellInner);
+      shellInnerMaterial.backFaceCulling = false;
+      shellInnerMaterial.setFloat("uShellAlpha", 0.06);
+      shellInnerMaterial.setFloat("uGlossBoost", 0.52);
+    }
+
+    applyConvexCrystalShellTuning(shellMaterial, shapeId);
+    applyUserCrystalSurfaceColor(shellMaterial);
+    applyCrystalMediaReflectionStrength(shellMaterial);
+    if (shellInnerMaterial) {
+      applyUserCrystalSurfaceColor(shellInnerMaterial);
+    }
+  } else {
+    const stub = createJewelShellStub(scene, collider, collider.name);
+    shell = stub.shellMesh;
+    shellMaterial = stub.shellMaterial;
   }
 
-  applyConvexCrystalShellTuning(shellMaterial, shapeId);
-  applyUserCrystalSurfaceColor(shellMaterial);
-  applyCrystalMediaReflectionStrength(shellMaterial);
-  if (shellInnerMaterial) {
-    applyUserCrystalSurfaceColor(shellInnerMaterial);
-  }
-
-  const aggregate = shouldUseKinematicShowcasePreview() || shouldDeferHavokUntilJewelStable()
-    ? createKinematicPhysicsAggregateStub()
-    : new PhysicsAggregate(
-        collider,
-        PhysicsShapeType.BOX,
-        { mass, restitution, friction: 0.38 },
-        scene
-      );
-
-  if (!layerB) {
-    throw new Error("[jewel] layerB required for full spawn");
-  }
+  const aggregate = createKinematicPhysicsAggregateStub();
 
   const rigPartial = {
     collider,
@@ -414,21 +432,21 @@ export function createJewelCubePhysicsRig(
     photoLayout,
     framePresetId,
     bgA: layerA.root,
-    bgB: layerB.root,
+    bgB: resolvedLayerB.root,
     fgA: fgLayerA?.root ?? null,
     fgB: fgLayerB?.root ?? null,
     bgLayerA: layerA,
-    bgLayerB: layerB,
+    bgLayerB: resolvedLayerB,
     fgLayerA: fgLayerA,
     fgLayerB: fgLayerB,
     bgMatA: layerA.material,
-    bgMatB: layerB.material,
+    bgMatB: resolvedLayerB.material,
     fgMatA: fgLayerA?.material ?? null,
     fgMatB: fgLayerB?.material ?? null,
     innerA: layerA.root,
-    innerB: layerB.root,
+    innerB: resolvedLayerB.root,
     materialA: layerA.material,
-    materialB: layerB.material,
+    materialB: resolvedLayerB.material,
     aggregate,
     photoTexture: holoContent.composite,
     shellMesh: shell,
@@ -457,7 +475,9 @@ export function createJewelCubePhysicsRig(
   const dispose = () => {
     aggregate.dispose();
     disposeLayer(layerA);
-    disposeLayer(layerB);
+    if (layerB && layerB !== layerA) {
+      disposeLayer(layerB);
+    }
     if (fgLayerA) {
       disposeLayer(fgLayerA);
     }
@@ -483,6 +503,9 @@ export function attachJewelCrystalShell(
   envTexture: BaseTexture | null
 ): void {
   const subsystems = resolveShowcaseSubsystemFlags();
+  if (!subsystems.crystalShell) {
+    return;
+  }
   const shapeId = rig.shapeId;
   const photoLayout = rig.photoLayout;
 
@@ -498,6 +521,7 @@ export function attachJewelCrystalShell(
   shell.inheritVisibility = false;
   configureCrystalShellEdges(shell);
   shellMaterial.backFaceCulling = false;
+  shellMaterial.zOffset = -1;
 
   let shellInner: Mesh | null = null;
   let shellInnerMaterial: JewelCrystalShellMaterial | null = null;
@@ -530,6 +554,9 @@ export function appendJewelBgLayerB(
   scene: Scene,
   options: JewelCubeSpawnOptions
 ): void {
+  if (!usesJewelPhotoMorphTwin()) {
+    return;
+  }
   if (rig.bgLayerB !== rig.bgLayerA && rig.bgLayerB.root.name.includes("jewel-bg-b-")) {
     return;
   }
@@ -599,8 +626,9 @@ export async function createJewelCubePhysicsRigStaged(
 }
 
 export function shouldStageJewelCubeSpawn(): boolean {
-  if (isLocalGpuExportSession()) {
-    return true;
+  // RTX / localhost — full shell + photos in one pass (no invisible pending shell gap).
+  if (isLocalGpuSession()) {
+    return false;
   }
   if (isRenderWorkerExportSession()) {
     return false;
@@ -609,20 +637,4 @@ export function shouldStageJewelCubeSpawn(): boolean {
     return true;
   }
   return resolveShowcaseGpuTier() === "simplified";
-}
-
-/** Swap kinematic stub for Havok aggregate after jewel shaders are stable. */
-export function upgradeJewelRigToHavokPhysics(
-  rig: JewelCubePhysicsRig,
-  scene: Scene,
-  mass = 1.35,
-  restitution = 0.58
-): void {
-  rig.aggregate.dispose();
-  rig.aggregate = new PhysicsAggregate(
-    rig.collider,
-    PhysicsShapeType.BOX,
-    { mass, restitution, friction: 0.38 },
-    scene
-  );
 }

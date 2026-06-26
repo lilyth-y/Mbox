@@ -1,3 +1,16 @@
+## Crystal cloud migration (2026-06-22)
+
+- [x] Docs: crystal-architecture, render-pipelines, legacy-cube, cloud-render-spec
+- [x] `packages/shared` RenderJob types
+- [x] Default entry → showcase.html; studio.html for legacy
+- [x] RenderBackend local|cloud abstraction
+- [x] API POST/GET `/render/jobs` + worker scripts
+- [x] `verify:render-job-crystal`, `verify:render-job-cube`
+- [x] M1: Cloud render live — legacy local export dev/QA only
+- [ ] M2: wedding-simple redirect or deprecation banner
+- [x] M3: Remove fanMotion.js duplicate, retire cube-core bundle
+- [ ] M4: Archive studio MPA
+
 ## Composite rose + cube (2026-06-10)
 
 - [x] Tier-1 KPI suite — `npm run experiment:composite-tier1` (9/11 PASS)

@@ -57,7 +57,16 @@ export function backgroundAssetKind(item: BackgroundAssetCatalogItem): Backgroun
 
 export function isBackgroundVideoPath(assetPath: string | null | undefined): boolean {
   if (!assetPath) return false;
-  return VIDEO_EXT.test(assetPath.trim());
+  const trimmed = assetPath.trim();
+  if (/^data:video\//i.test(trimmed)) return true;
+  if (/^data:image\//i.test(trimmed)) return false;
+  return VIDEO_EXT.test(trimmed);
+}
+
+/** Blob URLs have no extension — pair with an explicit video flag from upload. */
+export function isBackgroundBlobPath(assetPath: string | null | undefined): boolean {
+  if (!assetPath) return false;
+  return assetPath.trim().startsWith("blob:");
 }
 
 export function invalidateBackgroundAssetCatalog(): void {

@@ -32,15 +32,13 @@ import {
 
 import {
 
+  blendJewelCubeUprightToward,
+
   getJewelCubeYawRadians,
 
   holdJewelCubeAt,
 
   repositionJewelCube,
-
-  setJewelCubeYaw,
-
-  spinJewelCubeY,
 
 } from "./physicsHelpers";
 
@@ -48,6 +46,13 @@ import { updateCubePhotoFaceVisibility } from "../babylon/jewelPhotoCore";
 
 import { getShowcaseAerialAnchor } from "./showcaseAerialAnchor";
 
+import {
+  easeInOutUniformAccel,
+  easeOutUniformDecel,
+  computeIntegralEaseInCruiseSpinSpeedY,
+  computeSpinDecayTargetSpeedY,
+} from "./showcaseSpinMotion";
+import { applySmoothedPresentationSpin, presentationSpinAllowsTilt } from "./showcasePresentationSpin";
 import type { ShowcasePipelineConfig, ShowcaseStageContext } from "./types";
 
 
@@ -125,20 +130,37 @@ export function getPresentationUprightQuaternion(config: ShowcasePipelineConfig)
 
 
 export { getJewelCubeYawRadians } from "./physicsHelpers";
+export { resolveShowcaseSpinSign } from "./showcaseSpinMotion";
 
 
 
 /** Damp pitch/roll spin — presentation stays upright while Y rotates. */
 
-export function enforceJewelCubeUpright(rig: JewelCubePhysicsRig): void {
+export function enforceJewelCubeUpright(
+  rig: JewelCubePhysicsRig,
+  allowPitch = false
+): void {
 
-  const body = rig.aggregate.body;
+  const body = rig.aggregate.body as {
+    getAngularVelocity?: () => Vector3;
+    setAngularVelocity?: (v: Vector3) => void;
+  };
+
+  if (typeof body.getAngularVelocity !== "function") {
+    return;
+  }
 
   const av = body.getAngularVelocity();
 
-  if (Math.abs(av.x) > 1e-5 || Math.abs(av.z) > 1e-5) {
+  if (allowPitch) {
+    if (Math.abs(av.z) > 1e-5 && typeof body.setAngularVelocity === "function") {
+      body.setAngularVelocity(new Vector3(av.x, av.y, 0));
+    }
+  } else if (Math.abs(av.x) > 1e-5 || Math.abs(av.z) > 1e-5) {
 
-    body.setAngularVelocity(new Vector3(0, av.y, 0));
+    if (typeof body.setAngularVelocity === "function") {
+      body.setAngularVelocity(new Vector3(0, av.y, 0));
+    }
 
   }
 
@@ -150,9 +172,20 @@ export interface ShowcasePresentationTickOptions {
 
   spinSpeedY: number;
 
+  spinSign?: 1 | -1;
+
   holdStiffness?: number;
 
   parallaxStrength?: number;
+
+  /** Scales compound wobble / cardinal pitch during pull decel (1 = full). */
+  pitchWobbleScale?: number;
+
+  /** When set, overrides aerial float (e.g. ground→air lift after bounce). */
+  holdPosition?: Vector3;
+
+  /** Track the rig collider — keeps camera on the whole jewel assembly. */
+  followTarget?: "anchor" | "cube";
 
 }
 
@@ -178,17 +211,33 @@ export function tickShowcasePresentation(
 
 
 
-  tickShowcaseCameraFollow(ctx, dtMs, "presentation");
+  tickShowcaseCameraFollow(
+    ctx,
+    dtMs,
+    "presentation",
+    ctx.exportRecording ? "anchor" : (options.followTarget ?? "cube")
+  );
 
-  const floatTarget = getShowcaseFloatPosition(ctx.config, ctx.totalElapsedMs);
+  const floatTarget =
+    options.holdPosition ?? getShowcaseFloatPosition(ctx.config, ctx.totalElapsedMs);
 
-  holdJewelCubeAt(ctx.rig, floatTarget, options.holdStiffness ?? ctx.config.floatHoldStiffness);
+  const baseStiffness = options.holdStiffness ?? ctx.config.floatHoldStiffness;
+  const holdStiffness = baseStiffness;
 
-  spinJewelCubeY(ctx.rig, options.spinSpeedY, dtMs);
+  applySmoothedPresentationSpin(
+    ctx,
+    dtMs,
+    options.spinSpeedY,
+    options.pitchWobbleScale ?? 1
+  );
 
-  enforceJewelCubeUpright(ctx.rig);
+  holdJewelCubeAt(ctx.rig, floatTarget, holdStiffness);
 
-  tickHoloDisplayStack(ctx, dtMs, options.parallaxStrength ?? 0.35);
+  enforceJewelCubeUpright(ctx.rig, presentationSpinAllowsTilt(ctx));
+
+  const parallaxStrength =
+    ctx.rig.photoLayout === "cube" ? 0 : (options.parallaxStrength ?? 0.35);
+  tickHoloDisplayStack(ctx, dtMs, parallaxStrength);
 
 }
 
@@ -237,8 +286,7 @@ function easeInOutCubic(t: number): number {
 
 
 /**
- * Integral-mapped Y spin speed — same total yaw as constant peakSpeedY over durationMs,
- * with ease-in-out angular velocity (no snap at phase boundaries).
+ * Integral-mapped Y spin — constant angular acceleration / deceleration (등가속도).
  */
 export function computeIntegralEaseSpinSpeedY(
   phaseElapsedMs: number,
@@ -252,13 +300,8 @@ export function computeIntegralEaseSpinSpeedY(
   const totalYaw = Math.abs(peakSpeedY) * (durationMs * 0.001);
   const t0 = phaseElapsedMs / durationMs;
   const t1 = Math.min(1, (phaseElapsedMs + dtMs) / durationMs);
-  const deltaYaw = totalYaw * (easeInOutCubic(t1) - easeInOutCubic(t0));
+  const deltaYaw = totalYaw * (easeInOutUniformAccel(t1) - easeInOutUniformAccel(t0));
   return deltaYaw / (dtMs * 0.001);
-}
-
-function easeOutCubic(t: number): number {
-  const x = clamp01(t);
-  return 1 - (1 - x) ** 3;
 }
 
 /** Lead-phase spin — ease-out to zero at segment end (pull pre-zoom decel). */
@@ -274,8 +317,26 @@ export function computeIntegralEaseOutSpinSpeedY(
   const totalYaw = Math.abs(peakSpeedY) * (durationMs * 0.001);
   const t0 = phaseElapsedMs / durationMs;
   const t1 = Math.min(1, (phaseElapsedMs + dtMs) / durationMs);
-  const deltaYaw = totalYaw * (easeOutCubic(t1) - easeOutCubic(t0));
+  const deltaYaw = totalYaw * (easeOutUniformDecel(t1) - easeOutUniformDecel(t0));
   return deltaYaw / (dtMs * 0.001);
+}
+
+/** Ease jewel from floor rest to aerial float during morph (post-bounce). */
+export function resolveMorphHoldPosition(
+  ctx: ShowcaseStageContext,
+  morphPhaseElapsedMs = ctx.phaseElapsedMs
+): Vector3 {
+  const float = getShowcaseFloatPosition(ctx.config, ctx.totalElapsedMs);
+  const startY = ctx.stageState.morphLiftStartY as number | undefined;
+  if (startY === undefined) {
+    return float;
+  }
+  const u = clamp01(morphPhaseElapsedMs / Math.max(ctx.config.morphDurationMs, 1));
+  const y = startY + (float.y - startY) * easeInOutCubic(u);
+  if (u >= 1) {
+    delete ctx.stageState.morphLiftStartY;
+  }
+  return new Vector3(float.x, y, float.z);
 }
 
 
@@ -386,7 +447,7 @@ export function tickShowcasePullEmphasis(
 
   } else {
 
-    tickShowcaseCameraFollow(ctx, dtMs, "presentation");
+    tickShowcaseCameraFollow(ctx, dtMs, "presentation", "cube");
 
   }
 
@@ -397,52 +458,42 @@ export function tickShowcasePullEmphasis(
       ? clamp01((ctx.phaseElapsedMs - pullEnd) / Math.max(config.pullHoldMs * 0.35, 1))
       : 0;
 
-  holdJewelCubeAt(
-    ctx.rig,
-    cubePos,
-    config.floatHoldStiffness * (1 + 0.55 * holdEase)
-  );
-
-
-
   const extent = getPhotoCrystalFramingExtent(ctx.rig.shapeId);
-
   const idealYaw = computeYawForHeroFraming(heroPos, config, ctx.camera, extent);
-
   const startYaw =
-
     typeof ctx.stageState.pullAlignStartYaw === "number"
-
       ? (ctx.stageState.pullAlignStartYaw as number)
-
       : typeof ctx.stageState.pullStartYaw === "number"
-
         ? (ctx.stageState.pullStartYaw as number)
-
         : getJewelCubeYawRadians(ctx.rig);
-
   const targetYaw =
-
     ctx.rig.shapeId === "cube" && ctx.rig.photoLayout === "cube"
-
       ? nearestCardinalYawFrom(startYaw, idealYaw)
-
       : idealYaw;
-
-
 
   if (ctx.phaseElapsedMs < zoomStartMs) {
 
-    const leadSpin = computeIntegralEaseOutSpinSpeedY(
+    const entrySpeed =
+      typeof ctx.stageState.pullEntrySpinY === "number"
+        ? (ctx.stageState.pullEntrySpinY as number)
+        : Math.max(Math.abs(ctx.spinOmegaY), config.rotateSpeedY * 0.85);
+
+    const leadTarget = computeSpinDecayTargetSpeedY(
       ctx.phaseElapsedMs,
-      dtMs,
       Math.max(zoomStartMs, 1),
-      config.rotateSpeedY
+      entrySpeed
+    );
+    const pitchFade = clamp01(leadTarget / Math.max(entrySpeed, 1e-4));
+
+    applySmoothedPresentationSpin(ctx, dtMs, leadTarget, pitchFade);
+
+    holdJewelCubeAt(
+      ctx.rig,
+      cubePos,
+      config.floatHoldStiffness * (1 + 0.55 * holdEase)
     );
 
-    spinJewelCubeY(ctx.rig, leadSpin, dtMs);
-
-    enforceJewelCubeUpright(ctx.rig);
+    enforceJewelCubeUpright(ctx.rig, false);
 
     updateCubePhotoFaceVisibility(ctx.rig, ctx.camera.globalPosition, false);
 
@@ -454,9 +505,15 @@ export function tickShowcasePullEmphasis(
 
     const yaw = lerpAngle(startYaw, targetYaw, alignEase);
 
-    setJewelCubeYaw(ctx.rig, yaw);
+    applySmoothedPresentationSpin(ctx, dtMs, 0);
 
-    enforceJewelCubeUpright(ctx.rig);
+    blendJewelCubeUprightToward(ctx.rig, yaw, 0, dtMs);
+
+    holdJewelCubeAt(
+      ctx.rig,
+      cubePos,
+      config.floatHoldStiffness * (1 + 0.55 * holdEase)
+    );
 
     updateCubePhotoFaceVisibility(
 
@@ -475,7 +532,9 @@ export function tickShowcasePullEmphasis(
 
 
   const parallax =
-    inHoldPhase || ease >= 0.98 ? 0 : 0.22 * (1 - ease) * (1 - ease);
+    ctx.rig.photoLayout === "cube" || inHoldPhase || ease >= 0.98
+      ? 0
+      : 0.12 * (1 - ease) * (1 - ease);
 
   tickHoloDisplayStack(ctx, dtMs, parallax);
 
@@ -513,26 +572,29 @@ export function tickShowcaseAscendReturn(
 
   const floatTarget = getShowcaseFloatPosition(config, ctx.totalElapsedMs);
 
-
-
-  holdJewelCubeAt(ctx.rig, floatTarget, config.floatHoldStiffness);
-
   tickShowcaseCameraReturn(ctx, dtMs, t);
 
-  const ascendSpin = computeIntegralEaseSpinSpeedY(
+  const ascendSpin = computeIntegralEaseInCruiseSpinSpeedY(
     ctx.phaseElapsedMs,
     dtMs,
     config.pullReturnMs,
-    config.rotateSpeedY
+    config.rotateSpeedY,
+    0.32
   );
 
-  spinJewelCubeY(ctx.rig, ascendSpin, dtMs);
+  applySmoothedPresentationSpin(ctx, dtMs, ascendSpin);
 
-  enforceJewelCubeUpright(ctx.rig);
+  holdJewelCubeAt(ctx.rig, floatTarget, config.floatHoldStiffness);
+
+  enforceJewelCubeUpright(ctx.rig, presentationSpinAllowsTilt(ctx));
 
   updateCubePhotoFaceVisibility(ctx.rig, ctx.camera.globalPosition, false);
 
-  tickHoloDisplayStack(ctx, dtMs, 0.1 + ease * 0.25);
+  tickHoloDisplayStack(
+    ctx,
+    dtMs,
+    ctx.rig.photoLayout === "cube" ? 0 : 0.1 + ease * 0.25
+  );
 
 
 

@@ -11,6 +11,20 @@ import type { ShowcasePipelineStageId, ShowcaseStageContext } from "./types";
 
 let jewelLighting: ShowcaseJewelLightingRig | null = null;
 
+function collectJewelPhotoLayers(rig: JewelCubePhysicsRig): JewelPhotoCoreLayer[] {
+  const layers: JewelPhotoCoreLayer[] = [rig.bgLayerA];
+  if (rig.bgLayerB !== rig.bgLayerA) {
+    layers.push(rig.bgLayerB);
+  }
+  if (rig.fgLayerA) {
+    layers.push(rig.fgLayerA);
+  }
+  if (rig.fgLayerB && rig.fgLayerB !== rig.fgLayerA) {
+    layers.push(rig.fgLayerB);
+  }
+  return layers;
+}
+
 export function bindShowcaseJewelLighting(rig: ShowcaseJewelLightingRig | null): void {
   jewelLighting = rig;
 }
@@ -22,9 +36,6 @@ export function computeHoloDisplayPower(
   if (stageId === "reveal") {
     return Math.min(1, phaseElapsedMs / HOLOGRAM_DISPLAY_SPEC.revealPowerRampMs);
   }
-  if (stageId === "fall" || stageId === "bounce") {
-    return 0.55;
-  }
   if (stageId === "pull") {
     return 1;
   }
@@ -32,21 +43,72 @@ export function computeHoloDisplayPower(
 }
 
 export function resetHoloDepthParallax(rig: JewelCubePhysicsRig): void {
-  const layers: JewelPhotoCoreLayer[] = [rig.bgLayerA, rig.bgLayerB];
-  if (rig.fgLayerA) {
-    layers.push(rig.fgLayerA);
-  }
-  if (rig.fgLayerB) {
-    layers.push(rig.fgLayerB);
-  }
+  const layers = collectJewelPhotoLayers(rig);
 
   for (const layer of layers) {
+    const rootBaseZ = layer.root.metadata?.parallaxBaseZ;
+    if (typeof rootBaseZ === "number") {
+      layer.root.position.z = rootBaseZ;
+    }
     for (const face of layer.faces) {
       const baseZ = face.metadata?.parallaxBaseZ;
       if (typeof baseZ === "number") {
         face.position.z = baseZ;
       }
     }
+  }
+}
+
+function layerMaxFacingDot(layer: JewelPhotoCoreLayer, cameraPos: Vector3): number {
+  let maxFacing = 0;
+  for (const face of layer.faces) {
+    const group = face.parent;
+    if (!group) {
+      continue;
+    }
+    const worldNormal = Vector3.TransformNormal(
+      new Vector3(0, 0, 1),
+      group.getWorldMatrix()
+    ).normalize();
+    const facePos = face.getAbsolutePosition();
+    const toCam = cameraPos.subtract(facePos);
+    if (toCam.lengthSquared() < 1e-8) {
+      continue;
+    }
+    toCam.normalize();
+    maxFacing = Math.max(maxFacing, Math.max(0, Vector3.Dot(worldNormal, toCam)));
+  }
+  return maxFacing;
+}
+
+function applyCubeLayerParallax(
+  layer: JewelPhotoCoreLayer,
+  cameraPos: Vector3,
+  strength: number,
+  isFg: boolean
+): void {
+  const maxShift = 0.01 * strength * (isFg ? 1.12 : 1.0);
+  const root = layer.root;
+  const baseZ =
+    typeof root.metadata?.parallaxBaseZ === "number"
+      ? root.metadata.parallaxBaseZ
+      : root.position.z;
+  if (typeof root.metadata?.parallaxBaseZ !== "number") {
+    root.metadata = { ...root.metadata, parallaxBaseZ: baseZ };
+  }
+
+  const facing = layerMaxFacingDot(layer, cameraPos);
+  root.position.z = baseZ + facing * maxShift;
+
+  for (const face of layer.faces) {
+    const faceBaseZ =
+      typeof face.metadata?.parallaxBaseZ === "number"
+        ? face.metadata.parallaxBaseZ
+        : face.position.z;
+    if (typeof face.metadata?.parallaxBaseZ !== "number") {
+      face.metadata = { ...face.metadata, parallaxBaseZ: faceBaseZ };
+    }
+    face.position.z = faceBaseZ;
   }
 }
 
@@ -59,14 +121,20 @@ export function applyHoloDepthParallax(
     resetHoloDepthParallax(rig);
     return;
   }
+  const layers = collectJewelPhotoLayers(rig);
+
+  if (rig.photoLayout === "cube") {
+    for (const layer of layers) {
+      if (layer.layout !== "cube") {
+        continue;
+      }
+      const isFg = layer === rig.fgLayerA || layer === rig.fgLayerB;
+      applyCubeLayerParallax(layer, cameraPos, strength, isFg);
+    }
+    return;
+  }
+
   const maxShift = 0.014 * strength;
-  const layers: JewelPhotoCoreLayer[] = [rig.bgLayerA, rig.bgLayerB];
-  if (rig.fgLayerA) {
-    layers.push(rig.fgLayerA);
-  }
-  if (rig.fgLayerB) {
-    layers.push(rig.fgLayerB);
-  }
 
   for (const layer of layers) {
     const isFg = layer === rig.fgLayerA || layer === rig.fgLayerB;
@@ -108,6 +176,7 @@ export function tickHoloDisplayStack(
   if (!ctx.rig) {
     return;
   }
+  const effectiveParallax = ctx.exportRecording ? 0 : parallaxStrength;
   const power = computeHoloDisplayPower(ctx.stageId, ctx.phaseElapsedMs);
   ctx.rig.holoPower = power;
   ctx.rig.fxTimeSec += dtMs * 0.001;
@@ -135,5 +204,5 @@ export function tickHoloDisplayStack(
   );
   tickJewelPhotoCoreLayers(ctx.rig, lightSnapshot, ctx.camera.globalPosition);
   tickShowcaseShellGlow(power, ctx.stageId, ctx.rig.shapeId);
-  applyHoloDepthParallax(ctx.rig, ctx.camera.globalPosition, parallaxStrength * power);
+  applyHoloDepthParallax(ctx.rig, ctx.camera.globalPosition, effectiveParallax * power);
 }

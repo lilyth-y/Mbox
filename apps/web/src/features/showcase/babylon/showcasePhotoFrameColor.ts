@@ -4,8 +4,8 @@ import { CUBE_FRAME_PRESET_IDS } from "@mbox/shared";
 import {
   setJewelInnerPhotoFrameColor,
   setJewelInnerPhotoFrameEnabled,
-  type JewelInnerPhotoMaterial,
 } from "./jewelInnerPhotoMaterial";
+import { isStandardJewelPhotoMaterial, type JewelPhotoDisplayMaterial } from "./jewelPhotoMaterialBridge";
 import { getPhotoCrystalPhotoProfile } from "./photoCrystalPhotoProfile";
 import type { PhotoCrystalPhotoMode, PhotoCrystalShapeId } from "./photoCrystalShapeCatalog";
 import { color3ToHex, parseHexColor3 } from "./showcaseColorParse";
@@ -60,10 +60,13 @@ export function getShowcasePhotoFrameHex(presetId: ShowcasePhotoFramePresetId): 
 }
 
 export function applyShowcaseFrameSettingsToMaterial(
-  material: JewelInnerPhotoMaterial,
+  material: JewelPhotoDisplayMaterial,
   presetId: ShowcasePhotoFramePresetId,
   photoFrameColorHex?: string
 ): void {
+  if (isStandardJewelPhotoMaterial(material)) {
+    return;
+  }
   const enabled = isShowcasePhotoFrameEnabled(presetId);
   setJewelInnerPhotoFrameEnabled(material, enabled);
   if (enabled) {
@@ -74,12 +77,12 @@ export function applyShowcaseFrameSettingsToMaterial(
   }
 }
 
-function resolveShowcaseFramePresetForLayout(
+export function resolveShowcaseFramePresetForLayout(
   presetId: ShowcasePhotoFramePresetId,
   shapeId: PhotoCrystalShapeId,
-  photoLayout: PhotoCrystalPhotoMode
+  _photoLayout?: PhotoCrystalPhotoMode
 ): ShowcasePhotoFramePresetId {
-  if (photoLayout === "cube") {
+  if (presetId === "none") {
     return "none";
   }
   if (!getPhotoCrystalPhotoProfile(shapeId).frameEnabled) {
@@ -90,10 +93,10 @@ function resolveShowcaseFramePresetForLayout(
 
 export function applyShowcaseFrameSettingsToRig(
   rig: {
-    bgMatA: JewelInnerPhotoMaterial;
-    bgMatB: JewelInnerPhotoMaterial;
-    fgMatA: JewelInnerPhotoMaterial | null;
-    fgMatB: JewelInnerPhotoMaterial | null;
+    bgMatA: JewelPhotoDisplayMaterial;
+    bgMatB: JewelPhotoDisplayMaterial;
+    fgMatA: JewelPhotoDisplayMaterial | null;
+    fgMatB: JewelPhotoDisplayMaterial | null;
     shapeId?: PhotoCrystalShapeId;
     photoLayout?: PhotoCrystalPhotoMode;
   },

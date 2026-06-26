@@ -1,0 +1,31 @@
+{
+  "goal": "Validate composite_rose_cube pipeline with measurable KPIs (Goal skill)",
+  "tier1Command": "npm run experiment:composite-tier1",
+  "attempts": [
+    {
+      "attempt": 1,
+      "variable": "baseline measurement (broken signalstats, BOM manifest)",
+      "pass": 6,
+      "fail": 5
+    },
+    {
+      "attempt": 2,
+      "variable": "rawvideo luma + BOM fix + E2 distinct-hash",
+      "pass": 8,
+      "fail": 3
+    },
+    {
+      "attempt": 3,
+      "variable": "screen scale-to-canvas + E3 compare 1.0 vs 1.25",
+      "pass": 9,
+      "fail": 2,
+      "failIds": ["E3_cube_scale_edge_bg", "E10_entrance_ehi_gate"]
+    }
+  ],
+  "finalRecommendation": {
+    "cubeScale": 1.25,
+    "blendMode": "ColorKey default; Screen for cube segment only (Tier-2)",
+    "bgm": "piano-slideshow.mp3",
+    "segmentSeconds": 60
+  }
+}

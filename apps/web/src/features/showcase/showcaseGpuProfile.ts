@@ -1,9 +1,8 @@
-import { isShowcaseLowGpuHost } from "./babylon/babylonCanvasGuard";
+import { isCloudGpuSession, isGpuSafeMode, isLocalGpuSession } from "../../shared/lib/gpuSession";
 import {
   isLocalGpuExportSession,
   isRenderWorkerExportSession,
 } from "../../shared/lib/renderExportProfile";
-import { readRenderJobFromWindow } from "../../shared/lib/renderJobWindow";
 
 /** Preview / export GPU budget — full quality vs 1024-capped simplified. */
 export type ShowcaseGpuTier = "full" | "simplified";
@@ -13,6 +12,10 @@ export type ShowcaseSubsystemFlags = {
   physics: boolean;
   domBackdropVideo: boolean;
   chapelPanorama: boolean;
+  /** Outer brilliant-cut shell — glossy crystal (default on). */
+  crystalShell: boolean;
+  /** One inner photo volume inside the shell (wedding placement) — no fg/bg twin stacks. */
+  singleInnerPhoto: boolean;
   shellInnerLayer: boolean;
   depthSplitForeground: boolean;
   shellGlow: boolean;
@@ -47,6 +50,8 @@ export const SHOWCASE_GPU_SIMPLIFIED_BUDGET: ShowcaseGpuBudget = {
     physics: false,
     domBackdropVideo: false,
     chapelPanorama: false,
+    crystalShell: true,
+    singleInnerPhoto: true,
     shellInnerLayer: false,
     depthSplitForeground: false,
     shellGlow: false,
@@ -65,13 +70,24 @@ export const SHOWCASE_GPU_FULL_BUDGET: ShowcaseGpuBudget = {
   hardwareScalingLevel: 1,
   exportFps: 60,
   subsystems: {
-    physics: true,
+    physics: false,
     domBackdropVideo: true,
     chapelPanorama: true,
-    shellInnerLayer: true,
-    depthSplitForeground: true,
+    crystalShell: true,
+    singleInnerPhoto: true,
+    shellInnerLayer: false,
+    depthSplitForeground: false,
     shellGlow: true,
   },
+};
+
+/** RTX Chrome / localhost interactive preview — native DPR, full photo raster. */
+export const SHOWCASE_LOCAL_GPU_INTERACTIVE_BUDGET: ShowcaseGpuBudget = {
+  ...SHOWCASE_GPU_FULL_BUDGET,
+  textureMaxEdge: 2048,
+  cubeTextureSize: 2048,
+  hardwareScalingLevel: 1,
+  maxAnisotropy: 16,
 };
 
 /** Playwright + ANGLE local MP4 — hardware GPU, photo shaders, 2K–4K output; lighter VRAM than interactive full. */
@@ -90,8 +106,10 @@ export const SHOWCASE_LOCAL_GPU_EXPORT_BUDGET: ShowcaseGpuBudget = {
     physics: false,
     domBackdropVideo: false,
     chapelPanorama: false,
-    shellInnerLayer: true,
-    depthSplitForeground: true,
+    crystalShell: true,
+    singleInnerPhoto: true,
+    shellInnerLayer: false,
+    depthSplitForeground: false,
     shellGlow: false,
   },
 };
@@ -108,6 +126,12 @@ function readSearchFlag(name: string): boolean {
   return new URLSearchParams(window.location.search).get(name) === "1";
 }
 
+export function usesJewelPhotoMorphTwin(
+  flags: ShowcaseSubsystemFlags = resolveShowcaseSubsystemFlags()
+): boolean {
+  return !flags.singleInnerPhoto;
+}
+
 /** Subsystem switches — explicit URL overrides beat tier defaults. */
 export function resolveShowcaseSubsystemFlags(
   tier: ShowcaseGpuTier = resolveShowcaseGpuTier()
@@ -121,29 +145,31 @@ export function resolveShowcaseSubsystemFlags(
   const safe = readSearchFlag("safe");
   const kinematic = readSearchFlag("kinematic") || safe;
 
-  if (readSearchFlag("noPhysics") || kinematic) {
-    base.physics = false;
-  }
-  if (typeof window !== "undefined") {
-    const physics = new URLSearchParams(window.location.search).get("physics");
-    if (physics === "1") {
-      base.physics = true;
-    }
-    if (physics === "0") {
-      base.physics = false;
-    }
-  }
+  base.physics = false;
   if (readSearchFlag("noVideo") || safe) {
     base.domBackdropVideo = false;
   }
   if (readSearchFlag("noPanorama") || kinematic) {
     base.chapelPanorama = false;
   }
+  if (readSearchFlag("noCrystalShell") || safe) {
+    base.crystalShell = false;
+  }
+  if (!base.crystalShell) {
+    base.shellInnerLayer = false;
+    base.shellGlow = false;
+  }
   if (readSearchFlag("noShellInner") || safe) {
     base.shellInnerLayer = false;
   }
   if (readSearchFlag("noDepthSplit") || safe) {
     base.depthSplitForeground = false;
+  }
+  if (base.singleInnerPhoto) {
+    base.depthSplitForeground = false;
+  }
+  if (readSearchFlag("photoMorphTwin")) {
+    base.singleInnerPhoto = false;
   }
   if (readSearchFlag("noGlow") || tier === "simplified") {
     base.shellGlow = false;
@@ -156,20 +182,17 @@ export function resolveShowcaseGpuTier(
   ctx: ShowcaseGpuProfileContext = {}
 ): ShowcaseGpuTier {
   if (typeof window !== "undefined") {
-    if (isLocalGpuExportSession()) {
+    if (isLocalGpuExportSession() || isLocalGpuSession()) {
       return "full";
     }
-    if (new URLSearchParams(window.location.search).get("safe") === "1") {
-      return "simplified";
-    }
-    if (readRenderJobFromWindow()) {
+    if (isCloudGpuSession()) {
       return "simplified";
     }
   }
   if (ctx.forceWebGl1 || ctx.gpuSafeSession) {
     return "simplified";
   }
-  if (typeof navigator !== "undefined" && isShowcaseLowGpuHost()) {
+  if (isGpuSafeMode()) {
     return "simplified";
   }
   return "full";
@@ -213,6 +236,11 @@ export function resolveShowcaseGpuBudget(
   imageCount = 1
 ): ShowcaseGpuBudget {
   const tier = resolveShowcaseGpuTier(ctx);
+  if (isLocalGpuSession() && !isLocalGpuExportSession()) {
+    const budget = { ...SHOWCASE_LOCAL_GPU_INTERACTIVE_BUDGET };
+    budget.subsystems = resolveShowcaseSubsystemFlags("full");
+    return budget;
+  }
   const budget = isLocalGpuExportSession()
     ? { ...SHOWCASE_LOCAL_GPU_EXPORT_BUDGET }
     : tier === "simplified"

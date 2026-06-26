@@ -12,6 +12,8 @@ export type JewelPhotoTextureOptions = {
   photoLayout?: PhotoCrystalPhotoLayoutId;
   crop?: JewelPhotoCropMeta;
   maxAnisotropy?: number;
+  textureMaxEdge?: number;
+  cubeTextureSize?: number;
   /** Use matte-aware source as-is (VoluMax fg). */
   preserveAlphaSource?: boolean;
 };

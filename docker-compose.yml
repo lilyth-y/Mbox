@@ -1,0 +1,42 @@
+# Local preview stack — one web + one API, no Vite HMR (better WebGL stability).
+#
+#   npm run dev:stop              # kill 5173–5176 / 4173 / 8787 zombies
+#   npm run preview:container     # build images + start
+#   npm run preview:container:down
+#
+# Showcase: http://localhost:4173/showcase.html
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8787:8080"
+    environment:
+      NODE_ENV: development
+      API_PORT: "8080"
+      API_HOST: 0.0.0.0
+      CORS_ORIGIN: http://localhost:4173,http://127.0.0.1:4173
+    volumes:
+      - mbox-workspaces:/var/lib/mbox/workspaces
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8787
+        VITE_USE_SERVER_VAULT: "false"
+        VITE_RENDER_BACKEND: local
+        VITE_SHOWCASE_LOCAL_ONLY: "true"
+        VITE_LOCALHOST_DEMO: "false"
+    ports:
+      - "4173:4173"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mbox-workspaces:

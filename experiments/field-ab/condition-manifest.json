@@ -1,0 +1,40 @@
+{
+  "studyId": "entrance-hologram-field-ab-2026",
+  "hypothesis": "Production entrance hologram (Condition B) yields higher guest satisfaction than legacy-style motion (Condition A), consistent with higher EHI/RSI proxy scores.",
+  "rotationMode": "yaw_cw",
+  "conditions": {
+    "A": {
+      "label": "Control — wedding_default motion",
+      "description": "낮은 export parallax, focus pulse 없음. 입구 전 레거시/보수 연출.",
+      "playback": {
+        "fanProfile": "wedding_default",
+        "hologramMode": true,
+        "exportParallaxMul": 0.22,
+        "exportFocusPulseMul": 0,
+        "rotationMode": "yaw_cw"
+      },
+      "operatorCue": "A 세션: wedding-simple에서 Fan profile을 wedding_default로, MP4 export 후 동일 디스플레이 볼륨·밝기 유지"
+    },
+    "B": {
+      "label": "Treatment — entrance_processional (production)",
+      "description": "EHI/RSI PASS 프로덕션 설정. parallax ×0.50, focusPulse ×0.35.",
+      "playback": {
+        "fanProfile": "entrance_processional",
+        "hologramMode": true,
+        "exportParallaxMul": 0.5,
+        "exportFocusPulseMul": 0.35,
+        "rotationMode": "yaw_cw"
+      },
+      "operatorCue": "B 세션: 기본 WeddingSimpleDashboard 설정(entrance_processional + yaw_cw)으로 export"
+    }
+  },
+  "randomization": {
+    "unit": "guest",
+    "method": "blocked_by_30min_session",
+    "notes": "동일 행사 내 30분 블록 단위로 A/B 교대. 게스트는 블록 시작 후 10초 이내 입장한 경우만 설문 포함."
+  },
+  "sampleTargets": {
+    "tier2_pilot": { "perCondition": 10, "total": 20 },
+    "tier3_field": { "perCondition": 30, "total": 60 }
+  }
+}

@@ -1,20 +1,13 @@
 import {
-
-  CubeVideoRecorder,
-
+  ShowcaseVideoRecorder,
   downloadBlob,
-
   looksLikeIsoMp4,
-
   normalizeRecordingBlob,
-
   RECORD_ENCODER_FLUSH_MS,
-
   resolveRecordingMimeType,
+} from "./export/showcaseRecorder";
 
-} from "../cube/cubeRecorder";
-
-import { startBgmRecordingSession } from "../cube/bgm/compositeStreamWithBgm";
+import { startBgmRecordingSession } from "./export/compositeStreamWithBgm";
 
 import type { ShowcasePhysicsSceneHandle } from "./babylon/createShowcasePhysicsScene";
 import { resolveShowcaseGpuBudget } from "./showcaseGpuProfile";
@@ -95,8 +88,6 @@ export function computeShowcaseExportDurationMs(
 
   imageCount: number,
 
-  fallPhysicsEnabled: boolean,
-
   config: ShowcasePipelineConfig = DEFAULT_SHOWCASE_PIPELINE_CONFIG
 
 ): number {
@@ -122,14 +113,6 @@ export function computeShowcaseExportDurationMs(
     pullMs +
 
     config.pullReturnMs;
-
-
-
-  if (fallPhysicsEnabled) {
-
-    cycleMs += config.fallMaxMs + config.settleHoldMs + 1_200;
-
-  }
 
 
 
@@ -213,8 +196,6 @@ export type ShowcaseExportVideoOptions = {
 
   imageCount: number;
 
-  fallPhysicsEnabled: boolean;
-
   exportSize?: number;
 
   filename?: string;
@@ -284,7 +265,6 @@ export async function exportShowcaseMp4(
 
   const durationMs = computeShowcaseExportDurationMs(
     options.imageCount,
-    options.fallPhysicsEnabled,
     pipelineConfig
   );
 
@@ -313,7 +293,7 @@ export async function exportShowcaseMp4(
     handle.applySafeGpuRecovery();
   }
 
-  const recorder = new CubeVideoRecorder();
+  const recorder = new ShowcaseVideoRecorder();
   let composite: ReturnType<typeof createShowcaseExportCompositeStream> | null = null;
   let bgmSession: Awaited<ReturnType<typeof startBgmRecordingSession>> | null = null;
 

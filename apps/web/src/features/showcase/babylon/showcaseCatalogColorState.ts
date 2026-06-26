@@ -6,7 +6,7 @@ export type ShowcaseCatalogColorState = {
   crystalShellColorHex: string;
   /** 배경 영상/색이 크리스탈 표면 env에 반사되는 강도 */
   crystalBackdropBlend: number;
-  /** 0 = thin shell, 1 = thick frosted jewel glass */
+  /** 0 = 거의 투명한 얇은 유리, 1 = 두꺼운 페이퍼웨이트 */
   crystalShellTransparency: number;
   /** 0 = 흐림, 1 = 내부 사진 최대 선명 */
   crystalPhotoClarity: number;
@@ -41,27 +41,28 @@ function glossLevel(): number {
   return Math.max(0, Math.min(1, state.crystalGloss));
 }
 
-/** Shell opacity — thicker glass = much more visible jewel body. */
+/** Shell opacity — 0 = nearly invisible shell, 1 = heavy opaque paperweight glass. */
 export function getCrystalShellAlphaMultiplier(): number {
   const t = shellThickness();
-  if (t <= 0.001) return 0.14;
-  if (t >= 0.999) return 0.94;
-  const eased = Math.pow(t, 0.92);
-  return 0.14 + eased * 0.8;
+  if (t <= 0.001) return 0.028;
+  if (t >= 0.999) return 1.0;
+  const eased = Math.pow(t, 0.84);
+  return 0.028 + eased * 0.97;
 }
 
-/** Facing-camera opacity floor — thick crystal stays visible on-axis. */
+/** Facing-camera alpha retention — higher = thicker, more opaque glass on-axis. */
 export function getCrystalShellViewClearFactor(): number {
   const t = shellThickness();
-  if (t <= 0.001) return 0.22;
-  if (t >= 0.999) return 0.52;
-  const eased = Math.pow(t, 0.9);
-  return 0.22 + eased * 0.3;
+  if (t <= 0.001) return 0.58;
+  if (t >= 0.999) return 0.97;
+  const eased = Math.pow(t, 0.8);
+  return 0.58 + eased * 0.39;
 }
 
-/** Frosted ice body toward camera — thick = richer jewel, less wash-out. */
+/** Frosted ice body toward camera — moderate so inner frame/photos stay readable. */
 export function getCrystalShellIceSuppress(): number {
   const t = shellThickness();
+  if (t <= 0.001) return 0;
   return Math.pow(t, 0.72) * 0.78;
 }
 
@@ -86,13 +87,13 @@ export function getCrystalBackdropReflectionScale(): number {
 export function getCrystalPhotoGain(): number {
   const c = photoClarity();
   const thick = shellThickness();
-  if (c <= 0.001) return 0.72;
+  if (c <= 0.001) return 1;
   if (c >= 0.999) {
-    const thickDamp = 1 - thick * 0.08;
-    return 6.85 * thickDamp;
+    const thickDamp = thick <= 0.001 ? 1 : 1 - thick * 0.04;
+    return 9.2 * thickDamp;
   }
-  const base = 0.72 + Math.pow(c, 0.68) * 6.13;
-  const thickDamp = 1 - thick * 0.18 * (1 - c);
+  const base = 1 + Math.pow(c, 0.58) * 8.1;
+  const thickDamp = thick <= 0.001 ? 1 : 1 - thick * 0.1 * (1 - c);
   return base * thickDamp;
 }
 

@@ -30,15 +30,25 @@ export function createShowcaseShellGlow(scene: Scene): void {
 
   }
 
+  const engine = scene.getEngine();
+  const gl = (engine as { _gl?: WebGLRenderingContext | WebGL2RenderingContext | null })._gl;
+  if (!gl) {
+    return;
+  }
 
+  try {
+    glowLayer = new GlowLayer("jewel-shell-glow", scene, {
 
-  glowLayer = new GlowLayer("jewel-shell-glow", scene, {
+      mainTextureRatio: 0.4,
 
-    mainTextureRatio: 0.4,
+      blurKernelSize: 40,
 
-    blurKernelSize: 40,
-
-  });
+    });
+  } catch (error) {
+    console.warn("[showcase] shell glow unavailable:", error);
+    glowLayer = null;
+    return;
+  }
 
   glowLayer.intensity = 0.62;
 

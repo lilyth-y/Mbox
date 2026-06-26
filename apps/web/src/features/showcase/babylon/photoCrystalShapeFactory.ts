@@ -126,7 +126,7 @@ export function shapeUsesCrystalShellInnerLayer(
 
 /** Cavity wall inset — smaller = thicker visible inner wall (more depth). */
 export function getCrystalShellInnerInset(_shapeId: PhotoCrystalShapeId): number {
-  return 0.952;
+  return 0.938;
 }
 
 /** Diamond-cut brilliant paperweight — unified across all catalog shapes. */
@@ -139,11 +139,11 @@ export function getConvexShellPhotoTuning(_shapeId: PhotoCrystalShapeId): {
   glowMul: number;
 } {
   return {
-    shellOpacityScale: 0.92,
-    alphaMax: 0.78,
-    glossBoost: 2.35,
-    shellAlpha: 0.62,
-    photoPowerMul: 1.95,
+    shellOpacityScale: 0.98,
+    alphaMax: 0.94,
+    glossBoost: 2.05,
+    shellAlpha: 0.74,
+    photoPowerMul: 2.05,
     glowMul: 0.72,
   };
 }

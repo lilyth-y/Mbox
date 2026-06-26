@@ -16,6 +16,9 @@ loadEnvLocal(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const WEB_URL =
   process.env.MBOX_WEB_URL ??
   "https://mbox-web-newmedia-496107.storage.googleapis.com/index.html";
+const SHOWCASE_URL =
+  process.env.MBOX_SHOWCASE_URL ??
+  "https://mbox-web-newmedia-496107.storage.googleapis.com/showcase.html";
 const API_URL =
   process.env.MBOX_API_BASE_URL ??
   "https://mbox-api-118689443638.asia-northeast3.run.app";
@@ -38,6 +41,18 @@ async function fetchStatus(url, init) {
 try {
   const index = await fetchStatus(WEB_URL);
   record("web index.html", index.ok, String(index.status));
+
+  const showcase = await fetchStatus(SHOWCASE_URL);
+  record("web showcase.html", showcase.ok, String(showcase.status));
+
+  const showcaseHtml = showcase.ok ? await (await fetch(SHOWCASE_URL)).text() : "";
+  const showcaseScript = showcaseHtml.match(/src="(\.\/assets\/[^"]+\.js)"/);
+  if (showcaseScript) {
+    const showcaseJs = await fetchStatus(new URL(showcaseScript[1], SHOWCASE_URL).href);
+    record("showcase JS bundle", showcaseJs.ok, `${showcaseJs.status} ${showcaseScript[1]}`);
+  } else if (showcase.ok) {
+    record("showcase JS bundle", false, "missing ./assets/*.js in showcase.html");
+  }
 
   const html = await (await fetch(WEB_URL)).text();
   const scriptMatch = html.match(/src="(\.\/assets\/[^"]+\.js)"/);
@@ -112,7 +127,7 @@ try {
 const failed = checks.filter((c) => !c.ok);
 console.log(
   JSON.stringify(
-    { ok: failed.length === 0, webUrl: WEB_URL, apiUrl: API_URL, checks },
+    { ok: failed.length === 0, webUrl: WEB_URL, showcaseUrl: SHOWCASE_URL, apiUrl: API_URL, checks },
     null,
     2,
   ),

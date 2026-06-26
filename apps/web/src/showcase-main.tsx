@@ -1,9 +1,11 @@
 import { createRoot } from "react-dom/client";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { MboxPageShell } from "./components/MboxPageShell";
-import { shouldUseConservativeShowcaseWebGl } from "./features/showcase/babylon/babylonCanvasGuard";
+import { ensureLocalGpuSearchParams } from "./shared/lib/gpuSession";
 import { ShowcaseDashboard } from "./features/showcase/ShowcaseDashboard";
 import "./styles/index.css";
+
+ensureLocalGpuSearchParams();
 
 class ShowcaseRootErrorBoundary extends Component<
   { children: ReactNode },
@@ -43,30 +45,7 @@ class ShowcaseRootErrorBoundary extends Component<
   }
 }
 
-function shouldPrefetchHavokOnShowcaseLoad(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const w = window as { __MBOX_LOCAL_GPU_EXPORT__?: boolean };
-  if (w.__MBOX_LOCAL_GPU_EXPORT__ === true) {
-    return false;
-  }
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("noPhysics") === "1" || params.get("kinematic") === "1") {
-    return false;
-  }
-  return !shouldUseConservativeShowcaseWebGl();
-}
-
-void import("./features/premium/babylon/physicsWorld").then((m) => {
-  if (!shouldPrefetchHavokOnShowcaseLoad()) {
-    return;
-  }
-  m.prefetchHavokWasm();
-  return m.preloadHavokPhysics();
-});
-
-/** WebGL/Babylon — StrictMode 이중 마운트 시 context lost 방지 */
+/** Showcase is rotation-only — skip Havok WASM on page load. */
 createRoot(document.getElementById("root")!).render(
   <ShowcaseRootErrorBoundary>
     <MboxPageShell wide>

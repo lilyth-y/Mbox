@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-11T06:14:33.894Z",
+  "root": "data/user-assets/bgm",
+  "items": [
+    {
+      "file": "bridal-chorus.mp3",
+      "label": "bridal chorus",
+      "publicPath": "bgm/bridal-chorus.mp3"
+    },
+    {
+      "file": "cinematic-romantic.mp3",
+      "label": "cinematic romantic",
+      "publicPath": "bgm/cinematic-romantic.mp3"
+    },
+    {
+      "file": "paulyudin-piano-slideshow-156894.mp3",
+      "label": "paulyudin piano slideshow 156894",
+      "publicPath": "bgm/paulyudin-piano-slideshow-156894.mp3"
+    },
+    {
+      "file": "piano-slideshow.mp3",
+      "label": "piano slideshow",
+      "publicPath": "bgm/piano-slideshow.mp3"
+    },
+    {
+      "file": "romantic-wedding.mp3",
+      "label": "romantic wedding",
+      "publicPath": "bgm/romantic-wedding.mp3"
+    }
+  ]
+}

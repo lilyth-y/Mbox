@@ -16,11 +16,25 @@ import {
 
 export type JewelPhotoDisplayMaterial = JewelInnerPhotoMaterial | StandardMaterial;
 
-import { isLocalGpuExportSession } from "../../../shared/lib/renderExportProfile";
+import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
 
-export function shouldUseStandardJewelPhotoPreview(): boolean {
-  // Custom photo shaders + parallel compile race → CONTEXT_LOST on ANGLE export; StandardMaterial is stable.
-  return isLocalGpuExportSession();
+export function shouldUseStandardJewelPhotoPreview(
+  options: Pick<
+    JewelInnerPhotoMaterialOptions,
+    "cubeFace" | "silhouetteKind" | "circleMask"
+  > = {}
+): boolean {
+  // Custom shader UV / silhouette clip — StandardMaterial is a solid frame wash.
+  if (options.cubeFace) {
+    return false;
+  }
+  if (options.circleMask) {
+    return false;
+  }
+  if ((options.silhouetteKind ?? 0) !== 0) {
+    return false;
+  }
+  return isLocalGpuSession();
 }
 
 export function isStandardJewelPhotoMaterial(
@@ -34,7 +48,7 @@ export function createJewelPhotoDisplayMaterial(
   photoTexture: BaseTexture,
   options: JewelInnerPhotoMaterialOptions
 ): JewelPhotoDisplayMaterial {
-  if (shouldUseStandardJewelPhotoPreview()) {
+  if (shouldUseStandardJewelPhotoPreview(options)) {
     return createInnerPhotoMaterial(scene, photoTexture, options.useAlpha ?? false);
   }
   return createJewelInnerPhotoMaterial(scene, photoTexture, options);

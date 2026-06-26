@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MBOX 입구 홀로그램 — 게스트 설문 (Field A/B)</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #120f14;
+      --card: #1e1822;
+      --gold: #d4a574;
+      --rose: #f472b6;
+      --text: #f5eef2;
+      --muted: #a89aa6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(ellipse at top, #2a1528, var(--bg));
+      color: var(--text);
+      padding: 1rem;
+    }
+    main { max-width: 520px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; color: var(--gold); }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(212, 165, 116, 0.25);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid #3d3344;
+      background: #0f0c12;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+    fieldset { border: none; padding: 0; margin: 0 0 1rem; }
+    legend { font-weight: 600; margin-bottom: 0.5rem; line-height: 1.4; }
+    .likert { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .likert label {
+      flex: 1;
+      min-width: 3rem;
+      text-align: center;
+      padding: 0.5rem 0.25rem;
+      border: 1px solid #3d3344;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .likert input { display: none; }
+    .likert input:checked + span {
+      background: rgba(244, 114, 182, 0.2);
+      border-color: var(--rose);
+      display: block;
+      border-radius: 6px;
+      padding: 0.45rem 0.2rem;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.35rem;
+    }
+    .primary { background: linear-gradient(135deg, #be123c, #881337); color: white; }
+    .secondary { background: #2a2230; color: var(--gold); border: 1px solid rgba(212,165,116,0.35); }
+    .status { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; min-height: 1.2rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .badge-A { background: #334155; }
+    .badge-B { background: #7c2d12; color: #fde68a; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>입구 홀로그램 게스트 설문</h1>
+    <p class="sub">약 30초 시청 후 5문항 · Field A/B 연구용 (익명)</p>
+
+    <div class="card">
+      <label for="sessionId">세션 ID</label>
+      <input id="sessionId" placeholder="2026-06-07-hall1-block2" />
+
+      <label for="condition">조건</label>
+      <select id="condition">
+        <option value="A">A — Control (wedding_default)</option>
+        <option value="B">B — Treatment (entrance_processional)</option>
+      </select>
+      <div id="conditionBadge"></div>
+
+      <label for="venue">식장 / 장소</label>
+      <input id="venue" placeholder="OO 웨딩홀" />
+
+      <label for="watchedSec">시청 시간 (초)</label>
+      <input id="watchedSec" type="number" min="5" max="300" value="45" />
+    </div>
+
+    <form id="surveyForm" class="card"></form>
+
+    <button type="button" class="primary" id="saveBtn">응답 저장 (로컬)</button>
+    <button type="button" class="secondary" id="exportBtn">JSONL 내보내기</button>
+    <p class="status" id="status"></p>
+  </main>
+
+  <script>
+    const QUESTIONS = [
+      { id: "fit", text: "이 홀로그램 연출이 결혼식 입구 분위기와 잘 어울렸나요?" },
+      { id: "natural", text: "사진/영상이 자연스럽게 보였나요? (어지럽지 않았나요?)" },
+      { id: "motion", text: "큐브 회전·움직임이 편안했나요?" },
+      { id: "wow", text: "입구에서 '와' 하는 감동이 있었나요?" },
+      { id: "overall", text: "전체 만족도" },
+    ];
+    const STORAGE_KEY = "mbox.fieldAb.responses";
+
+    const form = document.getElementById("surveyForm");
+    for (const q of QUESTIONS) {
+      const field = document.createElement("fieldset");
+      field.innerHTML = `<legend>${q.text}</legend>`;
+      const row = document.createElement("div");
+      row.className = "likert";
+      for (let v = 1; v <= 5; v += 1) {
+        const id = `${q.id}_${v}`;
+        row.innerHTML += `
+          <label for="${id}">
+            <input type="radio" name="${q.id}" id="${id}" value="${v}" required />
+            <span>${v}</span>
+          </label>`;
+      }
+      field.appendChild(row);
+      form.appendChild(field);
+    }
+
+    function updateBadge() {
+      const c = document.getElementById("condition").value;
+      document.getElementById("conditionBadge").innerHTML =
+        `<span class="badge badge-${c}">Condition ${c}</span>`;
+    }
+    document.getElementById("condition").addEventListener("change", updateBadge);
+    updateBadge();
+
+    function loadStored() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function buildResponse() {
+      const answers = {};
+      for (const q of QUESTIONS) {
+        const picked = form.querySelector(`input[name="${q.id}"]:checked`);
+        if (!picked) throw new Error(`문항 미응답: ${q.text}`);
+        answers[q.id] = Number(picked.value);
+      }
+      return {
+        recordedAt: new Date().toISOString(),
+        sessionId: document.getElementById("sessionId").value.trim() || "unknown",
+        condition: document.getElementById("condition").value,
+        venue: document.getElementById("venue").value.trim(),
+        eventDate: new Date().toISOString().slice(0, 10),
+        guestId: `G${String(loadStored().length + 1).padStart(3, "0")}`,
+        collector: "tablet",
+        watchedSec: Number(document.getElementById("watchedSec").value) || 0,
+        answers,
+      };
+    }
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      try {
+        const row = buildResponse();
+        const all = loadStored();
+        all.push(row);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+        document.getElementById("status").textContent =
+          `저장됨 (${all.length}건). JSONL 내보내기 후 responses.jsonl로 복사하세요.`;
+        form.reset();
+        updateBadge();
+      } catch (err) {
+        document.getElementById("status").textContent = err.message;
+      }
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const all = loadStored();
+      if (all.length === 0) {
+        document.getElementById("status").textContent = "저장된 응답이 없습니다.";
+        return;
+      }
+      const blob = new Blob([all.map((row) => JSON.stringify(row)).join("\n") + "\n"], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `field-ab-responses-${new Date().toISOString().slice(0, 10)}.jsonl`;
+      a.click();
+      URL.revokeObjectURL(url);
+      document.getElementById("status").textContent = `${all.length}건 JSONL 다운로드`;
+    });
+  </script>
+</body>
+</html>

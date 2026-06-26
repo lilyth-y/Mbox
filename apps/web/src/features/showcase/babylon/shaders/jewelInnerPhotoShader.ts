@@ -11,6 +11,9 @@ import type { PhotoCrystalShapeId } from "../photoCrystalShapeCatalog";
 import { resolvePhotoCrystalShape } from "../photoCrystalShapeCatalog";
 import { getPhotoCrystalPhotoProfile, photoSilhouetteKindToShaderId } from "../photoCrystalPhotoProfile";
 import { resolveJewelPhotoRasterSpec } from "../jewelPhotoRasterSpec";
+import { resolveShowcaseGpuBudget } from "../../showcaseGpuProfile";
+import { resolveInnerPhotoShaderNames, stripFwidthForWebGl1 } from "../showcaseWebGl1Shader";
+import { isShowcaseEngineWebGl1 } from "../babylonCanvasGuard";
 
 const VERTEX = `
 precision highp float;
@@ -65,6 +68,7 @@ uniform float uPreCropped;
 uniform float uPhotoAspect;
 uniform float uPhotoViewportFill;
 uniform float uEdgeSoftness;
+uniform float uCubeFace;
 varying vec2 vUV;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
@@ -100,6 +104,9 @@ vec2 jewelPlateUv(vec2 meshUv, vec3 n) {
 }
 
 float photoRegionStart() {
+  if (uFrameEnabled < 0.5) {
+    return 0.0;
+  }
   return uMatInset + uFrameWidth;
 }
 
@@ -112,7 +119,14 @@ vec2 photoUvContainAspect(vec2 uv, float aspect) {
     float scale = aspect;
     p.x = (p.x - 0.5) / scale + 0.5;
   }
-  return clamp(p, 0.0, 1.0);
+  return p;
+}
+
+/** Map framed square face UV → 0–1 photo texture (no aspect stretch). */
+vec2 mapCubeFacePhotoUv(vec2 meshUv, vec3 n) {
+  float inner = photoRegionStart();
+  vec2 base = jewelPlateUv(meshUv, n);
+  return (base - inner) / max(1.0 - 2.0 * inner, 0.001);
 }
 
 /** Center photo inside a 1:1 face — fill 0.7 → 70% span, centered. */
@@ -126,6 +140,9 @@ bool photoUvInRange(vec2 p) {
 }
 
 vec2 mapToPhotoUv(vec2 meshUv, vec3 n) {
+  if (uCubeFace > 0.5) {
+    return mapCubeFacePhotoUv(meshUv, n);
+  }
   float inner = photoRegionStart();
   vec2 base = jewelPlateUv(meshUv, n);
   vec2 photoUv = (base - inner) / max(1.0 - 2.0 * inner, 0.001);
@@ -206,10 +223,10 @@ float silhouetteBorderDist(vec2 uv, vec3 localPos) {
 
 vec3 etchedFrameColor(vec2 uv, float glint) {
   vec3 ice = vec3(0.84, 0.9, 0.98);
-  vec3 silver = mix(uFrameColor, ice, 0.28);
+  vec3 silver = mix(uFrameColor, ice, 0.18);
   float facet = 0.58 + 0.42 * sin(atan(uv.y - 0.5, uv.x - 0.5) * 8.0 + uTime * 1.4);
   float bevel = smoothstep(photoRegionStart() - uFrameWidth * 0.35, photoRegionStart(), silhouetteBorderDist(uv, vLocalPos));
-  return silver * mix(0.88, 1.08, facet * bevel) + vec3(1.0) * glint * 0.22;
+  return silver * mix(0.96, 1.18, facet * bevel) + vec3(1.0) * glint * 0.32;
 }
 
 void applySilhouetteDiscard(vec2 uv, vec3 localPos, float matInset) {
@@ -255,15 +272,18 @@ void main(void) {
   float inPhoto = smoothstep(inner - frameW, inner + frameW * 0.5, border);
 
   if (uFrameEnabled > 0.5) {
-    applySilhouetteDiscard(plateUv, vLocalPos, uMatInset);
+    if (uCubeFace < 0.5) {
+      applySilhouetteDiscard(plateUv, vLocalPos, uMatInset);
+    }
     if (inPhoto < 0.02) {
       col = etchedFrameColor(plateUv, glint * pulse);
       alpha = uAlpha;
     } else {
       vec2 photoUv = resolvePhotoSampleUv(uv, n);
       if (!photoUvInRange(photoUv)) {
-        discard;
-      }
+        col = etchedFrameColor(plateUv, glint * pulse);
+        alpha = uAlpha;
+      } else {
       vec4 tex = texture2D(uPhoto, photoUv);
       if (uUseAlpha > 0.5 && tex.a < 0.04) {
         discard;
@@ -272,6 +292,7 @@ void main(void) {
       col = tex.rgb * uPhotoGain;
       col = mix(etchedFrameColor(plateUv, glint * pulse), col, inPhoto);
       alpha = (uUseAlpha > 0.5 ? tex.a * uAlpha : uAlpha) * edgeFade;
+      }
     }
   } else {
     if (uSilhouetteKind < 1.5 || uSilhouetteKind > 2.5) {
@@ -308,6 +329,7 @@ void main(void) {
 
 Effect.ShadersStore["jewelInnerPhotoVertexShader"] = VERTEX;
 Effect.ShadersStore["jewelInnerPhotoFragmentShader"] = FRAGMENT;
+Effect.ShadersStore["jewelInnerPhotoWebGL1FragmentShader"] = stripFwidthForWebGl1(FRAGMENT);
 
 export type JewelInnerPhotoMaterial = ShaderMaterial;
 
@@ -316,6 +338,8 @@ export type JewelInnerPhotoMaterialOptions = {
   flipV?: number;
   frameEnabled?: boolean;
   cubeBox?: boolean;
+  /** Six-face cube — 1:1 photo window, no portrait aspect stretch. */
+  cubeFace?: boolean;
   frameColor?: Color3;
   circleMask?: boolean;
   silhouetteKind?: number;
@@ -326,6 +350,8 @@ export type JewelInnerPhotoMaterialOptions = {
   photoViewportFill?: number;
   edgeSoftness?: number;
   cubeHalf?: number;
+  /** Windows / simplified GPU profile — use fragment shader without fwidth(). */
+  webGl1Shader?: boolean;
 };
 
 const DEFAULT_LIGHT = new Vector3(2.5, 3.2, 4.5);
@@ -340,10 +366,13 @@ export function createJewelInnerPhotoMaterial(
   const resolved = typeof options === "boolean" ? { useAlpha: options } : options;
   const useAlpha = resolved.useAlpha ?? false;
   const edgeSoftness = resolved.edgeSoftness ?? 0;
+  const preferWebGl1 =
+    resolved.webGl1Shader ?? isShowcaseEngineWebGl1(scene.getEngine());
+  const shaderNames = resolveInnerPhotoShaderNames(preferWebGl1);
   const mat = new ShaderMaterial(
     `jewel-inner-photo-${photoTexture.uniqueId}`,
     scene,
-    { vertex: "jewelInnerPhoto", fragment: "jewelInnerPhoto" },
+    shaderNames,
     {
       attributes: ["position", "normal", "uv"],
       uniforms: [
@@ -375,6 +404,7 @@ export function createJewelInnerPhotoMaterial(
         "uPhotoAspect",
         "uPhotoViewportFill",
         "uEdgeSoftness",
+        "uCubeFace",
       ],
       samplers: ["uPhoto"],
       needAlphaBlending: useAlpha || edgeSoftness > 0.0001,
@@ -399,9 +429,15 @@ export function applyJewelInnerPhotoMaterial(
   material.setFloat("uPhotoGain", 1);
   material.setFloat("uTime", 0);
   material.setFloat("uFlipV", resolved.flipV ?? 0);
+  const matInset = resolved.cubeFace
+    ? HOLOGRAM_FRAME_UV.matInset * 0.42
+    : HOLOGRAM_FRAME_UV.matInset;
+  const frameWidth = resolved.cubeFace
+    ? HOLOGRAM_FRAME_UV.frameWidth * 0.48 * 0.88
+    : HOLOGRAM_FRAME_UV.frameWidth * 0.88;
   material.setFloat("uFrameEnabled", resolved.frameEnabled === false ? 0 : 1);
-  material.setFloat("uMatInset", HOLOGRAM_FRAME_UV.matInset);
-  material.setFloat("uFrameWidth", HOLOGRAM_FRAME_UV.frameWidth * 0.88);
+  material.setFloat("uMatInset", matInset);
+  material.setFloat("uFrameWidth", frameWidth);
   material.setVector3(
     "uFrameColor",
     resolved.frameColor
@@ -414,6 +450,7 @@ export function applyJewelInnerPhotoMaterial(
   material.setVector3("uKeyLightPos", DEFAULT_LIGHT);
   material.setVector3("uRimLightPos", DEFAULT_LIGHT);
   material.setFloat("uCubeBox", resolved.cubeBox ? 1 : 0);
+  material.setFloat("uCubeFace", resolved.cubeFace ? 1 : 0);
   material.setFloat("uCubeHalf", resolved.cubeHalf ?? DEFAULT_CUBE_HALF);
   material.setVector3("uCameraPos", DEFAULT_LIGHT);
   material.setFloat("uCircleMask", resolved.circleMask ? 1 : 0);
@@ -427,9 +464,10 @@ export function applyJewelInnerPhotoMaterial(
     resolved.photoViewportFill ?? HOLOGRAM_DISPLAY_SPEC.photoFaceViewportFill
   );
   material.setFloat("uEdgeSoftness", edgeSoftness);
-  material.backFaceCulling = false;
+  material.backFaceCulling = true;
   material.forceDepthWrite = true;
-  material.zOffset = -4;
+  // Negative offset — inner photos sit inside the shell, not in front of the glass.
+  material.zOffset = resolved.cubeBox ? -2 : -3;
   const needsBlend = useAlpha || edgeSoftness > 0.0001;
   material.metadata = { ...(material.metadata ?? {}), innerPhotoNeedsBlend: needsBlend };
   material.transparencyMode = needsBlend
@@ -455,18 +493,25 @@ export function getInnerPhotoMaterialOptions(
     photoAspect?: number;
     photoViewportFill?: number;
     cubeHalf?: number;
+    cubeBox?: boolean;
+    cubeFace?: boolean;
   }
 ): JewelInnerPhotoMaterialOptions {
   const profile = getPhotoCrystalPhotoProfile(shapeId);
   const shapeSpec = resolvePhotoCrystalShape(shapeId);
   const isCubeLayout = layout === "cube";
-  const rasterSpec = resolveJewelPhotoRasterSpec(shapeId, isCubeLayout ? "cube" : "portrait");
+  const textureBudget = resolveShowcaseGpuBudget();
+  const rasterSpec = resolveJewelPhotoRasterSpec(shapeId, isCubeLayout ? "cube" : "portrait", {
+    textureMaxEdge: textureBudget.textureMaxEdge,
+    cubeTextureSize: textureBudget.cubeTextureSize,
+  });
   const preCropped = rasterSpec.preCroppedToPlate;
   return {
     useAlpha,
     flipV: 0,
     frameEnabled: profile.frameEnabled && frame?.enabled !== false,
-    cubeBox: false,
+    cubeBox: frame?.cubeBox ?? isCubeLayout,
+    cubeFace: frame?.cubeFace ?? isCubeLayout,
     cubeHalf: frame?.cubeHalf,
     frameColor: frame?.color,
     circleMask: frame?.circleMask ?? false,
@@ -475,12 +520,12 @@ export function getInnerPhotoMaterialOptions(
     heartScale: frame?.heartScale ?? 1,
     preCroppedToPlate: frame?.preCroppedToPlate ?? preCropped,
     photoAspect: isCubeLayout
-      ? (frame?.photoAspect ?? shapeSpec.portraitAspect)
+      ? 1
       : preCropped
         ? 1
         : frame?.photoAspect ?? shapeSpec.portraitAspect,
     photoViewportFill: isCubeLayout
-      ? HOLOGRAM_DISPLAY_SPEC.photoFaceViewportFill
+      ? 1
       : preCropped
         ? 1
         : frame?.photoViewportFill ??

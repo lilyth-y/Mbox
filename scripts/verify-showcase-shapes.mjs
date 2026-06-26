@@ -7,7 +7,7 @@
  *   node scripts/verify-showcase-shapes.mjs --json
  *
  * Env:
- *   MBOX_SHOWCASE_URL — default http://127.0.0.1:5173/showcase.html
+ *   MBOX_SHOWCASE_URL — default {WEB_URL}/showcase.html
  *   MBOX_SHAPE_LIVE_TIMEOUT_MS — per-shape wait (default 22000)
  */
 import { spawnSync } from "node:child_process";
@@ -15,10 +15,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { WEB_URL } from "./lib/dev-ports.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const reportDir = join(root, "experiments/showcase-commercial-goals");
 const latestPath = join(reportDir, "shapes-latest.json");
+const testImage = join(root, "data/showcase-qa-corpus/qa_005_portrait.jpg");
 
 const runLive = process.argv.includes("--live");
 const jsonOut = process.argv.includes("--json");
@@ -48,9 +50,9 @@ function runStaticTier() {
 }
 
 function buildShowcaseUrl(shapeId) {
-  const base =
-    process.env.MBOX_SHOWCASE_URL ?? "http://localhost:5173/showcase.html";
+  const base = process.env.MBOX_SHOWCASE_URL ?? `${WEB_URL}/showcase.html`;
   const url = new URL(base);
+  url.searchParams.set("localOnly", "1");
   url.searchParams.set("shape", shapeId);
   url.searchParams.set("look", "rose_gold_premium");
   url.searchParams.set("bg", "solid_black");
@@ -59,15 +61,16 @@ function buildShowcaseUrl(shapeId) {
 }
 
 async function runLiveTier(staticByShape) {
-  const timeoutMs = Number(process.env.MBOX_SHAPE_LIVE_TIMEOUT_MS ?? 22_000);
+  const useSwiftShader =
+    process.env.MBOX_USE_SWIFTSHADER !== "0" && process.env.MBOX_USE_SWIFTSHADER !== "false";
+  const timeoutMs = Number(process.env.MBOX_SHAPE_LIVE_TIMEOUT_MS ?? (useSwiftShader ? 120_000 : 22_000));
   const browser = await chromium.launch({
     headless: process.env.MBOX_HEADED !== "1",
     args: [
-      "--use-gl=angle",
-      "--ignore-gpu-blocklist",
-      "--enable-webgl",
+      ...(useSwiftShader ? ["--use-gl=swiftshader", "--enable-webgl"] : ["--use-gl=egl", "--ignore-gpu-blocklist", "--enable-webgl"]),
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
+      "--disable-gpu-sandbox",
     ],
   });
 
@@ -79,6 +82,7 @@ async function runLiveTier(staticByShape) {
       const context = await browser.newContext({ viewport: { width: 1080, height: 1080 } });
       await context.addInitScript(() => {
         window.__MBOX_SHOWCASE_E2E__ = true;
+        window.__MBOX_SHOWCASE_AUTOMATION__ = true;
       });
 
       const page = await context.newPage();
@@ -106,6 +110,10 @@ async function runLiveTier(staticByShape) {
         if (!response?.ok()) {
           throw new Error(`load failed: ${response?.status()}`);
         }
+
+        const uploadInput = page.locator('[data-testid="showcase-photo-upload"]');
+        await uploadInput.waitFor({ state: "attached", timeout: 30_000 });
+        await uploadInput.setInputFiles([testImage]);
 
         await page.waitForFunction(
           () => typeof window.__MBOX_SHOWCASE_SHAPE_AUDIT__ === "function",

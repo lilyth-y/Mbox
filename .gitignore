@@ -22,7 +22,14 @@ experiments/outputs/
 apps/web/dist/
 apps/api/dist/
 data/workspaces/
+apps/api/data/
 __pycache__/
 *.py[cod]
 .playwright-mcp/
 .snapshots/
+# Cursor agent debug artifacts (keep rules only)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+# Local script outputs (MP4 captures, debug JSON)
+scripts/outputs/

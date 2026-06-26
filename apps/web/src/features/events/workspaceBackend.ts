@@ -16,7 +16,7 @@ import {
 import {
   applyStoredCategoryAssignments,
   saveCategoryAssignments,
-} from "../gallery/categoryStorage";
+} from "./categoryStorage";
 import { prepareImagesForServerVault } from "./cloudVaultSync";
 import {
   auditVoluMaxVaultIntegrity,

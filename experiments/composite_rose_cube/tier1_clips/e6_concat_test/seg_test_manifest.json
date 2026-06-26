@@ -1,0 +1,49 @@
+﻿{
+    "foreground":  "C:\\Users\\USER\\Downloads\\mbox-cube_focus (1).mp4",
+    "canvasSize":  1080,
+    "segments":  [
+                     {
+                         "durationSec":  30,
+                         "startSec":  0,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part01.mp4",
+                         "index":  1
+                     },
+                     {
+                         "durationSec":  30,
+                         "startSec":  30,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part02.mp4",
+                         "index":  2
+                     },
+                     {
+                         "durationSec":  30,
+                         "startSec":  60,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part03.mp4",
+                         "index":  3
+                     },
+                     {
+                         "durationSec":  30,
+                         "startSec":  90,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part04.mp4",
+                         "index":  4
+                     },
+                     {
+                         "durationSec":  30,
+                         "startSec":  120,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part05.mp4",
+                         "index":  5
+                     },
+                     {
+                         "durationSec":  28,
+                         "startSec":  150,
+                         "file":  "C:\\startingup\\Mbox\\experiments\\composite_rose_cube\\tier1_clips\\e6_concat_test\\seg_test_part06.mp4",
+                         "index":  6
+                     }
+                 ],
+    "segmentSeconds":  30,
+    "cubeSize":  1350,
+    "background":  "C:\\Users\\USER\\Downloads\\2026_06_10 11_31.mp4",
+    "blendMode":  "ColorKey",
+    "cubeScale":  1.25,
+    "totalDuration":  177.9497,
+    "bgmPath":  ""
+}

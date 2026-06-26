@@ -26,6 +26,23 @@ VITE_API_BASE_URL=http://localhost:8787
 npm run dev:urls
 ```
 
+Vite uses **`strictPort: true`** — if 5173 is busy the dev server **fails** instead of silently moving to 5174+ (which causes multi-tab / zombie WebGL issues). Free ports first:
+
+```bash
+npm run dev:stop
+```
+
+## Container preview (recommended for showcase WebGL)
+
+HMR-free production build in Docker — one web + one API:
+
+```bash
+npm run dev:stop
+npm run preview:container
+```
+
+Open `http://localhost:4173/showcase.html`. Stop with `npm run preview:container:down`.
+
 ## Scripts & E2E
 
 Verification scripts read `WEB_URL` and `API_URL` (from `scripts/lib/dev-ports.mjs`). Override per run:

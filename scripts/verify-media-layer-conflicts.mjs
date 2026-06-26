@@ -29,14 +29,7 @@ function resolveWebBackdropUrl(assetPath) {
   return `/backgrounds/${n.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-function resolveCubeCoreBackdropUrl(assetPath) {
-  const n = assetPath.replace(/^\/+/, "").replace(/\\/g, "/");
-  if (n.startsWith("user-assets/")) {
-    const rest = n.slice("user-assets/".length);
-    return `/user-assets/${rest.split("/").map(encodeURIComponent).join("/")}`;
-  }
-  return `/backgrounds/${n.split("/").map(encodeURIComponent).join("/")}`;
-}
+// resolveCubeCoreBackdropUrl removed
 
 const samples = [
   "배경동영상/rose.mp4",
@@ -45,22 +38,14 @@ const samples = [
 ];
 for (const path of samples) {
   const web = resolveWebBackdropUrl(path);
-  const cube = resolveCubeCoreBackdropUrl(path);
-  if (web !== cube) {
-    fail(`URL resolver mismatch for ${path}: web=${web} cube=${cube}`);
-  }
   if (path.startsWith("user-assets/") && web.startsWith("/backgrounds/user-assets")) {
     fail(`Double /backgrounds prefix for ${path}`);
   }
 }
 
 const catalogTs = read("apps/web/src/shared/lib/backgroundAssetCatalog.ts");
-const cubeCoreTs = read("packages/cube-core/src/index.ts");
 if (!catalogTs.includes('normalized.startsWith("user-assets/")')) {
   fail("backgroundAssetCatalog missing user-assets branch");
-}
-if (!cubeCoreTs.includes("user-assets/")) {
-  fail("cube-core missing user-assets branch");
 }
 
 const bgmTracks = read("apps/web/src/features/cube/bgm/bgmTracks.ts");

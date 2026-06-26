@@ -32,9 +32,17 @@ export const HOLOGRAM_DISPLAY_SPEC = {
   /** Default: holo playlist loop without physics drop. */
   fallPhysicsDefault: false,
   /** Hero pull — photo fills this fraction of square viewport (centered). */
-  pullPhotoViewportFill: 0.7,
+  pullPhotoViewportFill: 0.58,
   /** Inner photo UV — occupies this fraction of 1:1 face (centered). */
   photoFaceViewportFill: 0.7,
+} as const;
+
+/** UV insets for hologram fan mode — keep in sync with jewelInnerPhotoShader. */
+export const HOLOGRAM_FRAME_UV = {
+  frameScale: 1.05,
+  photoInset: 0.052 * 1.05,
+  matInset: 0.028 * 1.05,
+  frameWidth: 0.058 * 1.05,
 } as const;
 
 export type HologramDisplaySpec = typeof HOLOGRAM_DISPLAY_SPEC;

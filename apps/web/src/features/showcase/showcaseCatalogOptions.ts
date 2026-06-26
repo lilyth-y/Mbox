@@ -1,3 +1,4 @@
+import type { CubeBgmTrackId } from "@mbox/shared";
 import type { PhotoCrystalPhotoLayoutId, PhotoCrystalShapeId } from "./babylon/photoCrystalShapeCatalog";
 
 import { PHOTO_CRYSTAL_SHAPES, resolvePhotoCrystalShape } from "./babylon/photoCrystalShapeCatalog";
@@ -10,7 +11,7 @@ import {
 
 import type { ShowcaseBackgroundPreset } from "./babylon/weddingChapelEnvironment";
 
-import { backgroundAssetDisplayName } from "../../shared/lib/backgroundAssetCatalog";
+import { backgroundAssetDisplayName, isBackgroundVideoPath } from "../../shared/lib/backgroundAssetCatalog";
 
 import { DEFAULT_SHOWCASE_CATALOG } from "./showcaseCatalogDefaults";
 
@@ -45,6 +46,9 @@ export type ShowcaseCatalogOptions = {
 
   backgroundMediaPath: string | null;
 
+  /** Required for custom blob uploads (no file extension in URL). */
+  backgroundMediaIsVideo: boolean;
+
   backgroundMediaOpacity: number;
 
   backgroundLightInfluence: number;
@@ -71,6 +75,13 @@ export type ShowcaseCatalogOptions = {
   crystalSizeScale: number;
 
   groundEnabled: boolean;
+
+  /** MP4 export + live preview */
+  bgmEnabled: boolean;
+  bgmTrackId: CubeBgmTrackId;
+  bgmVolume: number;
+  /** User workspace MP3 (`workspace` track) */
+  bgmWorkspacePath: string | null;
 
 };
 
@@ -349,6 +360,8 @@ export function parseShowcaseCatalogFromSearch(search: string): ShowcaseCatalogO
 
     backgroundMediaPath: backdrop,
 
+    backgroundMediaIsVideo: isBackgroundVideoPath(backdrop),
+
     backgroundMediaOpacity: parseOpacity(params.get("bgOpacity"), base.backgroundMediaOpacity),
 
     backgroundLightInfluence: parseInfluence(params.get("bgLight"), base.backgroundLightInfluence),
@@ -387,6 +400,14 @@ export function parseShowcaseCatalogFromSearch(search: string): ShowcaseCatalogO
       ? params.get("floor") !== "off"
 
       : base.groundEnabled,
+
+    bgmEnabled: base.bgmEnabled,
+
+    bgmTrackId: base.bgmTrackId,
+
+    bgmVolume: base.bgmVolume,
+
+    bgmWorkspacePath: base.bgmWorkspacePath,
 
   };
 
