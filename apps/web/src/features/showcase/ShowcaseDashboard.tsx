@@ -108,6 +108,9 @@ function buildJewelProfileKey(options: ShowcaseCatalogOptions): string {
   return [options.shapeId, options.photoLayout, options.framePresetId].join("|");
 }
 
+/** Debounce rapid shape/layout/frame changes — avoids GPU context loss (stability). */
+const JEWEL_PROFILE_UPDATE_DEBOUNCE_MS = 550;
+
 function buildEnvironmentKey(options: ShowcaseCatalogOptions): string {
   return [
     options.groundEnabled ? "floor" : "nofloor",
@@ -290,6 +293,10 @@ export function ShowcaseDashboard() {
   const sceneJewelProfileKeyRef = useRef<string | null>(null);
 
   const jewelProfileUpdateGenRef = useRef(0);
+
+  const jewelProfileDebounceRef = useRef<number | null>(null);
+
+  const [jewelProfileBusy, setJewelProfileBusy] = useState(false);
 
   const uploadGenerationRef = useRef(0);
 
@@ -497,6 +504,62 @@ export function ShowcaseDashboard() {
     onSyncError: (message) => setStatus(message),
   });
 
+  const gpuPreviewLocked = chromeCompanionShell && !chromeLive;
+
+  const scheduleJewelProfileUpdate = useCallback(
+    (nextCatalog: ShowcaseCatalogOptions, nextImages: ProcessedImage[]): Promise<void> => {
+      const handle = sceneRef.current;
+      if (!handle || nextImages.length === 0) {
+        setJewelProfileBusy(false);
+        return Promise.resolve();
+      }
+      const nextJewelKey = buildJewelProfileKey(nextCatalog);
+      if (nextJewelKey === sceneJewelProfileKeyRef.current) {
+        setJewelProfileBusy(false);
+        return Promise.resolve();
+      }
+
+      setJewelProfileBusy(true);
+      if (jewelProfileDebounceRef.current !== null) {
+        window.clearTimeout(jewelProfileDebounceRef.current);
+        jewelProfileDebounceRef.current = null;
+      }
+
+      return new Promise<void>((resolve, reject) => {
+        jewelProfileDebounceRef.current = window.setTimeout(() => {
+          jewelProfileDebounceRef.current = null;
+          const liveHandle = sceneRef.current;
+          if (!liveHandle) {
+            setJewelProfileBusy(false);
+            resolve();
+            return;
+          }
+          const updateGen = ++jewelProfileUpdateGenRef.current;
+          sceneJewelProfileKeyRef.current = nextJewelKey;
+          void liveHandle
+            .updateJewelProfile(nextCatalog, nextImages)
+            .then(() => {
+              if (updateGen !== jewelProfileUpdateGenRef.current) {
+                return;
+              }
+              setStatus(`${nextImages.length}장 · ${describeShowcasePipeline()}`);
+              resolve();
+            })
+            .catch((error) => {
+              sceneJewelProfileKeyRef.current = null;
+              reject(error);
+            })
+            .finally(() => {
+              if (updateGen === jewelProfileUpdateGenRef.current) {
+                setJewelProfileBusy(false);
+              }
+            });
+        }, JEWEL_PROFILE_UPDATE_DEBOUNCE_MS);
+      });
+    },
+    []
+  );
+
   const applyCompanionScene = useCallback(async (state: ShowcaseCompanionState) => {
     const handle = sceneRef.current;
     if (!handle) {
@@ -508,8 +571,7 @@ export function ShowcaseDashboard() {
       setStatus(`${state.images.length}장 · 사진 적용 중…`);
       const jewelKey = buildJewelProfileKey(inboundCatalog);
       if (jewelKey !== sceneJewelProfileKeyRef.current) {
-        sceneJewelProfileKeyRef.current = jewelKey;
-        await handle.updateJewelProfile(inboundCatalog, state.images);
+        await scheduleJewelProfileUpdate(inboundCatalog, state.images);
       } else {
         await handle.setImages(state.images);
       }
@@ -527,7 +589,7 @@ export function ShowcaseDashboard() {
       setStatus(message);
       return false;
     }
-  }, []);
+  }, [scheduleJewelProfileUpdate]);
 
   const applyCompanionState = useCallback((state: ShowcaseCompanionState) => {
     const inboundCatalog = applyInboundCompanionCatalog(state.catalog);
@@ -636,6 +698,20 @@ export function ShowcaseDashboard() {
 
 
   const handleCatalogChange = useCallback((next: ShowcaseCatalogOptions) => {
+    if (
+      gpuPreviewLocked &&
+      buildJewelProfileKey(catalog) !== buildJewelProfileKey(next)
+    ) {
+      setStatus("RTX Chrome 연결 후 형태·배치·프레임을 변경할 수 있습니다.");
+      return;
+    }
+    if (
+      jewelProfileBusy &&
+      buildJewelProfileKey(catalog) !== buildJewelProfileKey(next)
+    ) {
+      return;
+    }
+
     const nextBackdropPath =
       next.backgroundMediaSource !== "none"
         ? resolveShowcaseBackgroundMediaPath(next)
@@ -659,7 +735,7 @@ export function ShowcaseDashboard() {
       return next;
     });
     syncShowcaseCatalogToUrl(next);
-  }, []);
+  }, [catalog, gpuPreviewLocked, jewelProfileBusy]);
 
 
 
@@ -1296,6 +1372,11 @@ export function ShowcaseDashboard() {
 
       sceneImagesKeyRef.current = null;
 
+      if (jewelProfileDebounceRef.current !== null) {
+        window.clearTimeout(jewelProfileDebounceRef.current);
+        jewelProfileDebounceRef.current = null;
+      }
+
     };
 
   }, [hasPresentationImages, environmentKey, sceneRecoveryKey, skipInTabPreview]);
@@ -1316,26 +1397,9 @@ export function ShowcaseDashboard() {
 
     }
 
-    const updateGen = ++jewelProfileUpdateGenRef.current;
-    const handle = sceneRef.current;
-    const nextCatalog = catalog;
-    const nextImages = images;
+    void scheduleJewelProfileUpdate(catalog, images);
 
-    sceneJewelProfileKeyRef.current = jewelProfileKey;
-
-    void handle.updateJewelProfile(nextCatalog, nextImages).then(() => {
-
-      if (updateGen !== jewelProfileUpdateGenRef.current) {
-
-        return;
-
-      }
-
-      setStatus(`${nextImages.length}장 · ${describeShowcasePipeline()}`);
-
-    });
-
-  }, [catalog, images, jewelProfileKey, ready]);
+  }, [catalog, images, jewelProfileKey, ready, scheduleJewelProfileUpdate]);
 
 
 
@@ -1926,6 +1990,10 @@ export function ShowcaseDashboard() {
             onChange={handleCatalogChange}
 
             disabled={!images}
+
+            gpuPreviewLocked={gpuPreviewLocked}
+
+            jewelProfileBusy={jewelProfileBusy}
 
             bgmCustomUrl={bgmCustomUrl}
 

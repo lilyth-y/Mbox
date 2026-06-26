@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Showcase pipeline bundle — static/math checks; optional live E2E.
+ * Showcase pipeline bundle — static/math + live E2E by default (stability-first).
  *
- *   npm run verify:showcase-pipeline
- *   npm run verify:showcase-pipeline:e2e
+ *   npm run verify:showcase-pipeline       # full (9 steps, dev server required)
+ *   npm run verify:showcase-pipeline:fast  # static only (--fast)
  *
- * Env (granular):
- *   MBOX_RUN_UPLOAD_E2E=1       — upload + companion sync
- *   MBOX_RUN_SHAPE_CYCLE_E2E=1  — shape change GPU leak guard
- *   MBOX_RUN_E2E=1              — both E2E suites (same as --e2e)
+ * Env:
+ *   MBOX_SKIP_E2E=1              — skip live E2E (same as --fast)
+ *   MBOX_RUN_UPLOAD_E2E=1        — upload E2E only (with --fast)
+ *   MBOX_RUN_SHAPE_CYCLE_E2E=1   — shape-cycle E2E only (with --fast)
  */
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const runAllE2e = process.argv.includes("--e2e") || process.env.MBOX_RUN_E2E === "1";
+const skipE2e = process.argv.includes("--fast") || process.env.MBOX_SKIP_E2E === "1";
 
 const steps = [
   "verify:chrome-companion",
@@ -27,11 +27,15 @@ const steps = [
   "verify:showcase-shapes",
 ];
 
-if (runAllE2e || process.env.MBOX_RUN_UPLOAD_E2E === "1") {
-  steps.push("verify:showcase-upload-e2e");
-}
-if (runAllE2e || process.env.MBOX_RUN_SHAPE_CYCLE_E2E === "1") {
-  steps.push("verify:showcase-shape-cycle");
+if (!skipE2e) {
+  steps.push("verify:showcase-upload-e2e", "verify:showcase-shape-cycle");
+} else {
+  if (process.env.MBOX_RUN_UPLOAD_E2E === "1") {
+    steps.push("verify:showcase-upload-e2e");
+  }
+  if (process.env.MBOX_RUN_SHAPE_CYCLE_E2E === "1") {
+    steps.push("verify:showcase-shape-cycle");
+  }
 }
 
 let failed = 0;

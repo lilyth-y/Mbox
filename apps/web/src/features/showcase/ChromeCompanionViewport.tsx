@@ -19,9 +19,15 @@ export function ChromeCompanionViewport({ chromeLive, onOpenChrome }: Props) {
       <div className="max-w-sm space-y-2">
         <p className="text-sm font-semibold text-mbox-text">RTX Chrome에서 3D 미리보기</p>
         <p className="text-xs leading-relaxed text-mbox-muted">
-          Cursor 탭에는 WebGL이 없습니다. 카탈로그·업로드는 이 탭에서, 3D 렌더는 시스템 Chrome(RTX)에서
+          Cursor 탭에는 WebGL이 없습니다. 사진 업로드·배경은 이 탭에서, 3D 렌더는 시스템 Chrome(RTX)에서
           실행됩니다.
         </p>
+        {!chromeLive ? (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/95">
+            Chrome 미연결 — <strong>형태·사진 배치·프레임</strong> 변경은 연결 후에만 가능합니다. 아래 버튼으로
+            RTX Chrome을 여세요.
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button type="button" className="primary-btn text-xs font-semibold" onClick={onOpenChrome}>

@@ -89,6 +89,18 @@ function testJewelMeshLeakAudit() {
   assert.match(dashboard, /__MBOX_SHOWCASE_MESH_AUDIT__/, "mesh audit hook");
 }
 
+function testStabilityGuards() {
+  const dashboard = read("apps/web/src/features/showcase/ShowcaseDashboard.tsx");
+  const panel = read("apps/web/src/features/showcase/ShowcaseCatalogPanel.tsx");
+  const companion = read("apps/web/src/features/showcase/useShowcaseChromeCompanion.ts");
+  assert.match(dashboard, /JEWEL_PROFILE_UPDATE_DEBOUNCE_MS/, "jewel profile debounce");
+  assert.match(dashboard, /scheduleJewelProfileUpdate/, "shared jewel profile scheduler");
+  assert.match(dashboard, /gpuPreviewLocked/, "shell blocks profile until chrome live");
+  assert.match(panel, /gpuPreviewLocked/, "catalog gpu lock prop");
+  assert.match(panel, /profileLocked/, "shape/layout/frame lock");
+  assert.match(companion, /setTimeout\(\(\) => \{\s*publishCurrentState/, "debounced companion publish");
+}
+
 const checks = [
   ["singleInnerPhoto profile", testProfileFlag],
   ["morph aliased-layer guard", testMorphGuardsAliasedLayer],
@@ -100,6 +112,7 @@ const checks = [
   ["silhouette custom shader", testSilhouetteUsesCustomShader],
   ["jewel spawn token guards", testJewelSpawnTokenGuards],
   ["jewel mesh leak audit", testJewelMeshLeakAudit],
+  ["stability guards", testStabilityGuards],
 ];
 
 let failed = 0;

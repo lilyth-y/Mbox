@@ -103,8 +103,16 @@ export function useShowcaseChromeCompanionShell({ enabled, state, onSyncError }:
   }, [enabled, openChrome, publishCurrentState]);
 
   useEffect(() => {
-    publishCurrentState();
-  }, [state, publishCurrentState]);
+    if (!enabled) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      publishCurrentState();
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [enabled, state, publishCurrentState]);
 
   const requestExport = useCallback(() => {
     postCompanionMessage({ type: "requestExport" });

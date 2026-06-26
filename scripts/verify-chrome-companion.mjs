@@ -62,10 +62,12 @@ function testViteGpuBrowserEndpoint() {
 function testShowcasePipelineE2eBundle() {
   const pkg = read("package.json");
   const pipeline = read("scripts/verify-showcase-pipeline.mjs");
-  assert.match(pkg, /verify:showcase-pipeline:e2e/, "npm script for full E2E bundle");
-  assert.match(pipeline, /--e2e/, "pipeline accepts --e2e flag");
-  assert.match(pipeline, /verify:showcase-shape-cycle/, "shape-cycle in E2E bundle");
-  assert.match(pipeline, /verify:showcase-upload-e2e/, "upload E2E in bundle");
+  assert.match(pkg, /verify:showcase-pipeline:fast/, "npm script for static-only fast path");
+  assert.match(pipeline, /--fast/, "pipeline supports --fast escape hatch");
+  assert.match(pipeline, /MBOX_SKIP_E2E/, "pipeline supports MBOX_SKIP_E2E");
+  assert.match(pipeline, /verify:showcase-shape-cycle/, "shape-cycle in default E2E bundle");
+  assert.match(pipeline, /verify:showcase-upload-e2e/, "upload E2E in default bundle");
+  assert.match(pipeline, /skipE2e/, "E2E on by default unless skipped");
 }
 
 function testNoLegacyPipelineStages() {

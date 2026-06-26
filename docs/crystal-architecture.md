@@ -82,29 +82,23 @@ Director: `pipeline/showcasePipelineDirector.ts` — `reset()` bumps `jewelSpawn
 - `showcaseExportCompositeStream.ts` — backdrop video + WebGL → 2D canvas stream
 - `showcaseExportVerification.ts` — WYSIWYG luma gate
 
-## Verification pyramid
+## Verification pyramid (stability-first)
 
 ```bash
-# Fast static + math (no browser)
+# Default — static + math + live E2E (dev server on :5173 required)
 npm run verify:showcase-pipeline
 
-# Full regression including live E2E (dev server on :5173 required)
-npm run verify:showcase-pipeline:e2e
+# Fast static/math only (no browser)
+npm run verify:showcase-pipeline:fast
 ```
 
 | Tier | Scripts | What |
 |------|---------|------|
-| 0 Static | `verify:chrome-companion`, `verify:single-inner-photo`, … | Source contracts, spawn token, audit hooks |
-| 1 Math | `verify:showcase-rotate-ease`, `verify:inner-cube-seams`, `verify:showcase-shapes` | Geometry, easing, per-shape static |
-| 2 Live E2E | `verify:showcase-upload-e2e`, `verify:showcase-shape-cycle` | Playwright + `__MBOX_SHOWCASE_*_AUDIT__` |
+| 0 Static | `verify:chrome-companion`, `verify:single-inner-photo`, … | Source contracts, debounce, gpu lock |
+| 1 Math | `verify:showcase-rotate-ease`, `verify:inner-cube-seams`, `verify:showcase-shapes` | Geometry, easing |
+| 2 Live E2E | `verify:showcase-upload-e2e`, `verify:showcase-shape-cycle` | **Included by default** |
 
-E2E hooks (set when `window.__MBOX_SHOWCASE_E2E__` via Playwright `addInitScript`):
-
-- `__MBOX_SHOWCASE_UPLOAD_AUDIT__` — photo texture on inner layer
-- `__MBOX_SHOWCASE_MESH_AUDIT__` — collider/shell leak after shape change
-- `__MBOX_SHOWCASE_SHAPE_AUDIT__` — pull-hold phase + canvas metrics (`--live` shapes)
-
-Granular E2E env: `MBOX_RUN_UPLOAD_E2E=1`, `MBOX_RUN_SHAPE_CYCLE_E2E=1`, or umbrella `MBOX_RUN_E2E=1`.
+Escape hatch: `MBOX_SKIP_E2E=1` or `verify:showcase-pipeline:fast`.
 
 ## Local URLs
 

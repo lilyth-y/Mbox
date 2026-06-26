@@ -42,6 +42,12 @@ type ShowcaseCatalogPanelProps = {
 
   disabled?: boolean;
 
+  /** Shell: block shape/layout/frame until RTX Chrome companion is live. */
+  gpuPreviewLocked?: boolean;
+
+  /** Target: jewel profile reload in flight (debounced). */
+  jewelProfileBusy?: boolean;
+
   bgmCustomUrl?: string | null;
 
   onBgmCustomUrlChange?: (url: string | null) => void;
@@ -132,9 +138,12 @@ export function ShowcaseCatalogPanel({
   value,
   onChange,
   disabled,
+  gpuPreviewLocked = false,
+  jewelProfileBusy = false,
   bgmCustomUrl,
   onBgmCustomUrlChange,
 }: ShowcaseCatalogPanelProps) {
+  const profileLocked = Boolean(disabled || gpuPreviewLocked || jewelProfileBusy);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const bgmUploadRef = useRef<HTMLInputElement>(null);
@@ -399,7 +408,7 @@ export function ShowcaseCatalogPanel({
 
               selected={value.shapeId === shape.id}
 
-              disabled={disabled}
+              disabled={profileLocked}
 
               onClick={() => onChange({ ...value, shapeId: shape.id })}
 
@@ -423,7 +432,7 @@ export function ShowcaseCatalogPanel({
 
               selected={value.photoLayout === layout.id}
 
-              disabled={disabled}
+              disabled={profileLocked}
 
               onClick={() => onChange({ ...value, photoLayout: layout.id })}
 
@@ -447,7 +456,7 @@ export function ShowcaseCatalogPanel({
 
               selected={value.framePresetId === frame.id}
 
-              disabled={disabled}
+              disabled={profileLocked}
 
               onClick={() =>
                 onChange({
