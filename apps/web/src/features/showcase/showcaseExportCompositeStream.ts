@@ -171,15 +171,13 @@ export function createShowcaseExportCompositeStream(
   rafId = requestAnimationFrame(rafLoop);
 
   // Export uses onAfterRender only — interval + videoFrame paint caused judder.
-  if (!fixedCadence) {
+  if (wallClockCapture) {
     intervalId = window.setInterval(() => {
       if (!disposed) {
         paint();
       }
     }, frameIntervalMs);
-  }
-
-  if (wallClockCapture) {
+  } else if (!fixedCadence) {
     intervalId = window.setInterval(() => {
       if (!disposed) {
         paint();

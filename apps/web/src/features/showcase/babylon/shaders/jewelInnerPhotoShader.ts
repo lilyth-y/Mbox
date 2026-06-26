@@ -81,9 +81,7 @@ float lightGlint(vec3 n, vec3 lightPos, float shininess, float weight) {
 }
 
 vec2 orientedUv(vec2 uv) {
-  // Canvas/DynamicTexture → plane UV needs a 90° CW correction (portrait photos were sideways).
-  vec2 rotated = vec2(1.0 - uv.y, uv.x);
-  return vec2(rotated.x, mix(rotated.y, 1.0 - rotated.y, uFlipV));
+  return vec2(uv.x, mix(uv.y, 1.0 - uv.y, uFlipV));
 }
 
 /** Local-space, world-Y-up on every face — rotates with cube, no 90° axis jumps. */
@@ -510,7 +508,7 @@ export function getInnerPhotoMaterialOptions(
   const preCropped = rasterSpec.preCroppedToPlate;
   return {
     useAlpha,
-    flipV: 0,
+    flipV: 1,
     frameEnabled: profile.frameEnabled && frame?.enabled !== false,
     cubeBox: frame?.cubeBox ?? isCubeLayout,
     cubeFace: frame?.cubeFace ?? isCubeLayout,
