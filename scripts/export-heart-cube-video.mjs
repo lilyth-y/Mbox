@@ -13,7 +13,7 @@
  *   MBOX_RECORD_TIMEOUT_MS — per-shape export wait (default 600000)
  *   MBOX_GL               — swiftshader | angle (default swiftshader for CI/cloud)
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -24,25 +24,27 @@ import { chromium } from "playwright";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_PHOTOS = [
-  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
   join(root, "data/wedding-sample/wedding_couple_02.jpg"),
   join(root, "data/wedding-sample/wedding_bride_03.jpg"),
+  join(root, "data/wedding-sample/wedding_couple_01.jpg"),
 ];
 
 const DEFAULT_LUXURY_BACKDROP =
   process.env.MBOX_LUXURY_BACKDROP?.trim() ||
-  "luxury/0_Gold_Rings_Abstract_Background_3840x2160.mov";
-
-const DEFAULT_BGM_PATH =
-  process.env.MBOX_BGM_PATH?.trim() || join(root, "apps/web/public/bgm/romantic-wedding.mp3");
+  "https://storage.googleapis.com/mbox-web-newmedia-496107/backgrounds/luxury/0_Gold_Golden_3840x2160.mp4";
 
 const DEFAULT_SHOWCASE_URL =
-  "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html";
+  process.env.MBOX_WEB_URL?.trim() ||
+  process.env.MBOX_SHOWCASE_URL?.trim() ||
+  "http://localhost:5173/showcase.html?localOnly=1&fullGpu=1";
 
 const OUT_DIR = process.env.MBOX_OUT_DIR
   ? join(root, process.env.MBOX_OUT_DIR)
   : join(root, "scripts", "outputs");
-const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 600_000);
+const DEFAULT_BGM_PATH =
+  process.env.MBOX_BGM_PATH?.trim() || join(root, "apps/web/public/bgm/romantic-wedding.mp3");
+
+const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 900_000);
 const EXPORT_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 1080);
 const GL_MODE = String(process.env.MBOX_GL ?? "swiftshader").trim().toLowerCase();
 
@@ -79,6 +81,8 @@ function buildShowcaseUrl(shapeId) {
   const url = resolveShowcasePageUrl();
   url.search = "";
   url.hash = "";
+  url.searchParams.set("localOnly", "1");
+  url.searchParams.set("fullGpu", "1");
   url.searchParams.set("look", "rose_gold_premium");
   url.searchParams.set("bg", "booth");
   url.searchParams.set("backdrop", DEFAULT_LUXURY_BACKDROP);
@@ -87,23 +91,131 @@ function buildShowcaseUrl(shapeId) {
   return url.toString();
 }
 
+function ffprobeFrameCount(file) {
+  const result = spawnSync(
+    "ffprobe",
+    [
+      "-v",
+      "error",
+      "-count_frames",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=nb_read_frames,r_frame_rate,avg_frame_rate",
+      "-of",
+      "json",
+      file,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0) return null;
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const stream = parsed.streams?.[0];
+    const frames = Number.parseInt(stream?.nb_read_frames ?? "0", 10);
+    const duration = ffprobeDuration(file);
+    return { frames, duration, rFrameRate: stream?.r_frame_rate, avgFrameRate: stream?.avg_frame_rate };
+  } catch {
+    return null;
+  }
+}
+
+function assertSmoothVideo(file, minFps = 24) {
+  const info = ffprobeFrameCount(file);
+  if (!info?.duration || !info.frames) {
+    throw new Error(`Could not verify frame cadence for ${file}`);
+  }
+  const fps = info.frames / info.duration;
+  if (fps < minFps) {
+    throw new Error(
+      `Export too choppy: ${fps.toFixed(1)} fps (${info.frames} frames / ${info.duration.toFixed(1)}s)`
+    );
+  }
+  console.log(`Verified cadence: ${fps.toFixed(1)} fps (${info.frames} frames)`);
+}
+
+function normalizePhotoForShowcase(inputPath) {
+  const tmpDir = mkdtempSync(join(tmpdir(), "mbox-photo-"));
+  const outPath = join(tmpDir, "normalized.jpg");
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i",
+      inputPath,
+      "-vf",
+      "scale=1024:1024:force_original_aspect_ratio=increase,crop=1024:1024",
+      "-q:v",
+      "2",
+      outPath,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0 || !existsSync(outPath)) {
+    throw new Error(`Failed to normalize photo ${inputPath}:\n${result.stderr}`);
+  }
+  return outPath;
+}
+
+function preparePhotoPaths(photoPaths) {
+  return photoPaths.map((photoPath) => normalizePhotoForShowcase(photoPath));
+}
+
 async function waitForExportReady(page, shapeId) {
+  await page.evaluate(async () => {
+    const video = document.querySelector(
+      ".showcase-viewport-wrap video.showcase-dom-backdrop"
+    );
+    if (video instanceof HTMLVideoElement) {
+      video.muted = true;
+      try {
+        await video.play();
+      } catch {
+        /* autoplay may already be running */
+      }
+    }
+  });
+
   await page.waitForFunction(
     () => {
+      const report = window.__MBOX_SHOWCASE_RESOURCE_REPORT__;
+      const jewelReady = report?.phases?.some((p) => p.phase === "jewel_spawn") ?? false;
       const btn = [...document.querySelectorAll("button")].find((b) => /MP4/i.test(b.textContent ?? ""));
       if (!btn || btn.disabled) return false;
       const video = document.querySelector(
         ".showcase-viewport-wrap video.showcase-dom-backdrop"
       );
       if (video instanceof HTMLVideoElement) {
-        return video.videoWidth > 0 && video.readyState >= 2;
+        return jewelReady && video.videoWidth > 0 && video.readyState >= 2 && !video.paused;
       }
-      return true;
+      return jewelReady;
     },
     undefined,
     { timeout: RECORD_TIMEOUT_MS }
   );
-  console.log(`[${shapeId}] export ready (scene + luxury backdrop)`);
+
+  const backdropLuma = await page.evaluate(() => {
+    const video = document.querySelector(
+      ".showcase-viewport-wrap video.showcase-dom-backdrop"
+    );
+    if (!(video instanceof HTMLVideoElement) || video.videoWidth <= 0) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, 64, 64);
+    const data = ctx.getImageData(0, 0, 64, 64).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      sum += data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722;
+    }
+    return sum / (data.length / 4);
+  });
+  console.log(`[${shapeId}] export ready · backdrop luma=${backdropLuma?.toFixed(1) ?? "n/a"}`);
+  if (backdropLuma !== null && backdropLuma < 18) {
+    throw new Error(`${shapeId}: luxury backdrop appears black (luma=${backdropLuma.toFixed(1)})`);
+  }
 }
 
 function muxBgmWithFfmpeg(videoPath, bgmPath, outPath, volume = 0.78) {
@@ -185,7 +297,7 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   const context = await browser.newContext({ acceptDownloads: true });
   await context.addInitScript(
     (payload) => {
-      window.__MBOX_E2E_EXPORT__ = true;
+      window.__MBOX_LOCAL_GPU_EXPORT__ = true;
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
@@ -246,6 +358,7 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   if (bytes < 80_000) {
     throw new Error(`${shapeId}: export too small (${bytes} bytes)`);
   }
+  assertSmoothVideo(outPath);
   return { shapeId, outPath, bytes, durationSec: duration, ...wxh };
 }
 
@@ -266,7 +379,7 @@ function concatMp4(segments, outPath) {
 }
 
 async function main() {
-  const photoPaths = parsePhotos(process.argv);
+  const photoPaths = preparePhotoPaths(parsePhotos(process.argv));
   await mkdir(OUT_DIR, { recursive: true });
 
   console.log("Photos:", photoPaths.map((p) => p.replace(/\\/g, "/")).join(", "));
@@ -306,6 +419,7 @@ async function main() {
       throw new Error(`BGM not found: ${DEFAULT_BGM_PATH} — run npm run download:commercial-bgm`);
     }
     muxBgmWithFfmpeg(silentPath, DEFAULT_BGM_PATH, finalPath);
+    assertSmoothVideo(finalPath);
     const finalDuration = ffprobeDuration(finalPath);
     const finalWxH = ffprobeWxH(finalPath);
     const finalBytes = readFileSync(finalPath).length;
@@ -331,8 +445,14 @@ async function main() {
     const manifestPath = finalPath.replace(/\.mp4$/i, ".json");
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
+    const friendlyPath = join(OUT_DIR, "mbox-wedding-luxury-heart-cube.mp4");
+    writeFileSync(friendlyPath, readFileSync(finalPath));
+    const workspaceCopy = join(root, "mbox-wedding-luxury-heart-cube.mp4");
+    writeFileSync(workspaceCopy, readFileSync(finalPath));
+
     console.log("\n=== Wedding luxury video (cube + heart + BGM) ===");
     console.log("Output:", finalPath.replace(/\\/g, "/"));
+    console.log("Download:", workspaceCopy.replace(/\\/g, "/"));
     console.log(
       `Duration: ${finalDuration?.toFixed(1) ?? "?"}s | Size: ${(finalBytes / 1_024 / 1_024).toFixed(1)} MB | ${finalWxH?.width}x${finalWxH?.height}`
     );
