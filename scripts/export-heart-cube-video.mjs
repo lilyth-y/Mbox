@@ -30,8 +30,7 @@ const DEFAULT_PHOTOS = [
 ];
 
 const DEFAULT_LUXURY_BACKDROP =
-  process.env.MBOX_LUXURY_BACKDROP?.trim() ||
-  "https://storage.googleapis.com/mbox-web-newmedia-496107/backgrounds/luxury/0_Gold_Golden_3840x2160.mp4";
+  process.env.MBOX_LUXURY_BACKDROP?.trim() || "luxury/0_Gold_Golden_3840x2160.mp4";
 
 const DEFAULT_SHOWCASE_URL =
   process.env.MBOX_WEB_URL?.trim() ||
