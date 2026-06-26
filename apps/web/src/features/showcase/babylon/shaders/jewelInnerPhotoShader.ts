@@ -95,7 +95,7 @@ vec2 cubeLocalPhotoUv(vec3 localPos, vec3 localN) {
   vec3 bitangent = normalize(cross(localN, tangent));
   float u = dot(localPos, tangent) / max(uCubeHalf * 2.0, 0.001) + 0.5;
   float v = dot(localPos, bitangent) / max(uCubeHalf * 2.0, 0.001) + 0.5;
-  return vec2(u, v);
+  return vec2(v, 1.0 - u);
 }
 
 vec2 jewelPlateUv(vec2 meshUv, vec3 n) {

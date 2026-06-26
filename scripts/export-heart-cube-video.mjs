@@ -186,7 +186,7 @@ async function waitForExportReady(page, shapeId) {
         ".showcase-viewport-wrap video.showcase-dom-backdrop"
       );
       if (video instanceof HTMLVideoElement) {
-        return jewelReady && video.videoWidth > 0 && video.readyState >= 2 && !video.paused;
+        return jewelReady && video.videoWidth > 0 && video.readyState >= 2;
       }
       return jewelReady;
     },
@@ -297,6 +297,7 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   const context = await browser.newContext({ acceptDownloads: true });
   await context.addInitScript(
     (payload) => {
+      window.__MBOX_E2E_EXPORT__ = true;
       window.__MBOX_LOCAL_GPU_EXPORT__ = true;
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
