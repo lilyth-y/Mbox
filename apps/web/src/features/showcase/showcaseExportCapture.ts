@@ -35,6 +35,7 @@ import type { ShowcaseBackgroundPreset } from "./babylon/weddingChapelEnvironmen
 import type { ShowcaseCatalogOptions } from "./showcaseCatalogOptions";
 
 import {
+  createShowcaseExportBackdrop,
   isShowcaseExportPreviewBackdropReady,
   resolveLiveShowcaseDomBackdrop,
   resolveShowcasePreviewExportBackdrop,
@@ -244,7 +245,16 @@ export async function exportShowcaseMp4(
   const cloudFast = profile ? isCloudFastCrystalExport(profile) : false;
   const localGpu = isLocalGpuExportSession();
   const workerExport = isRenderWorkerExportSession();
-  const usePacedExport = localGpu || workerExport;
+  const e2eExport =
+    typeof window !== "undefined" &&
+    (window as unknown as { __MBOX_E2E_EXPORT__?: boolean }).__MBOX_E2E_EXPORT__ === true;
+  const fastExport =
+    typeof window !== "undefined" &&
+    (window as unknown as { __MBOX_FAST_EXPORT__?: boolean }).__MBOX_FAST_EXPORT__ === true;
+  const e2ePaceFps = Number(
+    (window as unknown as { __MBOX_E2E_PACE_FPS__?: number }).__MBOX_E2E_PACE_FPS__ ?? 12
+  );
+  const usePacedExport = (localGpu || workerExport || e2eExport) && !fastExport;
   const pipelineConfig: ShowcasePipelineConfig = cloudFast
     ? CLOUD_SHOWCASE_PIPELINE_CONFIG
     : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
@@ -260,9 +270,11 @@ export async function exportShowcaseMp4(
   });
   const exportFps = localGpu
     ? 30
-    : simplified
-      ? gpuBudget.exportFps
-      : profile?.fps ?? SHOWCASE_EXPORT_FPS;
+    : e2eExport && !localGpu
+      ? Math.max(8, Math.min(24, e2ePaceFps))
+      : simplified
+        ? gpuBudget.exportFps
+        : profile?.fps ?? SHOWCASE_EXPORT_FPS;
   const encodeBitrate =
     profile?.videoBitrate ?? resolveShowcaseEncodeBitrate(outputSize);
 
@@ -309,6 +321,14 @@ export async function exportShowcaseMp4(
 
     if (wantsBackdrop && backdropMediaPath) {
       exportBackdrop = await resolveShowcasePreviewExportBackdrop(backdropMediaPath, backdrop);
+
+      if (!exportBackdrop?.source) {
+        try {
+          exportBackdrop = await createShowcaseExportBackdrop(backdropMediaPath, backdrop);
+        } catch (error) {
+          console.warn("[showcase] export dedicated backdrop failed", error);
+        }
+      }
 
       if (!exportBackdrop?.source) {
         try {

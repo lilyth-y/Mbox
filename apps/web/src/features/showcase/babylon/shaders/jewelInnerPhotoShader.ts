@@ -81,7 +81,9 @@ float lightGlint(vec3 n, vec3 lightPos, float shininess, float weight) {
 }
 
 vec2 orientedUv(vec2 uv) {
-  return vec2(uv.x, mix(uv.y, 1.0 - uv.y, uFlipV));
+  // Canvas/DynamicTexture → plane UV needs a 90° CW correction (portrait photos were sideways).
+  vec2 rotated = vec2(1.0 - uv.y, uv.x);
+  return vec2(rotated.x, mix(rotated.y, 1.0 - rotated.y, uFlipV));
 }
 
 /** Local-space, world-Y-up on every face — rotates with cube, no 90° axis jumps. */
@@ -95,7 +97,7 @@ vec2 cubeLocalPhotoUv(vec3 localPos, vec3 localN) {
   vec3 bitangent = normalize(cross(localN, tangent));
   float u = dot(localPos, tangent) / max(uCubeHalf * 2.0, 0.001) + 0.5;
   float v = dot(localPos, bitangent) / max(uCubeHalf * 2.0, 0.001) + 0.5;
-  return vec2(v, 1.0 - u);
+  return vec2(u, v);
 }
 
 vec2 jewelPlateUv(vec2 meshUv, vec3 n) {

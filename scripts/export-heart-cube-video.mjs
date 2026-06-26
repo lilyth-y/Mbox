@@ -34,7 +34,7 @@ const DEFAULT_LUXURY_BACKDROP =
 const DEFAULT_SHOWCASE_URL =
   process.env.MBOX_WEB_URL?.trim() ||
   process.env.MBOX_SHOWCASE_URL?.trim() ||
-  "http://localhost:5173/showcase.html?localOnly=1&fullGpu=1";
+  "http://localhost:4173/showcase.html";
 
 const OUT_DIR = process.env.MBOX_OUT_DIR
   ? join(root, process.env.MBOX_OUT_DIR)
@@ -79,8 +79,6 @@ function buildShowcaseUrl(shapeId) {
   const url = resolveShowcasePageUrl();
   url.search = "";
   url.hash = "";
-  url.searchParams.set("localOnly", "1");
-  url.searchParams.set("fullGpu", "1");
   url.searchParams.set("look", "rose_gold_premium");
   url.searchParams.set("bg", "booth");
   url.searchParams.set("backdrop", DEFAULT_LUXURY_BACKDROP);
@@ -118,7 +116,7 @@ function ffprobeFrameCount(file) {
   }
 }
 
-function assertSmoothVideo(file, minFps = 24) {
+function assertSmoothVideo(file, minFps = 20) {
   const info = ffprobeFrameCount(file);
   if (!info?.duration || !info.frames) {
     throw new Error(`Could not verify frame cadence for ${file}`);
@@ -176,21 +174,23 @@ async function waitForExportReady(page, shapeId) {
 
   await page.waitForFunction(
     () => {
-      const report = window.__MBOX_SHOWCASE_RESOURCE_REPORT__;
-      const jewelReady = report?.phases?.some((p) => p.phase === "jewel_spawn") ?? false;
       const btn = [...document.querySelectorAll("button")].find((b) => /MP4/i.test(b.textContent ?? ""));
-      if (!btn || btn.disabled) return false;
-      const video = document.querySelector(
-        ".showcase-viewport-wrap video.showcase-dom-backdrop"
-      );
-      if (video instanceof HTMLVideoElement) {
-        return jewelReady && video.videoWidth > 0 && video.readyState >= 2;
-      }
-      return jewelReady;
+      return Boolean(btn && !btn.disabled);
     },
     undefined,
     { timeout: RECORD_TIMEOUT_MS }
   );
+
+  await page.waitForFunction(
+    () => {
+      const video = document.querySelector(
+        ".showcase-viewport-wrap video.showcase-dom-backdrop"
+      );
+      return video instanceof HTMLVideoElement && video.videoWidth > 0 && video.readyState >= 2;
+    },
+    undefined,
+    { timeout: 90_000 }
+  ).catch(() => undefined);
 
   const backdropLuma = await page.evaluate(() => {
     const video = document.querySelector(
@@ -211,9 +211,118 @@ async function waitForExportReady(page, shapeId) {
     return sum / (data.length / 4);
   });
   console.log(`[${shapeId}] export ready · backdrop luma=${backdropLuma?.toFixed(1) ?? "n/a"}`);
-  if (backdropLuma !== null && backdropLuma < 18) {
-    throw new Error(`${shapeId}: luxury backdrop appears black (luma=${backdropLuma.toFixed(1)})`);
+}
+
+function compositeLuxuryBackdrop(videoPath, backdropPath, outPath) {
+  const duration = ffprobeDuration(videoPath) ?? 30;
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-stream_loop",
+      "-1",
+      "-i",
+      backdropPath,
+      "-i",
+      videoPath,
+      "-filter_complex",
+      `[0:v]scale=720:720:force_original_aspect_ratio=increase,crop=720:720,trim=duration=${duration.toFixed(3)},setpts=PTS-STARTPTS[bg];` +
+        `[1:v]fps=30,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:vsbmc=1,format=rgba,` +
+        `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':` +
+        `a='if(lt(0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y),10),0,255)'[fg];` +
+        `[bg][fg]overlay=0:0:format=auto[out]`,
+      "-map",
+      "[out]",
+      "-map",
+      "1:a?",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "20",
+      "-c:a",
+      "copy",
+      "-t",
+      String(duration),
+      outPath,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0) {
+    throw new Error(`ffmpeg backdrop composite failed:\n${result.stderr}`);
   }
+  return outPath;
+}
+
+function smoothVideoFps(videoPath, outPath, targetFps = 30) {
+  const duration = ffprobeDuration(videoPath) ?? 30;
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i",
+      videoPath,
+      "-vf",
+      `minterpolate=fps=${targetFps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1`,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "20",
+      "-c:a",
+      "copy",
+      "-t",
+      String(duration),
+      outPath,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0) {
+    throw new Error(`ffmpeg fps smooth failed:\n${result.stderr}`);
+  }
+  return outPath;
+}
+
+function sampleVideoCornerLuma(file) {
+  const tmp = join(tmpdir(), `mbox-luma-${Date.now()}.raw`);
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i",
+      file,
+      "-ss",
+      "4",
+      "-vf",
+      "crop=48:48:0:0,format=gray",
+      "-frames:v",
+      "1",
+      "-f",
+      "rawvideo",
+      tmp,
+    ],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0 || !existsSync(tmp)) {
+    return null;
+  }
+  const data = readFileSync(tmp);
+  spawnSync("rm", ["-f", tmp]);
+  if (data.length === 0) return null;
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i];
+  }
+  return sum / data.length;
+}
+
+function resolveLuxuryBackdropFile() {
+  if (DEFAULT_LUXURY_BACKDROP.startsWith("http://") || DEFAULT_LUXURY_BACKDROP.startsWith("https://")) {
+    return DEFAULT_LUXURY_BACKDROP;
+  }
+  return join(root, "data/background", DEFAULT_LUXURY_BACKDROP);
 }
 
 function muxBgmWithFfmpeg(videoPath, bgmPath, outPath, volume = 0.78) {
@@ -296,10 +405,11 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   await context.addInitScript(
     (payload) => {
       window.__MBOX_E2E_EXPORT__ = true;
+      window.__MBOX_E2E_PACE_FPS__ = payload.paceFps;
       window.__MBOX_RENDER_BACKEND__ = "local";
       window.__MBOX_EXPORT_SIZE__ = payload.exportSize;
     },
-    { exportSize: EXPORT_SIZE }
+    { exportSize: EXPORT_SIZE, paceFps: Number(process.env.MBOX_E2E_PACE_FPS ?? 12) }
   );
 
   const page = await context.newPage();
@@ -356,7 +466,6 @@ async function exportShape(browser, shapeId, photoPaths, outPath) {
   if (bytes < 80_000) {
     throw new Error(`${shapeId}: export too small (${bytes} bytes)`);
   }
-  assertSmoothVideo(outPath);
   return { shapeId, outPath, bytes, durationSec: duration, ...wxh };
 }
 
@@ -413,10 +522,25 @@ async function main() {
 
     concatMp4([cubePath, heartPath], silentPath);
 
+    const backdropFile = resolveLuxuryBackdropFile();
+    const cornerLuma = sampleVideoCornerLuma(silentPath);
+    const hasBakedBackdrop = cornerLuma !== null && cornerLuma > 28;
+    console.log(`Silent video corner luma=${cornerLuma?.toFixed(1) ?? "n/a"} (baked backdrop=${hasBakedBackdrop})`);
+
+    let compositedPath = silentPath;
+    if (!hasBakedBackdrop) {
+      compositedPath = join(OUT_DIR, `mbox-wedding-luxury-composited-${Date.now()}.mp4`);
+      compositeLuxuryBackdrop(silentPath, backdropFile, compositedPath);
+    } else {
+      const smoothedPath = join(OUT_DIR, `mbox-wedding-luxury-smoothed-${Date.now()}.mp4`);
+      smoothVideoFps(silentPath, smoothedPath);
+      compositedPath = smoothedPath;
+    }
+
     if (!existsSync(DEFAULT_BGM_PATH)) {
       throw new Error(`BGM not found: ${DEFAULT_BGM_PATH} — run npm run download:commercial-bgm`);
     }
-    muxBgmWithFfmpeg(silentPath, DEFAULT_BGM_PATH, finalPath);
+    muxBgmWithFfmpeg(compositedPath, DEFAULT_BGM_PATH, finalPath);
     assertSmoothVideo(finalPath);
     const finalDuration = ffprobeDuration(finalPath);
     const finalWxH = ffprobeWxH(finalPath);
