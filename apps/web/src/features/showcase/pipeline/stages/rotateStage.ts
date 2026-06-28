@@ -2,17 +2,26 @@ import {
   startJewelPhotoMorph,
   tickJewelPhotoMorph,
 } from "../../babylon/jewelCubePhotoMorph";
+import {
+  shouldBindPerFaceCubePhotos,
+  syncJewelRigFacePhotos,
+} from "../../babylon/jewelPhotoCore";
 import { resolvePresentationSpinDirection, presentationSpinDirectionToSign } from "../showcasePresentationPreferences";
 import {
   resolveMorphHoldPosition,
   tickShowcasePresentation,
 } from "../showcasePresentation";
 import { computeIntegralEaseInCruiseSpinSpeedY } from "../showcaseSpinMotion";
-import { getRotateMorphSegmentMs } from "../pipelineOrder";
+import { getMorphPhaseStartMs, getRotateMorphSegmentMs } from "../pipelineOrder";
 import type { ShowcasePipelineStage } from "../types";
 
 function beginMorphSubPhase(ctx: Parameters<ShowcasePipelineStage["tick"]>[0]): void {
-  if (ctx.stageState.morphStarted || !ctx.rig || ctx.imageUrls.length <= 1) {
+  if (
+    ctx.stageState.morphStarted ||
+    !ctx.rig ||
+    ctx.imageUrls.length <= 1 ||
+    shouldBindPerFaceCubePhotos(ctx.rig.photoLayout, ctx.imageUrls.length)
+  ) {
     return;
   }
   const nextIndex = (ctx.imageIndex + 1) % ctx.imageUrls.length;
@@ -56,12 +65,23 @@ export const rotateStage: ShowcasePipelineStage = {
     }
 
     const imageCount = ctx.imageUrls.length;
-    const segmentMs = getRotateMorphSegmentMs(
+    const perFaceCube =
+      ctx.rig != null && shouldBindPerFaceCubePhotos(ctx.rig.photoLayout, imageCount);
+    const morphOverlapMs = perFaceCube ? 0 : ctx.config.morphOverlapMs ?? 0;
+    const morphStartMs = getMorphPhaseStartMs(
       ctx.config.rotateDurationMs,
-      ctx.config.morphDurationMs,
+      morphOverlapMs,
       imageCount
     );
-    const inMorphPhase = imageCount > 1 && ctx.phaseElapsedMs >= ctx.config.rotateDurationMs;
+    const segmentMs = perFaceCube
+      ? ctx.config.rotateDurationMs
+      : getRotateMorphSegmentMs(
+          ctx.config.rotateDurationMs,
+          ctx.config.morphDurationMs,
+          imageCount,
+          morphOverlapMs
+        );
+    const inMorphPhase = !perFaceCube && imageCount > 1 && ctx.phaseElapsedMs >= morphStartMs;
 
     if (inMorphPhase) {
       beginMorphSubPhase(ctx);
@@ -72,11 +92,12 @@ export const rotateStage: ShowcasePipelineStage = {
       dtMs,
       segmentMs,
       ctx.config.rotateSpeedY,
-      ctx.presentationCycle > 0 ? 0.12 : 0.2
+      ctx.presentationCycle > 0 ? 0.32 : 0.4,
+      0.22
     );
 
     const morphElapsed = inMorphPhase
-      ? ctx.phaseElapsedMs - ctx.config.rotateDurationMs
+      ? ctx.phaseElapsedMs - morphStartMs
       : undefined;
 
     tickShowcasePresentation(ctx, dtMs, {
@@ -102,6 +123,10 @@ export const rotateStage: ShowcasePipelineStage = {
     }
 
     if (ctx.phaseElapsedMs >= segmentMs) {
+      if (perFaceCube && imageCount > 1) {
+        ctx.imageIndex = (ctx.imageIndex + 1) % imageCount;
+        syncJewelRigFacePhotos(ctx.rig, ctx.runtime, ctx.imageUrls, ctx.imageIndex);
+      }
       return "complete";
     }
     return "continue";

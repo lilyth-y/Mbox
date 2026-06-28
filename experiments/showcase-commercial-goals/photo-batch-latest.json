@@ -1,0 +1,513 @@
+{
+  "at": "2026-06-28T05:18:26.936Z",
+  "mode": "preset_only_upload_audit",
+  "preset": "rose_gold_premium",
+  "shapeId": "cube",
+  "passCount": 100,
+  "failCount": 0,
+  "total": 100,
+  "passRate": 1,
+  "perImage": [
+    {
+      "file": "qa_001_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_002_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_003_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_004_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_005_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_006_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_007_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_008_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_009_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_010_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_011_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_012_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_013_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_014_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_015_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_016_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_017_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_018_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_019_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_020_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_021_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_022_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_023_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_024_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_025_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_026_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_027_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_028_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_029_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_030_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_031_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_032_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_033_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_034_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_035_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_036_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_037_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_038_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_039_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_040_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_041_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_042_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_043_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_044_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_045_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_046_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_047_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_048_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_049_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_050_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_051_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_052_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_053_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_054_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_055_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_056_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_057_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_058_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_059_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_060_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_061_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_062_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_063_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_064_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_065_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_066_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_067_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_068_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_069_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_070_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_071_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_072_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_073_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_074_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_075_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_076_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_077_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_078_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_079_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_080_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_081_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_082_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_083_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_084_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_085_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_086_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_087_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_088_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_089_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_090_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_091_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_092_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_093_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_094_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_095_portrait.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_096_landscape.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_097_square.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_098_tall.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_099_wide.jpg",
+      "passed": true,
+      "error": null
+    },
+    {
+      "file": "qa_100_portrait.jpg",
+      "passed": true,
+      "error": null
+    }
+  ],
+  "consoleErrors": []
+}

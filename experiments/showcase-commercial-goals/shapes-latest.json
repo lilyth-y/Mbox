@@ -1,57 +1,549 @@
 {
-  "at": "2026-06-26T05:44:32.277Z",
-  "mode": "static",
+  "at": "2026-06-28T05:18:09.412Z",
+  "mode": "static+live",
   "validatedCount": 6,
-  "gateValidatedCount": 0,
+  "gateValidatedCount": 6,
   "total": 6,
   "passRate": 1,
   "perShape": [
     {
       "shapeId": "cube",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "cube",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=1.943"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "1536x1536"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.497"
+          },
+          {
+            "id": "static:cube_photo_size",
+            "pass": true,
+            "detail": "size=1.497"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.497"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=cube"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3360 pullEnd=3100"
+          },
+          {
+            "id": "live:photo_duplicate_face",
+            "pass": true,
+            "detail": "visible=1 morphTwin=false hero=yes enabled=true inPullHold=true"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=13.5 peak=26.3"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=2791"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3359.9000000953674,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 13.483548538633391,
+          "colorVariance": 106.84009900437366,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 2790.95818991233,
+          "peakLuma": 26.34275693484961
+        },
+        "staticPassed": true
+      },
       "error": null
     },
     {
       "shapeId": "tall_rect",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "tall_rect",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=2.627"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "1679x2048"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.131"
+          },
+          {
+            "id": "static:portrait_plate_size",
+            "pass": true,
+            "detail": "1.189x1.449"
+          },
+          {
+            "id": "static:portrait_aspect",
+            "pass": true,
+            "detail": "aspect=0.820 target=0.82"
+          },
+          {
+            "id": "static:portrait_fits_cavity",
+            "pass": true,
+            "detail": "max=1.201x2.386"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.449"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=tall_rect"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3225 pullEnd=3100"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=222.3 peak=180.2"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=7281"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3224.600000023842,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 222.31625458602846,
+          "colorVariance": 0.13782394159352407,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 7281.331485433766,
+          "peakLuma": 180.24474688063785
+        },
+        "staticPassed": true
+      },
       "error": null
     },
     {
       "shapeId": "hex_prism",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "hex_prism",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=2.183"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "1741x2048"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.952"
+          },
+          {
+            "id": "static:portrait_plate_size",
+            "pass": true,
+            "detail": "1.580x1.859"
+          },
+          {
+            "id": "static:portrait_aspect",
+            "pass": true,
+            "detail": "aspect=0.850 target=0.85"
+          },
+          {
+            "id": "static:portrait_fits_cavity",
+            "pass": true,
+            "detail": "max=1.596x2.078"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.859"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=hex_prism"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3208 pullEnd=3100"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=161.6 peak=157.2"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=3091"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3208.2000000476837,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 161.64939999999507,
+          "colorVariance": 0,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 3090.8398563098963,
+          "peakLuma": 157.1923322350917
+        },
+        "staticPassed": true
+      },
       "error": null
     },
     {
       "shapeId": "heart",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "heart",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=2.368"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "1884x2048"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.328"
+          },
+          {
+            "id": "static:portrait_plate_size",
+            "pass": true,
+            "detail": "1.091x1.186"
+          },
+          {
+            "id": "static:portrait_aspect",
+            "pass": true,
+            "detail": "aspect=0.920 target=0.92"
+          },
+          {
+            "id": "static:portrait_fits_cavity",
+            "pass": true,
+            "detail": "max=1.327x1.198"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.186"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=heart"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3232 pullEnd=3100"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=161.1 peak=86.4"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=8521"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3232.1999999284744,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 161.1023129131633,
+          "colorVariance": 69.62211825714621,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 8520.87391168381,
+          "peakLuma": 86.42969471781703
+        },
+        "staticPassed": true
+      },
       "error": null
     },
     {
       "shapeId": "sphere",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "sphere",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=2.072"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "2048x2048"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.568"
+          },
+          {
+            "id": "static:portrait_plate_size",
+            "pass": true,
+            "detail": "1.285x1.494"
+          },
+          {
+            "id": "static:portrait_aspect",
+            "pass": true,
+            "detail": "aspect=0.860 target=0.86"
+          },
+          {
+            "id": "static:portrait_fits_cavity",
+            "pass": true,
+            "detail": "max=1.990x1.990"
+          },
+          {
+            "id": "static:portrait_circle_fit",
+            "pass": true,
+            "detail": "dist=0.985 R=0.985"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.494"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=sphere"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3262 pullEnd=3100"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=161.5 peak=58.9"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=6321"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3261.8000000715256,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 161.52778250612505,
+          "colorVariance": 0.005199150011321763,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 6320.609635027086,
+          "peakLuma": 58.88315799766202
+        },
+        "staticPassed": true
+      },
       "error": null
     },
     {
       "shapeId": "gem_prism",
       "staticPassed": true,
-      "livePassed": null,
+      "livePassed": true,
       "passed": true,
-      "audit": null,
+      "audit": {
+        "shapeId": "gem_prism",
+        "passed": true,
+        "checks": [
+          {
+            "id": "static:framing_extent",
+            "pass": true,
+            "detail": "extent=2.368"
+          },
+          {
+            "id": "static:pull_framing_fill",
+            "pass": true,
+            "detail": "fill=0.580"
+          },
+          {
+            "id": "static:raster_dimensions",
+            "pass": true,
+            "detail": "1638x2048"
+          },
+          {
+            "id": "static:pull_photo_extent",
+            "pass": true,
+            "detail": "extent=1.898"
+          },
+          {
+            "id": "static:portrait_plate_size",
+            "pass": true,
+            "detail": "1.446x1.807"
+          },
+          {
+            "id": "static:portrait_aspect",
+            "pass": true,
+            "detail": "aspect=0.800 target=0.8"
+          },
+          {
+            "id": "static:portrait_fits_cavity",
+            "pass": true,
+            "detail": "max=1.460x2.374"
+          },
+          {
+            "id": "static:hero_pull_extent",
+            "pass": true,
+            "detail": "hero=1.807"
+          },
+          {
+            "id": "live:rig_shape_match",
+            "pass": true,
+            "detail": "rig=gem_prism"
+          },
+          {
+            "id": "live:pull_hold_phase",
+            "pass": true,
+            "detail": "stage=pull phase=3250 pullEnd=3100"
+          },
+          {
+            "id": "live:canvas_visible",
+            "pass": true,
+            "detail": "center=161.7 peak=81.4"
+          },
+          {
+            "id": "live:photo_detail",
+            "pass": true,
+            "detail": "var=9695"
+          }
+        ],
+        "snapshot": {
+          "stageId": "pull",
+          "stageIndex": 2,
+          "imageIndex": 0,
+          "phaseElapsedMs": 3249.899999976158,
+          "stageVersion": "1.4.0",
+          "stageMaturity": "commercial"
+        },
+        "canvas": {
+          "centerLuma": 161.65012198958132,
+          "colorVariance": 0.003950470483687241,
+          "width": 610,
+          "height": 610,
+          "peakVariance": 9695.323805150925,
+          "peakLuma": 81.35865484111058
+        },
+        "staticPassed": true
+      },
       "error": null
     }
   ],

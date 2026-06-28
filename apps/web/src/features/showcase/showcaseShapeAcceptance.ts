@@ -21,7 +21,14 @@ import {
   type ShowcasePipelineConfig,
   type ShowcasePipelineSnapshot,
 } from "./pipeline/types";
+import { getRotateMorphSegmentMs } from "./pipeline/pipelineOrder";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { isShowcaseAutomationSession } from "./showcaseAutomation";
+import {
+  auditCubePhotoDuplicateFace,
+  updateCubePhotoFaceVisibility,
+} from "./babylon/jewelPhotoCore";
+import type { JewelCubePhysicsRig } from "./babylon/jewelCubeFactory";
 
 export const SHOWCASE_SHAPE_IDS = PHOTO_CRYSTAL_SHAPES.map((s) => s.id);
 
@@ -53,6 +60,14 @@ declare global {
   interface Window {
     __MBOX_SHOWCASE_E2E__?: boolean;
     __MBOX_SHOWCASE_SHAPE_AUDIT__?: () => ShowcaseShapeAuditResult;
+    __MBOX_SHOWCASE_RIG_DEBUG__?: () => {
+      ok: boolean;
+      shapeId?: string;
+      photoLayout?: string;
+      hasPullHero?: boolean;
+      pullHeroEnabled?: boolean;
+      pullHeroFaces?: number;
+    };
   }
 }
 
@@ -74,10 +89,14 @@ export function computeShowcasePullHoldMidElapsedMs(
   config: ShowcasePipelineConfig = DEFAULT_SHOWCASE_PIPELINE_CONFIG,
   imageCount = 3
 ): number {
-  let ms = config.revealHoldMs + config.rotateDurationMs;
-  if (imageCount > 1) {
-    ms += config.morphDurationMs;
-  }
+  let ms =
+    config.revealHoldMs +
+    getRotateMorphSegmentMs(
+      config.rotateDurationMs,
+      config.morphDurationMs,
+      imageCount,
+      config.morphOverlapMs ?? 0
+    );
   return ms + computeShowcasePullHoldWindow(config).pullHoldMidMs;
 }
 
@@ -266,6 +285,8 @@ export function evaluateShowcaseShapeRuntimeAcceptance(input: {
   rigShapeId?: string | null;
   canvas: HTMLCanvasElement | null;
   config?: ShowcasePipelineConfig;
+  rig?: JewelCubePhysicsRig | null;
+  cameraPosition?: Vector3 | null;
 }): ShowcaseShapeRuntimeAcceptance {
   const checks: ShowcaseShapeAcceptanceCheck[] = [];
   const pipelineConfig =
@@ -289,6 +310,30 @@ export function evaluateShowcaseShapeRuntimeAcceptance(input: {
       input.snapshot.phaseElapsedMs <= pullHoldEndMs,
     detail: `stage=${input.snapshot.stageId} phase=${Math.round(input.snapshot.phaseElapsedMs)} pullEnd=${pullEndMs}`,
   });
+
+  const inPullHold =
+    input.snapshot.stageId === "pull" &&
+    input.snapshot.phaseElapsedMs >= pullEndMs &&
+    input.snapshot.phaseElapsedMs <= pullHoldEndMs;
+
+  if (input.rig && input.cameraPosition) {
+    updateCubePhotoFaceVisibility(
+      input.rig,
+      input.cameraPosition,
+      inPullHold && Boolean(input.rig.pullHeroLayer)
+    );
+  }
+
+  if (input.shapeId === "cube" && input.rig) {
+    const dupAudit = auditCubePhotoDuplicateFace(input.rig, inPullHold);
+    const heroReady =
+      !inPullHold || !input.rig.pullHeroLayer || input.rig.pullHeroLayer.root.isEnabled();
+    checks.push({
+      id: "photo_duplicate_face",
+      pass: dupAudit.pass && heroReady,
+      detail: `visible=${dupAudit.visibleFaces} morphTwin=${dupAudit.morphTwinEnabled} hero=${input.rig.pullHeroLayer ? "yes" : "no"} enabled=${input.rig.pullHeroLayer?.root.isEnabled() ?? false} inPullHold=${inPullHold}`,
+    });
+  }
 
   let canvasMetrics: ReturnType<typeof sampleShowcaseCanvasMetrics> = null;
   if (input.canvas) {
@@ -330,6 +375,8 @@ export function auditShowcaseShapeRuntime(input: {
   canvas: HTMLCanvasElement | null;
   photoLayout?: ShowcaseCatalogOptions["photoLayout"];
   config?: ShowcasePipelineConfig;
+  rig?: JewelCubePhysicsRig | null;
+  cameraPosition?: Vector3 | null;
 }): ShowcaseShapeAuditResult {
   const staticResult = evaluateShowcaseShapeStaticAcceptance(
     input.shapeId,
@@ -341,6 +388,8 @@ export function auditShowcaseShapeRuntime(input: {
     rigShapeId: input.rigShapeId,
     canvas: input.canvas,
     config: input.config,
+    rig: input.rig,
+    cameraPosition: input.cameraPosition,
   });
 
   return {

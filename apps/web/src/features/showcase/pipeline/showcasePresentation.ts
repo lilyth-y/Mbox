@@ -467,9 +467,18 @@ export function tickShowcasePullEmphasis(
         ? (ctx.stageState.pullStartYaw as number)
         : getJewelCubeYawRadians(ctx.rig);
   const targetYaw =
-    ctx.rig.shapeId === "cube" && ctx.rig.photoLayout === "cube"
-      ? nearestCardinalYawFrom(startYaw, idealYaw)
-      : idealYaw;
+    ctx.rig.shapeId === "cube" &&
+    ctx.rig.photoLayout === "cube" &&
+    inHoldPhase &&
+    ctx.rig.pullHeroLayer
+      ? computeYawTowardCamera(
+          heroPos,
+          ctx.camera,
+          config.presentationFaceOffsetRadians
+        )
+      : ctx.rig.shapeId === "cube" && ctx.rig.photoLayout === "cube"
+        ? nearestCardinalYawFrom(startYaw, idealYaw)
+        : idealYaw;
 
   if (ctx.phaseElapsedMs < zoomStartMs) {
 
@@ -516,15 +525,9 @@ export function tickShowcasePullEmphasis(
     );
 
     updateCubePhotoFaceVisibility(
-
       ctx.rig,
-
       ctx.camera.globalPosition,
-
-      inHoldPhase || alignEase >= 0.92,
-
-      0.78
-
+      inHoldPhase && Boolean(ctx.rig.pullHeroLayer)
     );
 
   }

@@ -163,7 +163,11 @@ export interface ShowcasePhysicsSceneHandle {
   setExportCadenceFps: (fps: number) => void;
 
   /** Frame-locked export — one sim tick + render per frame at target fps (local GPU MP4). */
-  recordPacedExportFrames: (frameCount: number, fps: number) => Promise<void>;
+  recordPacedExportFrames: (
+    frameCount: number,
+    fps: number,
+    options?: { onFrame?: (frameIndex: number) => void }
+  ) => Promise<void>;
 
   setImages: (images: ProcessedImage[]) => Promise<void>;
 
@@ -977,18 +981,18 @@ export async function createShowcasePhysicsScene(
       exportSimDebtMs = 0;
     },
 
-    recordPacedExportFrames: async (frameCount, fps) => {
+    recordPacedExportFrames: async (frameCount, fps, options) => {
       if (!canSceneRender()) {
         throw new Error("[showcase] paced export unavailable — scene not renderable");
       }
-      const frameMs = 1000 / Math.max(1, fps);
       engine.stopRenderLoop();
+      const logEvery = Math.max(60, Math.round(fps * 2));
       try {
         for (let i = 0; i < frameCount; i++) {
           if (!canSceneRender()) {
             break;
           }
-          const frameStart = performance.now();
+          options?.onFrame?.(i);
           exportPacedStepActive = true;
           try {
             scene.render();
@@ -996,12 +1000,13 @@ export async function createShowcasePhysicsScene(
             console.warn("[showcase] paced export frame failed", error);
             break;
           }
-          const elapsed = performance.now() - frameStart;
-          const waitMs = frameMs - elapsed;
-          if (waitMs > 0) {
-            await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+          if (i > 0 && i % logEvery === 0) {
+            console.info(`[showcase] paced export ${i}/${frameCount}`);
           }
+          // One rAF per frame so captureStream(0) + requestFrame keeps up with the encoder.
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         }
+        console.info(`[showcase] paced export done ${frameCount}/${frameCount}`);
       } finally {
         if (canSceneRender()) {
           runSafeRenderLoop();

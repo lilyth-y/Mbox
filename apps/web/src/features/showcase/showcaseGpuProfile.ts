@@ -14,8 +14,10 @@ export type ShowcaseSubsystemFlags = {
   chapelPanorama: boolean;
   /** Outer brilliant-cut shell — glossy crystal (default on). */
   crystalShell: boolean;
-  /** One inner photo volume inside the shell (wedding placement) — no fg/bg twin stacks. */
+  /** One inner photo volume inside the shell — no fg/bg depth-split stacks. */
   singleInnerPhoto: boolean;
+  /** A/B photo layers for smooth crossfade morph between images. */
+  photoCrossfade: boolean;
   shellInnerLayer: boolean;
   depthSplitForeground: boolean;
   shellGlow: boolean;
@@ -52,6 +54,7 @@ export const SHOWCASE_GPU_SIMPLIFIED_BUDGET: ShowcaseGpuBudget = {
     chapelPanorama: false,
     crystalShell: true,
     singleInnerPhoto: true,
+    photoCrossfade: true,
     shellInnerLayer: false,
     depthSplitForeground: false,
     shellGlow: false,
@@ -75,6 +78,7 @@ export const SHOWCASE_GPU_FULL_BUDGET: ShowcaseGpuBudget = {
     chapelPanorama: true,
     crystalShell: true,
     singleInnerPhoto: true,
+    photoCrossfade: true,
     shellInnerLayer: false,
     depthSplitForeground: false,
     shellGlow: true,
@@ -101,13 +105,14 @@ export const SHOWCASE_LOCAL_GPU_EXPORT_BUDGET: ShowcaseGpuBudget = {
   photoDomeResolution: 16,
   maxAnisotropy: 8,
   hardwareScalingLevel: 2,
-  exportFps: 30,
+  exportFps: 60,
   subsystems: {
     physics: false,
     domBackdropVideo: false,
     chapelPanorama: false,
     crystalShell: true,
     singleInnerPhoto: true,
+    photoCrossfade: true,
     shellInnerLayer: false,
     depthSplitForeground: false,
     shellGlow: false,
@@ -129,7 +134,15 @@ function readSearchFlag(name: string): boolean {
 export function usesJewelPhotoMorphTwin(
   flags: ShowcaseSubsystemFlags = resolveShowcaseSubsystemFlags()
 ): boolean {
-  return !flags.singleInnerPhoto;
+  return flags.photoCrossfade !== false;
+}
+
+/** A/B twin stacks for crossfade — cube only; portrait heart uses single-layer dip fade. */
+export function shouldSpawnJewelPhotoMorphTwin(
+  flags: ShowcaseSubsystemFlags = resolveShowcaseSubsystemFlags(),
+  photoLayout: "cube" | "portrait" = "portrait"
+): boolean {
+  return usesJewelPhotoMorphTwin(flags) && photoLayout === "cube";
 }
 
 /** Subsystem switches — explicit URL overrides beat tier defaults. */

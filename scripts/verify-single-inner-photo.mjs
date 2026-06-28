@@ -59,12 +59,12 @@ function testNoSolidInnerBox() {
   assert.match(attach, /no_heart_front_plate/, "upload audit rejects heart front plate");
 }
 
-function testHeartSingleTable() {
-  const core = read("apps/web/src/features/showcase/babylon/jewelPhotoCore.ts");
+function testHeartDualTable() {
+  const core = read("apps/web/src/features/showcase/babylon/jewelPhotoInnerMesh.ts");
   const mesh = read("apps/web/src/features/showcase/babylon/jewelPhotoInnerMesh.ts");
-  assert.match(core, /createInnerPhotoHeartTableMeshes/, "heart uses single recessed table");
-  assert.doesNotMatch(core, /createInnerPhotoHeartDualMeshes/, "heart dual plates removed");
-  assert.match(mesh, /halfDepth \* 0\.78/, "heart table recessed inside cavity");
+  assert.match(core, /createInnerPhotoHeartTableMeshes/, "heart uses recessed table meshes");
+  assert.match(mesh, /createHeartTablePhotoMesh/, "heart table photo mesh");
+  assert.match(core, /`\$\{name\}-back`/, "heart back table");
 }
 
 function testSilhouetteUsesCustomShader() {
@@ -108,7 +108,7 @@ const checks = [
   ["upload audit hook", testUploadAuditHook],
   ["cube custom photo shader", testCubeUsesCustomPhotoShader],
   ["no solid inner box audit", testNoSolidInnerBox],
-  ["heart single table", testHeartSingleTable],
+  ["heart dual table", testHeartDualTable],
   ["silhouette custom shader", testSilhouetteUsesCustomShader],
   ["jewel spawn token guards", testJewelSpawnTokenGuards],
   ["jewel mesh leak audit", testJewelMeshLeakAudit],

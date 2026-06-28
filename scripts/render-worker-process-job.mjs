@@ -37,7 +37,10 @@ const testImages = [
 function resolveGlMode() {
   const v = String(process.env.MBOX_GL ?? "").trim().toLowerCase();
   if (v === "angle" || v === "swiftshader") return v;
-  // Default: prefer real GPU on desktops, but allow forcing SwiftShader for CI.
+  // Headless CI: SwiftShader avoids ANGLE context-loss on software stacks.
+  if (process.env.MBOX_HEADED !== "1") {
+    return "swiftshader";
+  }
   return "angle";
 }
 
@@ -170,11 +173,17 @@ function buildCrystalShowcaseUrl(job) {
       : settings.backdropMediaPath ?? DEFAULT_CRYSTAL_BACKDROP;
   const params = new URLSearchParams({
     renderJob: "1",
+    localOnly: "1",
+    fullGpu: "1",
     bg: catalog.backgroundPreset ?? "booth",
     shape,
     // Headless export path should not depend on Havok availability.
     noPhysics: "1",
   });
+  const look = catalog.look ?? catalog.commercialLookId;
+  if (typeof look === "string" && look.length > 0) {
+    params.set("look", look);
+  }
   if (backdrop === "") {
     params.set("backdrop", "");
   } else if (backdrop) {
@@ -222,10 +231,57 @@ function resolveCrystalSourceUrls(job) {
   return loadTestImageDataUrls(job.settings?.imageCount ?? 3);
 }
 
+async function waitForCrystalExportBuffer(page) {
+  const downloadPromise = page
+    .waitForEvent("download", { timeout: RECORD_TIMEOUT_MS })
+    .catch(() => null);
+
+  await page.waitForFunction(
+    () => {
+      const payload = window.__MBOX_LAST_SHOWCASE_EXPORT__;
+      if (payload?.verification?.passed) {
+        return true;
+      }
+      const b64 = window.__MBOX_RENDER_OUTPUT_BASE64__;
+      return typeof b64 === "string" && b64.length > 10_000;
+    },
+    undefined,
+    { timeout: RECORD_TIMEOUT_MS, polling: 400 }
+  );
+
+  const fromPage = await page.evaluate(() => {
+    const b64 = window.__MBOX_RENDER_OUTPUT_BASE64__;
+    if (typeof b64 === "string" && b64.length > 10_000) {
+      return { kind: "base64", data: b64 };
+    }
+    const payload = window.__MBOX_LAST_SHOWCASE_EXPORT__;
+    if (payload?.verification?.passed) {
+      return { kind: "payload", bytes: payload.bytes ?? 0 };
+    }
+    return null;
+  });
+
+  if (fromPage?.kind === "base64") {
+    return Buffer.from(fromPage.data, "base64");
+  }
+
+  const download = await downloadPromise;
+  if (download) {
+    return readDownloadBuffer(download);
+  }
+
+  throw new Error("Crystal export finished without downloadable output.");
+}
+
 /** Auto-export via `renderJob=1` + injected job payload (cloud fast profile). */
 async function runCrystalJob(job) {
   const sourceUrls = resolveCrystalSourceUrls(job);
   const url = buildCrystalShowcaseUrl(job);
+  const settings = job.settings ?? {};
+  const catalogOverrides = settings.catalogOptions ?? {};
+  const includeBgm = catalogOverrides.bgmEnabled === true;
+  const outputFps = job.outputProfile?.fps ?? 30;
+  const pacedExport = outputFps > 30;
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext({ acceptDownloads: true });
@@ -234,10 +290,18 @@ async function runCrystalJob(job) {
         window.__MBOX_RENDER_JOB__ = payload.job;
         window.__MBOX_RENDER_JOB_AUTO__ = true;
         window.__MBOX_RENDER_JOB_SOURCE_URLS__ = payload.sourceUrls;
+        window.__MBOX_RENDER_CATALOG_OVERRIDES__ = payload.catalogOverrides;
+        if (payload.includeBgm) {
+          window.__MBOX_RENDER_INCLUDE_BGM__ = true;
+        }
+        if (payload.pacedExport) {
+          window.__MBOX_LOCAL_GPU_EXPORT__ = true;
+        }
         window.__MBOX_E2E_EXPORT__ = true;
+        window.__MBOX_SHOWCASE_AUTOMATION__ = true;
         window.__MBOX_RENDER_BACKEND__ = "local";
       },
-      { job, sourceUrls }
+      { job, sourceUrls, catalogOverrides, includeBgm, pacedExport }
     );
     const page = await context.newPage();
     browser.on("disconnected", () => console.log("[worker] browser disconnected"));
@@ -246,20 +310,13 @@ async function runCrystalJob(job) {
     page.on("console", (msg) => console.log("[BROWSER CONSOLE]", msg.type(), msg.text()));
     page.on("pageerror", (err) => console.log("[BROWSER PAGEERROR]", String(err)));
 
-    const downloadPromise = page.waitForEvent("download", { timeout: RECORD_TIMEOUT_MS });
     const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
     console.log("[worker] goto", url, "→", response?.status());
     if (!response?.ok()) {
       throw new Error(`Showcase load failed: ${response?.status()}`);
     }
 
-    // Prefer explicit click: auto-trigger can be flaky across builds, policies, or timing.
-    const mp4Btn = page.getByRole("button", { name: /MP4/i });
-    await mp4Btn.waitFor({ timeout: 120_000 });
-    await mp4Btn.click({ timeout: 30_000 });
-
-    const download = await downloadPromise;
-    const buffer = await readDownloadBuffer(download);
+    const buffer = await waitForCrystalExportBuffer(page);
     if (buffer.length < 80_000) {
       throw new Error(`Crystal export too small (${buffer.length} bytes)`);
     }

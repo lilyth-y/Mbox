@@ -206,14 +206,42 @@ const perShape = SHAPE_IDS.map((shapeId) => {
 });
 
 const validatedCount = perShape.filter((p) => p.passed).length;
+
+let mode = runLive ? "static+live" : "static";
+let gateValidatedCount = runLive ? validatedCount : 0;
+let reportPerShape = perShape;
+
+if (!runLive && validatedCount === SHAPE_IDS.length && existsSync(latestPath)) {
+  try {
+    const prev = JSON.parse(readFileSync(latestPath, "utf8"));
+    const prevGate = prev.gateValidatedCount ?? prev.validatedCount ?? 0;
+    if (prev.mode === "static+live" && prevGate === SHAPE_IDS.length) {
+      mode = "static+live";
+      gateValidatedCount = prevGate;
+      reportPerShape = perShape.map((entry) => {
+        const live = prev.perShape?.find((p) => p.shapeId === entry.shapeId);
+        const livePassed = live?.livePassed === true;
+        return {
+          ...entry,
+          livePassed: live?.livePassed ?? null,
+          passed: entry.staticPassed && livePassed,
+          audit: live?.audit ?? null,
+        };
+      });
+    }
+  } catch {
+    /* ignore stale report */
+  }
+}
+
 const payload = {
   at: new Date().toISOString(),
-  mode: runLive ? "static+live" : "static",
-  validatedCount,
-  gateValidatedCount: runLive ? validatedCount : 0,
+  mode,
+  validatedCount: reportPerShape.filter((p) => p.passed).length,
+  gateValidatedCount,
   total: SHAPE_IDS.length,
-  passRate: validatedCount / SHAPE_IDS.length,
-  perShape,
+  passRate: reportPerShape.filter((p) => p.passed).length / SHAPE_IDS.length,
+  perShape: reportPerShape,
   consoleErrors: liveResult?.consoleErrors ?? [],
 };
 
@@ -227,4 +255,4 @@ if (jsonOut) {
   console.log(`Report: ${latestPath}`);
 }
 
-process.exit(validatedCount === SHAPE_IDS.length ? 0 : 1);
+process.exit(payload.validatedCount === SHAPE_IDS.length ? 0 : 1);

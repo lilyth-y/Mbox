@@ -73,8 +73,10 @@ import { resolveShowcaseBgmUrl } from "./showcaseBgm";
 import { useShowcaseBgmPreview } from "./useShowcaseBgmPreview";
 import {
   auditShowcaseShapeRuntime,
+  computeShowcasePullHoldWindow,
   type ShowcaseShapeAuditResult,
 } from "./showcaseShapeAcceptance";
+import { updateCubePhotoFaceVisibility } from "./babylon/jewelPhotoCore";
 import { auditShowcasePhotoAttachment } from "./showcasePhotoAttachment";
 import { auditShowcaseJewelMeshLeak } from "./showcaseJewelMeshAudit";
 import "./showcase-style.css";
@@ -90,6 +92,7 @@ import { evaluateShowcaseExportReadiness } from "./showcaseExportReadiness";
 import { ShowcaseDomMediaBackdrop } from "./showcaseDomMediaBackdrop";
 import {
   isRenderJobAutoMode,
+  readRenderJobCatalogOverrides,
   readRenderJobFromWindow,
   readRenderJobSourceUrls,
 } from "../../shared/lib/renderJobWindow";
@@ -333,11 +336,11 @@ export function ShowcaseDashboard() {
 
   const [currentStep, setCurrentStep] = useState(1);
 
-  const [catalog, setCatalog] = useState<ShowcaseCatalogOptions>(() =>
-
-    parseShowcaseCatalogFromSearch(window.location.search)
-
-  );
+  const [catalog, setCatalog] = useState<ShowcaseCatalogOptions>(() => {
+    const base = parseShowcaseCatalogFromSearch(window.location.search);
+    const overrides = readRenderJobCatalogOverrides();
+    return overrides ? { ...base, ...overrides } : base;
+  });
 
   const [applyBackgroundRemoval, setApplyBackgroundRemoval] = useState(false);
 
@@ -1264,12 +1267,16 @@ export function ShowcaseDashboard() {
               };
             }
             const rig = handle.director.getRig();
+            const camera = rig?.collider.getScene().activeCamera ?? null;
             return auditShowcaseShapeRuntime({
               shapeId: catalogRef.current.shapeId,
               snapshot: handle.director.getSnapshot(),
               rigShapeId: rig?.shapeId ?? null,
               canvas: handle.getCanvas(),
               photoLayout: catalogRef.current.photoLayout,
+              config: handle.director.getPipelineConfig(),
+              rig,
+              cameraPosition: camera?.globalPosition ?? null,
             });
           };
           window.__MBOX_SHOWCASE_UPLOAD_AUDIT__ = () => {
@@ -1299,6 +1306,41 @@ export function ShowcaseDashboard() {
             return auditShowcaseJewelMeshLeak(scene, {
               requireActiveRig: rig !== null,
             });
+          };
+          window.__MBOX_SHOWCASE_RIG_DEBUG__ = () => {
+            const handle = sceneRef.current;
+            if (!handle) {
+              return { ok: false };
+            }
+            const rig = handle.director.getRig();
+            const snapshot = handle.director.getSnapshot();
+            const pipelineConfig = handle.director.getPipelineConfig();
+            const camera = rig?.collider.getScene().activeCamera ?? null;
+            if (rig && camera) {
+              const { pullEndMs, pullHoldEndMs } = computeShowcasePullHoldWindow(pipelineConfig);
+              const inPullHold =
+                snapshot.stageId === "pull" &&
+                snapshot.phaseElapsedMs >= pullEndMs &&
+                snapshot.phaseElapsedMs <= pullHoldEndMs;
+              updateCubePhotoFaceVisibility(
+                rig,
+                camera.globalPosition,
+                inPullHold && Boolean(rig.pullHeroLayer)
+              );
+              return {
+                ok: true,
+                shapeId: rig.shapeId,
+                photoLayout: rig.photoLayout,
+                hasPullHero: Boolean(rig.pullHeroLayer),
+                pullHeroEnabled: rig.pullHeroLayer?.root.isEnabled() ?? false,
+                pullHeroFaces: rig.pullHeroLayer?.faces.length ?? 0,
+                inPullHold,
+                pullEndMs,
+                pullHoldEndMs,
+                phaseElapsedMs: snapshot.phaseElapsedMs,
+              };
+            }
+            return { ok: false };
           };
         }
 

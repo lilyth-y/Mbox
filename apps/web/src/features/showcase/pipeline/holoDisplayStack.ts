@@ -4,7 +4,8 @@ import type { JewelCubePhysicsRig } from "../babylon/jewelCubeFactory";
 import type { JewelPhotoCoreLayer } from "../babylon/jewelPhotoCore";
 import { tickHoloOptics } from "../babylon/holoOptics";
 import { tickJewelCrystalShellMaterial } from "../babylon/shaders/jewelCrystalShellShader";
-import { tickJewelPhotoCoreLayers } from "../babylon/jewelPhotoCore";
+import { tickJewelPhotoCoreLayers, updateCubePhotoFaceVisibility } from "../babylon/jewelPhotoCore";
+import { computeShowcasePullHoldWindow } from "../showcaseShapeAcceptance";
 import { tickShowcaseShellGlow } from "../babylon/showcaseShellGlow";
 import type { ShowcaseJewelLightingRig } from "../babylon/showcaseJewelLighting";
 import type { ShowcasePipelineStageId, ShowcaseStageContext } from "./types";
@@ -202,6 +203,14 @@ export function tickHoloDisplayStack(
     ctx.rig.shellInnerMaterial,
     ctx.rig.shapeId
   );
+  if (ctx.rig.shapeId === "cube" && ctx.rig.photoLayout === "cube" && ctx.rig.pullHeroLayer) {
+    const { pullEndMs, pullHoldEndMs } = computeShowcasePullHoldWindow(ctx.config);
+    const inPullHold =
+      ctx.stageId === "pull" &&
+      ctx.phaseElapsedMs >= pullEndMs &&
+      ctx.phaseElapsedMs <= pullHoldEndMs;
+    updateCubePhotoFaceVisibility(ctx.rig, ctx.camera.globalPosition, inPullHold);
+  }
   tickJewelPhotoCoreLayers(ctx.rig, lightSnapshot, ctx.camera.globalPosition);
   tickShowcaseShellGlow(power, ctx.stageId, ctx.rig.shapeId);
   applyHoloDepthParallax(ctx.rig, ctx.camera.globalPosition, effectiveParallax * power);

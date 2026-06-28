@@ -56,6 +56,16 @@
 - [ ] Add category rename/delete once MVP flow is stable.
 - [ ] Evaluate Unity or AR extensions after web MVP acceptance.
 
+## Commercial launch / 상품화 (2026-06-28)
+
+- [x] 문제 정의 — `docs/commercial-launch-problems.md`
+- [x] P0-1 cube `photo_duplicate_face` — pull-hold portrait hero + 6면 숨김
+- [ ] P0-1b cube pull-hold 인간 판매 sign-off (heart 대비 구도·밝기)
+- [ ] P0-2 실사 Kakao 20장 photo batch verify (현재 batch는 ffmpeg 합성 100장)
+- [ ] P1-1 human-smoke 6형상 + sellability sign-off
+- [ ] P1-2 booth MP4 → TV/LED 1:1 색역 smoke
+- [ ] P1-3 internal pilot deploy E2E (`docs/deploy-internal.md`)
+
 ## Research follow-ups
 
 - [ ] Run Tier 3 full comparison after Tier 2 subset metrics are recorded in `research/report.tex`.

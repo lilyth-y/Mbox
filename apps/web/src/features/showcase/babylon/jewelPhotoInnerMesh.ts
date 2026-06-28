@@ -195,7 +195,7 @@ export function createInnerPhotoHeartTableMesh(
   return createHeartTablePhotoMesh(scene, name, tableRadius);
 }
 
-/** Single heart table recessed inside the gem cavity (no front/back twin plates). */
+/** Front + back heart tables — photo visible on both sides while spinning. */
 export function createInnerPhotoHeartTableMeshes(
   scene: Scene,
   name: string,
@@ -205,9 +205,9 @@ export function createInnerPhotoHeartTableMeshes(
   const shape = resolvePhotoCrystalShape(shapeId ?? "heart");
   const metrics = getHeartGemMetrics();
   const halfDepth = metrics.halfDepth * shape.outerScale.z;
-  const zInset = halfDepth * 0.78;
-  const table = createHeartTablePhotoMesh(scene, `${name}-table`, tableRadius, zInset, false);
-  return [table];
+  const front = createHeartTablePhotoMesh(scene, `${name}-front`, tableRadius, halfDepth * 0.78, false);
+  const back = createHeartTablePhotoMesh(scene, `${name}-back`, tableRadius, -halfDepth * 0.78, true);
+  return [front, back];
 }
 
 /** @deprecated use createInnerPhotoHeartTableMeshes */

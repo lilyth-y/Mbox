@@ -21,9 +21,11 @@ import {
   type ShowcasePipelineConfig,
 
 } from "./pipeline";
+import { getRotateMorphSegmentMs } from "./pipeline/pipelineOrder";
 import {
   isCloudFastCrystalExport,
   isLocalGpuExportSession,
+  isRenderWorkerExportSession,
   resolveCrystalExportProfile,
 } from "../../shared/lib/renderExportProfile";
 
@@ -100,18 +102,17 @@ export function computeShowcaseExportDurationMs(
 
   const pullMs = zoomStartMs + zoomDuration + config.pullHoldMs;
 
-
+  const rotateMorphMs = getRotateMorphSegmentMs(
+    config.rotateDurationMs,
+    config.morphDurationMs,
+    imageCount > 1 ? 2 : 1,
+    config.morphOverlapMs ?? 0
+  );
 
   let cycleMs =
-
     config.revealHoldMs +
-
-    config.rotateDurationMs +
-
-    config.morphDurationMs +
-
+    rotateMorphMs +
     pullMs +
-
     config.pullReturnMs;
 
 
@@ -242,24 +243,30 @@ export async function exportShowcaseMp4(
   const profile = resolveCrystalExportProfile();
   const cloudFast = profile ? isCloudFastCrystalExport(profile) : false;
   const localGpu = isLocalGpuExportSession();
-  const pipelineConfig: ShowcasePipelineConfig = cloudFast
-    ? CLOUD_SHOWCASE_PIPELINE_CONFIG
-    : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
+  const workerSession = isRenderWorkerExportSession();
+  const pipelineConfig: ShowcasePipelineConfig =
+    cloudFast || workerSession
+      ? CLOUD_SHOWCASE_PIPELINE_CONFIG
+      : DEFAULT_SHOWCASE_PIPELINE_CONFIG;
 
   const outputSize = resolveShowcaseExportOutputSize(
     profile?.width ?? options.exportSize
   );
   const gpuBudget = resolveShowcaseGpuBudget();
   const simplified = gpuBudget.tier === "simplified";
-  const renderSize = resolveShowcaseRenderSize(outputSize, {
-    cloudFast,
-    simplified: false,
-  });
   const exportFps = localGpu
-    ? 30
+    ? (profile?.fps ?? gpuBudget.exportFps ?? SHOWCASE_EXPORT_FPS)
     : simplified
       ? gpuBudget.exportFps
       : profile?.fps ?? SHOWCASE_EXPORT_FPS;
+  let renderSize = resolveShowcaseRenderSize(outputSize, {
+    cloudFast,
+    simplified: false,
+  });
+  // 60fps paced headless export: 2× supersample cannot finish in wall time — 1:1 render.
+  if (localGpu && exportFps >= SHOWCASE_EXPORT_FPS) {
+    renderSize = outputSize;
+  }
   const encodeBitrate =
     profile?.videoBitrate ?? resolveShowcaseEncodeBitrate(outputSize);
 
@@ -346,7 +353,9 @@ export async function exportShowcaseMp4(
     const contentMs = durationMs - RECORD_ENCODER_FLUSH_MS;
 
     const bgmUrl = options.bgmUrl ?? null;
-    const withAudio = Boolean(bgmUrl) && !window.__MBOX_E2E_EXPORT__;
+    const withAudio =
+      Boolean(bgmUrl) &&
+      (!window.__MBOX_E2E_EXPORT__ || window.__MBOX_RENDER_INCLUDE_BGM__ === true);
 
     const { mimeType, extension } = resolveRecordingMimeType({ withAudio });
 
@@ -406,13 +415,35 @@ export async function exportShowcaseMp4(
 
     const contentFrames = Math.ceil((contentMs * exportFps) / 1000);
     const pacedRecordTimeoutMs = Math.max(
-      180_000,
-      Math.ceil((contentFrames / exportFps) * 2_500)
+      localGpu ? 2_400_000 : 180_000,
+      Math.ceil((contentFrames / exportFps) * (localGpu ? 25_000 : 2_500))
     );
+
+    const stepExportBackdrop = (frameIndex: number): void => {
+      if (!(compositeBackdrop instanceof HTMLVideoElement)) {
+        return;
+      }
+      const duration = compositeBackdrop.duration;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+      const t = frameIndex / exportFps;
+      try {
+        compositeBackdrop.pause();
+        compositeBackdrop.currentTime = t % duration;
+      } catch {
+        /* seek may fail before enough data */
+      }
+    };
 
     if (localGpu) {
       composite.beginRecording();
-      await handle.recordPacedExportFrames(contentFrames, exportFps);
+      if (compositeBackdrop instanceof HTMLVideoElement) {
+        compositeBackdrop.pause();
+      }
+      await handle.recordPacedExportFrames(contentFrames, exportFps, {
+        onFrame: stepExportBackdrop,
+      });
       await composite.waitForRecordedFrames(contentFrames, pacedRecordTimeoutMs);
     } else {
       await new Promise<void>((resolve) => window.setTimeout(resolve, contentMs));

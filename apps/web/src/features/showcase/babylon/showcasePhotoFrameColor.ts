@@ -44,7 +44,7 @@ export function resolveShowcasePhotoFramePresetId(
   if (raw && PRESET_SET.has(raw)) {
     return raw as ShowcasePhotoFramePresetId;
   }
-  return "rose_gold";
+  return "none";
 }
 
 export function getShowcasePhotoFrameColor3(presetId: ShowcasePhotoFramePresetId): Color3 {

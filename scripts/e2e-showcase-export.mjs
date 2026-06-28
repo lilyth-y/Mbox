@@ -21,30 +21,40 @@ import {
   ffprobeDuration,
   ffprobeWxH,
 } from "./measure-composite-kpi.mjs";
+import { WEB_URL } from "./lib/dev-ports.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const defaultLocalUrl = `${WEB_URL}/showcase.html?localOnly=1&fullGpu=1&noPhysics=1&look=modern_black&bg=solid_black`;
+const testImage = join(root, "data/showcase-qa-corpus/qa_005_portrait.jpg");
 
 const SHOWCASE_URL =
   process.env.MBOX_SHOWCASE_URL ??
-  "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html";
+  (WEB_URL.includes("localhost") || WEB_URL.includes("127.0.0.1")
+    ? defaultLocalUrl
+    : "https://storage.googleapis.com/mbox-web-newmedia-496107/showcase.html");
 
 const RECORD_TIMEOUT_MS = Number(process.env.MBOX_RECORD_TIMEOUT_MS ?? 120_000);
-const TARGET_SIZE = 1080;
+/** Booth square export — matches SHOWCASE_DEVICE_EXPORT_SIZE (2160²). */
+const TARGET_SIZE = Number(process.env.MBOX_EXPORT_SIZE ?? 2160);
+const useSwiftShader =
+  process.env.MBOX_USE_SWIFTSHADER !== "0" && process.env.MBOX_USE_SWIFTSHADER !== "false";
 
 const browser = await chromium.launch({
   headless: process.env.MBOX_HEADED !== "1",
   args: [
-    "--use-gl=angle",
-    "--ignore-gpu-blocklist",
-    "--enable-webgl",
+    ...(useSwiftShader
+      ? ["--use-gl=swiftshader", "--enable-webgl"]
+      : ["--use-gl=angle", "--ignore-gpu-blocklist", "--enable-webgl"]),
     "--disable-background-timer-throttling",
     "--disable-renderer-backgrounding",
+    "--disable-gpu-sandbox",
   ],
 });
 
 const context = await browser.newContext({ acceptDownloads: true });
 await context.addInitScript(() => {
   window.__MBOX_E2E_EXPORT__ = true;
+  window.__MBOX_SHOWCASE_AUTOMATION__ = true;
 });
 
 const page = await context.newPage();
@@ -92,6 +102,11 @@ try {
     timeout: 60_000,
   });
   if (!response?.ok()) fail(`Showcase load failed: ${response?.status()}`);
+
+  const uploadInput = page.locator('[data-testid="showcase-photo-upload"]');
+  if (existsSync(testImage) && (await uploadInput.count())) {
+    await uploadInput.setInputFiles([testImage]);
+  }
 
   await page.waitForFunction(
     () => {

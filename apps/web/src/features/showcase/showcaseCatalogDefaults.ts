@@ -6,7 +6,7 @@ import type { ShowcaseCatalogOptions } from "./showcaseCatalogOptions";
 export const DEFAULT_SHOWCASE_CATALOG: ShowcaseCatalogOptions = {
   shapeId: "cube",
   photoLayout: "auto",
-  framePresetId: "rose_gold",
+  framePresetId: "none",
   backgroundPreset: "booth",
   backgroundMediaSource: "builtin",
   backgroundMediaPath: SHOWCASE_DEFAULT_BACKDROP_PATH,

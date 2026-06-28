@@ -6,8 +6,8 @@ import {
 import type { PresentationSpinDirection } from "./showcasePresentationPreferences";
 import type { ShowcaseStageContext } from "./types";
 
-/** Max angular acceleration (rad/s²) — bridges stage boundaries without snaps. */
-export const SHOWCASE_SPIN_MAX_ACCEL_RAD_S2 = 12;
+/** Max angular acceleration (rad/s²) — lower = softer spin handoffs. */
+export const SHOWCASE_SPIN_MAX_ACCEL_RAD_S2 = 5.5;
 
 export function approachSpinOmega(
   current: number,

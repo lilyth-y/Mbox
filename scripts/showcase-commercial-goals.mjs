@@ -14,6 +14,7 @@ import {
   evaluateShowcaseCommercialGoals,
   formatShowcaseCommercialGoalReport,
 } from "@mbox/shared";
+import { WEB_URL } from "./lib/dev-ports.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const runE2e = process.argv.includes("--run-e2e");
@@ -84,6 +85,53 @@ function loadPhotoBatchResult() {
   }
 }
 
+function loadPhotoBatchReport() {
+  const batchPath = join(reportDir, "photo-batch-latest.json");
+  if (!existsSync(batchPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(batchPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function ensurePhotoBatchReport({ runBatch = false } = {}) {
+  const existing = loadPhotoBatchReport();
+  const corpusSize = countCorpusImages();
+  if (
+    existing &&
+    !runBatch &&
+    typeof existing.passRate === "number" &&
+    existing.passRate >= 1 &&
+    (existing.total ?? 0) >= Math.min(corpusSize, 100)
+  ) {
+    return existing;
+  }
+  if (process.env.SHOWCASE_PHOTO_BATCH_WAIVE === "1") {
+    return existing;
+  }
+  const child = spawnSync(process.execPath, ["scripts/verify-showcase-photo-batch.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    timeout: Number(process.env.MBOX_PHOTO_BATCH_SUITE_TIMEOUT_MS ?? 900_000),
+    env: {
+      ...process.env,
+      MBOX_SHOWCASE_URL:
+        process.env.MBOX_SHOWCASE_URL ??
+        `${WEB_URL}/showcase.html`,
+    },
+  });
+  if (child.stdout) {
+    console.log(child.stdout.trimEnd());
+  }
+  if (child.status !== 0 && child.stderr) {
+    console.error(child.stderr.trimEnd());
+  }
+  return loadPhotoBatchReport();
+}
+
 function loadShapesValidationResult() {
   const shapesPath = join(reportDir, "shapes-latest.json");
   if (!existsSync(shapesPath)) {
@@ -128,7 +176,7 @@ function ensureShapesReport({ runLive = false } = {}) {
 function runWysiwygE2e() {
   const url =
     process.env.MBOX_SHOWCASE_URL ??
-    "http://127.0.0.1:4174/showcase.html?look=modern_black&backdrop=";
+    `${WEB_URL}/showcase.html?localOnly=1&fullGpu=1&noPhysics=1&look=modern_black&bg=solid_black`;
   const child = spawnSync(process.execPath, ["scripts/e2e-showcase-export.mjs"], {
     cwd: root,
     encoding: "utf8",
@@ -173,13 +221,17 @@ const shapesValidated =
     ? (shapesReport.gateValidatedCount ?? shapesReport.validatedCount ?? 0)
     : 0;
 
+const photoBatchReport = ensurePhotoBatchReport({ runBatch: runE2e });
+const measuredPhotoPassRate =
+  typeof photoBatchReport?.passRate === "number" ? photoBatchReport.passRate : loadPhotoBatchResult();
+
 const result = evaluateShowcaseCommercialGoals({
   activeStageMaturities: maturities,
   commercialPresetCount: parsePresetCount(),
   wysiwygPassed,
   photoCorpusSize: countCorpusImages(),
-  measuredPhotoPassRate: loadPhotoBatchResult(),
-  photoBatchWaived: process.env.SHOWCASE_PHOTO_BATCH_REQUIRED !== "1",
+  measuredPhotoPassRate,
+  photoBatchWaived: process.env.SHOWCASE_PHOTO_BATCH_WAIVE === "1",
   motionKnownIssues: motionIssues,
   shapesValidated,
   shapesTotal,

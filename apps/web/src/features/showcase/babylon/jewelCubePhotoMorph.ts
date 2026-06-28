@@ -1,21 +1,7 @@
 import type { HoloContentTextures } from "./holoContentTextures";
-import {
-  applyJewelPhotoDisplayMaterial,
-  setJewelPhotoDisplayAlpha,
-} from "./jewelPhotoMaterialBridge";
-import { getInnerPhotoMaterialOptions } from "./jewelInnerPhotoMaterial";
-import { getShowcaseCatalogColorState } from "./showcaseCatalogColorState";
-import { parseHexColor3 } from "./showcaseColorParse";
-import {
-  getShowcasePhotoFrameColor3,
-  isShowcasePhotoFrameEnabled,
-  resolveShowcaseFramePresetForLayout,
-} from "./showcasePhotoFrameColor";
-import { getPhotoCrystalPhotoProfile, photoSilhouetteKindToShaderId } from "./photoCrystalPhotoProfile";
-import { resolvePhotoCrystalShape } from "./photoCrystalShapeCatalog";
+import { setJewelPhotoDisplayAlpha } from "./jewelPhotoMaterialBridge";
 import type { JewelCubePhysicsRig } from "./jewelCubeFactory";
-import { getHeartTablePhotoRadius } from "./jewelPhotoInnerMesh";
-import { setJewelPhotoCoreLayerEnabled } from "./jewelPhotoCore";
+import { setJewelPhotoCoreLayerEnabled, applyHoloToJewelPhotoLayer, syncCubePullHeroTextures } from "./jewelPhotoCore";
 
 export function jewelRigUsesPhotoMorphTwin(rig: JewelCubePhysicsRig): boolean {
   return rig.bgLayerB !== rig.bgLayerA;
@@ -25,61 +11,38 @@ export interface JewelPhotoMorphState {
   active: boolean;
   elapsedMs: number;
   durationMs: number;
+  /** Portrait/heart: fade out → swap texture → fade in on layer A. */
+  singleLayer?: boolean;
+  midSwapped?: boolean;
 }
 
-/** Smooth 0→1 with flat shoulders — softer than quadratic easeInOut. */
-function smootherstep(t: number): number {
-  const x = Math.max(0, Math.min(1, t));
-  return x * x * x * (x * (x * 6 - 15) + 10);
-}
-
-/** Symmetric crossfade — both layers visible mid-morph (no late snap). */
+/** Symmetric overlap crossfade — raised cosine, both layers visible mid-morph. */
 function morphLayerAlphas(t: number): { current: number; next: number } {
-  const u = smootherstep(t);
-  return { current: 1 - u, next: u };
+  const x = Math.max(0, Math.min(1, t));
+  const next = 0.5 - 0.5 * Math.cos(Math.PI * x);
+  return { current: 1 - next, next };
 }
 
 export function createJewelPhotoMorphState(): JewelPhotoMorphState {
-  return { active: false, elapsedMs: 0, durationMs: 0 };
-}
-
-function materialOptions(rig: JewelCubePhysicsRig, useAlpha: boolean) {
-  const profile = getPhotoCrystalPhotoProfile(rig.shapeId);
-  const effectiveFramePreset = resolveShowcaseFramePresetForLayout(
-    rig.framePresetId,
-    rig.shapeId,
-    rig.photoLayout
-  );
-  const frameEnabled = isShowcasePhotoFrameEnabled(effectiveFramePreset);
-  const { photoFrameColorHex } = getShowcaseCatalogColorState();
-  const frameColor = frameEnabled
-    ? parseHexColor3(photoFrameColorHex, getShowcasePhotoFrameColor3(effectiveFramePreset))
-    : undefined;
-  const shapeSpec = resolvePhotoCrystalShape(rig.shapeId);
-  return getInnerPhotoMaterialOptions(rig.shapeId, rig.photoLayout, useAlpha, {
-    enabled: frameEnabled,
-    color: frameColor,
-    silhouetteKind: photoSilhouetteKindToShaderId(profile.silhouette),
-    polygonSides: profile.polygonSides,
-    heartScale: rig.shapeId === "heart" ? getHeartTablePhotoRadius(rig.shapeId) : undefined,
-    ...(rig.photoLayout === "cube"
-      ? { photoAspect: 1, photoViewportFill: 1, cubeFace: true, cubeBox: false }
-      : {
-          photoAspect: shapeSpec.portraitAspect,
-          photoViewportFill: profile.photoViewportFill,
-        }),
-    cubeHalf: rig.photoLayout === "cube" ? rig.bgLayerA.cubeHalf : undefined,
-  });
+  return { active: false, elapsedMs: 0, durationMs: 0, singleLayer: false, midSwapped: false };
 }
 
 function applyHoloToLayerB(rig: JewelCubePhysicsRig, content: HoloContentTextures): void {
-  const bgTex = content.hasDepthSplit ? content.background : content.composite;
-  applyJewelPhotoDisplayMaterial(rig.bgMatB, bgTex, materialOptions(rig, false));
-  if (content.hasDepthSplit && content.foreground && rig.fgMatB && rig.fgB) {
-    applyJewelPhotoDisplayMaterial(rig.fgMatB, content.foreground, materialOptions(rig, true));
-    setJewelPhotoCoreLayerEnabled(rig.fgLayerB!, true);
-  } else if (rig.fgB) {
-    setJewelPhotoCoreLayerEnabled(rig.fgLayerB!, false);
+  applyHoloToJewelPhotoLayer(rig, rig.bgLayerB, content, false);
+  if (content.hasDepthSplit && content.foreground && rig.fgLayerB) {
+    applyHoloToJewelPhotoLayer(
+      rig,
+      rig.fgLayerB,
+      {
+        composite: content.foreground,
+        background: content.background,
+        foreground: content.foreground,
+        hasDepthSplit: true,
+      },
+      true
+    );
+  } else if (rig.fgLayerB) {
+    setJewelPhotoCoreLayerEnabled(rig.fgLayerB, false);
   }
 }
 
@@ -94,17 +57,25 @@ function disableMorphTwinLayers(rig: JewelCubePhysicsRig): void {
 }
 
 function commitHoloToLayerA(rig: JewelCubePhysicsRig, content: HoloContentTextures): void {
-  const bgTex = content.hasDepthSplit ? content.background : content.composite;
-  applyJewelPhotoDisplayMaterial(rig.bgMatA, bgTex, materialOptions(rig, false));
-  setJewelPhotoCoreLayerEnabled(rig.bgLayerA, true);
-  if (content.hasDepthSplit && content.foreground && rig.fgMatA && rig.fgA) {
-    applyJewelPhotoDisplayMaterial(rig.fgMatA, content.foreground, materialOptions(rig, true));
-    setJewelPhotoCoreLayerEnabled(rig.fgLayerA!, true);
-  } else if (rig.fgA) {
-    setJewelPhotoCoreLayerEnabled(rig.fgLayerA!, false);
+  applyHoloToJewelPhotoLayer(rig, rig.bgLayerA, content, false);
+  if (content.hasDepthSplit && content.foreground && rig.fgLayerA) {
+    applyHoloToJewelPhotoLayer(
+      rig,
+      rig.fgLayerA,
+      {
+        composite: content.foreground,
+        background: content.background,
+        foreground: content.foreground,
+        hasDepthSplit: true,
+      },
+      true
+    );
+  } else if (rig.fgLayerA) {
+    setJewelPhotoCoreLayerEnabled(rig.fgLayerA, false);
   }
   rig.hasDepthSplit = content.hasDepthSplit && content.foreground !== null;
   rig.photoTexture = content.composite;
+  syncCubePullHeroTextures(rig, content);
 }
 
 export function startJewelPhotoMorph(
@@ -113,7 +84,28 @@ export function startJewelPhotoMorph(
   durationMs: number,
   morph: JewelPhotoMorphState
 ): void {
-  if (!jewelRigUsesPhotoMorphTwin(rig) || durationMs <= 0) {
+  if (!jewelRigUsesPhotoMorphTwin(rig)) {
+    if (durationMs <= 0) {
+      commitHoloToLayerA(rig, nextContent);
+      setJewelPhotoDisplayAlpha(rig.bgMatA, 1);
+      if (rig.fgMatA) {
+        setJewelPhotoDisplayAlpha(rig.fgMatA, 1);
+      }
+      morph.active = false;
+      morph.elapsedMs = 0;
+      morph.singleLayer = false;
+      morph.midSwapped = false;
+      return;
+    }
+    morph.singleLayer = true;
+    morph.midSwapped = false;
+    morph.active = true;
+    morph.elapsedMs = 0;
+    morph.durationMs = durationMs;
+    return;
+  }
+
+  if (durationMs <= 0) {
     commitHoloToLayerA(rig, nextContent);
     setJewelPhotoDisplayAlpha(rig.bgMatA, 1);
     disableMorphTwinLayers(rig);
@@ -122,6 +114,8 @@ export function startJewelPhotoMorph(
     }
     morph.active = false;
     morph.elapsedMs = 0;
+    morph.singleLayer = false;
+    morph.midSwapped = false;
     return;
   }
 
@@ -137,6 +131,8 @@ export function startJewelPhotoMorph(
   morph.active = true;
   morph.elapsedMs = 0;
   morph.durationMs = durationMs;
+  morph.singleLayer = false;
+  morph.midSwapped = false;
 }
 
 /** Returns true when morph finished. */
@@ -146,7 +142,37 @@ export function tickJewelPhotoMorph(
   morph: JewelPhotoMorphState,
   nextContent?: HoloContentTextures
 ): boolean {
-  if (!morph.active || !jewelRigUsesPhotoMorphTwin(rig)) {
+  if (!morph.active) {
+    return true;
+  }
+
+  if (morph.singleLayer) {
+    morph.elapsedMs += dtMs;
+    const t = Math.min(1, morph.elapsedMs / Math.max(morph.durationMs, 1));
+    if (t <= 0.5) {
+      setJewelPhotoDisplayAlpha(rig.bgMatA, 1 - t * 2);
+    } else {
+      if (!morph.midSwapped && nextContent) {
+        commitHoloToLayerA(rig, nextContent);
+        morph.midSwapped = true;
+      }
+      setJewelPhotoDisplayAlpha(rig.bgMatA, (t - 0.5) * 2);
+    }
+    if (t >= 1) {
+      if (nextContent) {
+        commitHoloToLayerA(rig, nextContent);
+      }
+      setJewelPhotoDisplayAlpha(rig.bgMatA, 1);
+      morph.active = false;
+      morph.elapsedMs = 0;
+      morph.singleLayer = false;
+      morph.midSwapped = false;
+      return true;
+    }
+    return false;
+  }
+
+  if (!jewelRigUsesPhotoMorphTwin(rig)) {
     return true;
   }
 

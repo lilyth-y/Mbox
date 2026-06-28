@@ -13,6 +13,7 @@ import { attachHoloOpticsToJewelRig, createHoloOpticsRig, disposeHoloOptics, typ
 import { bindShowcaseShellGlow } from "./showcaseShellGlow";
 import { configureCrystalShellEdges } from "./jewelCubeMaterials";
 import {
+  attachCubePullHeroLayers,
   createJewelPhotoCoreLayer,
   resolveJewelPhotoLayout,
   type JewelPhotoCoreLayer,
@@ -39,6 +40,7 @@ import {
   resolveShowcaseSubsystemFlags,
   resolveShowcaseGpuTier,
   usesJewelPhotoMorphTwin,
+  shouldSpawnJewelPhotoMorphTwin,
 } from "../showcaseGpuProfile";
 import { isRenderWorkerExportSession } from "../../../shared/lib/renderExportProfile";
 import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
@@ -87,6 +89,9 @@ export interface JewelCubePhysicsRig {
   photoMorph: JewelPhotoMorphState;
   holoOptics: HoloOpticsRig;
   hasDepthSplit: boolean;
+  /** Pull-hold portrait hero (cube six-face layout only). */
+  pullHeroLayer: JewelPhotoCoreLayer | null;
+  pullHeroFgLayer: JewelPhotoCoreLayer | null;
   holoPower: number;
   fxTimeSec: number;
   /** Runtime scale from catalog slider */
@@ -129,6 +134,12 @@ function collectJewelRigDrawMeshes(rig: JewelCubePhysicsRig): Mesh[] {
       continue;
     }
     meshes.push(...layer.faces);
+  }
+  if (rig.pullHeroLayer) {
+    meshes.push(...rig.pullHeroLayer.faces);
+  }
+  if (rig.pullHeroFgLayer) {
+    meshes.push(...rig.pullHeroFgLayer.faces);
   }
   return meshes;
 }
@@ -232,14 +243,14 @@ export function createJewelCubePhysicsRig(
   const spawnZ = options.spawnZ ?? 0;
   const { holoContent } = options;
   const subsystems = resolveShowcaseSubsystemFlags();
-  const morphTwin = usesJewelPhotoMorphTwin(subsystems);
+  const shapeId = options.shapeId ?? "cube";
+  const photoLayout = resolveJewelPhotoLayout(shapeId, options.photoLayout);
+  const morphTwin = shouldSpawnJewelPhotoMorphTwin(subsystems, photoLayout);
   const hasDepthSplit =
-    morphTwin &&
+    !subsystems.singleInnerPhoto &&
     subsystems.depthSplitForeground &&
     holoContent.hasDepthSplit &&
     holoContent.foreground !== null;
-  const shapeId = options.shapeId ?? "cube";
-  const photoLayout = resolveJewelPhotoLayout(shapeId, options.photoLayout);
   const framePresetId = resolveShowcasePhotoFramePresetId(options.framePresetId);
 
   const collider = createPhotoCrystalCollider(scene, `jewel-collider-${Date.now()}`, shapeId);
@@ -356,6 +367,8 @@ export function createJewelCubePhysicsRig(
       shellInnerMaterial: null,
       photoMorph: createJewelPhotoMorphState(),
       hasDepthSplit,
+      pullHeroLayer: null,
+      pullHeroFgLayer: null,
       holoPower: 0,
       fxTimeSec: 0,
       crystalSizeScale: 1,
@@ -455,12 +468,16 @@ export function createJewelCubePhysicsRig(
     shellInnerMaterial,
     photoMorph: createJewelPhotoMorphState(),
     hasDepthSplit,
+    pullHeroLayer: null,
+    pullHeroFgLayer: null,
     holoPower: 0,
     fxTimeSec: 0,
     crystalSizeScale: 1,
   };
 
   applyShowcaseFrameSettingsToRig(rigPartial, framePresetId, options.photoFrameColorHex);
+
+  attachCubePullHeroLayers(rigPartial, scene, holoContent, hasDepthSplit);
 
   const holoOptics = attachHoloOpticsToJewelRig(rigPartial, scene);
 
@@ -483,6 +500,12 @@ export function createJewelCubePhysicsRig(
     }
     if (fgLayerB) {
       disposeLayer(fgLayerB);
+    }
+    if (rigPartial.pullHeroLayer) {
+      disposeLayer(rigPartial.pullHeroLayer);
+    }
+    if (rigPartial.pullHeroFgLayer) {
+      disposeLayer(rigPartial.pullHeroFgLayer);
     }
     bindShowcaseShellGlow(null);
     shellInner?.dispose();
@@ -554,7 +577,9 @@ export function appendJewelBgLayerB(
   scene: Scene,
   options: JewelCubeSpawnOptions
 ): void {
-  if (!usesJewelPhotoMorphTwin()) {
+  const subsystems = resolveShowcaseSubsystemFlags();
+  const photoLayout = rig.photoLayout;
+  if (!shouldSpawnJewelPhotoMorphTwin(subsystems, photoLayout)) {
     return;
   }
   if (rig.bgLayerB !== rig.bgLayerA && rig.bgLayerB.root.name.includes("jewel-bg-b-")) {
@@ -562,13 +587,12 @@ export function appendJewelBgLayerB(
   }
 
   const { holoContent } = options;
-  const subsystems = resolveShowcaseSubsystemFlags();
   const hasDepthSplit =
+    !subsystems.singleInnerPhoto &&
     subsystems.depthSplitForeground &&
     holoContent.hasDepthSplit &&
     holoContent.foreground !== null;
   const shapeId = rig.shapeId;
-  const photoLayout = rig.photoLayout;
   const framePresetId = rig.framePresetId;
   const bgTexA = hasDepthSplit ? holoContent.background : holoContent.composite;
 
@@ -617,9 +641,15 @@ export async function createJewelCubePhysicsRigStaged(
     if (!core) {
       throw new Error("[jewel] staged spawn failed");
     }
-    await forceCompileJewelRigShaders(core);
+    attachCubePullHeroLayers(
+      core as JewelCubePhysicsRig,
+      scene,
+      options.holoContent,
+      (core as JewelCubePhysicsRig).hasDepthSplit
+    );
+    await forceCompileJewelRigShaders(core as JewelCubePhysicsRig);
     await waitGpuFrames(6);
-    return core;
+    return core as JewelCubePhysicsRig;
   } finally {
     resumeShowcaseRender(engine);
   }

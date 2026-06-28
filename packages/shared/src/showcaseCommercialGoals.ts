@@ -64,7 +64,7 @@ export const SHOWCASE_COMMERCIAL_GOALS: ShowcaseCommercialGoalSpec[] = [
   {
     id: "wysiwyg_export",
     order: 4,
-    labelKo: "1080 WYSIWYG export",
+    labelKo: "2160² WYSIWYG export",
     kpi: "e2e_export_wysiwyg_passed (binary 1/0)",
     target: 1,
     theoreticalBest: 1,
@@ -109,7 +109,7 @@ export const SHOWCASE_COMMERCIAL_GOALS: ShowcaseCommercialGoalSpec[] = [
   {
     id: "booth_aspects",
     order: 9,
-    labelKo: "export 1:1 (1080²)",
+    labelKo: "export 1:1 (2160²)",
     kpi: "validated_export_aspect_templates / 1",
     target: 1,
     theoreticalBest: 1,
@@ -270,7 +270,7 @@ export function evaluateShowcaseCommercialGoals(
       SHOWCASE_COMMERCIAL_GOALS.find((g) => g.id === "photo_batch_100")!,
       input.photoBatchWaived ? null : photoPass,
       input.photoBatchWaived
-        ? "waived — export SHOWCASE_PHOTO_BATCH_REQUIRED=1 to enforce"
+        ? "waived — export SHOWCASE_PHOTO_BATCH_WAIVE=1 to skip"
         : photoCorpus < 100
           ? "blocked until corpus ≥ 100"
           : input.measuredPhotoPassRate === undefined

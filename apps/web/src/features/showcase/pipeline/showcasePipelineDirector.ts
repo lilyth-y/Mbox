@@ -4,7 +4,7 @@ import type { Scene } from "@babylonjs/core/scene";
 
 import type { JewelCubePhysicsRig } from "../babylon/jewelCubeFactory";
 
-import { startJewelPhotoMorph } from "../babylon/jewelCubePhotoMorph";
+import { syncJewelRigFacePhotos } from "../babylon/jewelPhotoCore";
 import { getJewelCubeYawRadians, setJewelCubeYaw } from "./physicsHelpers";
 
 import { resolveActiveShowcasePipeline } from "./pipelineOrder";
@@ -70,6 +70,8 @@ export interface ShowcasePipelineDirector {
   getExportRecording: () => boolean;
 
   getRig: () => JewelCubePhysicsRig | null;
+
+  getPipelineConfig: () => ShowcasePipelineConfig;
 
   getSnapshot: () => ShowcasePipelineSnapshot;
 
@@ -448,9 +450,7 @@ export function createShowcasePipelineDirector(
 
       if (state.rig && state.urls.length > 0) {
 
-        const holo = runtime.getHoloContent(state.urls[0]!);
-
-        startJewelPhotoMorph(state.rig, holo, 0, state.rig.photoMorph);
+        syncJewelRigFacePhotos(state.rig, runtime, state.urls, 0);
 
       } else if (state.rig) {
 
@@ -479,6 +479,8 @@ export function createShowcasePipelineDirector(
     getExportRecording: () => exportRecording,
 
     getRig: () => state.rig,
+
+    getPipelineConfig: () => config,
 
     getSnapshot: () => ({
 

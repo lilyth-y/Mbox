@@ -3,7 +3,7 @@
   "masterTarget": 1,
   "masterMeasured": 1,
   "masterResult": "PASS",
-  "masterGap": "Δtarget=0.0000 (8/8 gates PASS)",
+  "masterGap": "Δtarget=0.0000 (9/9 gates PASS)",
   "currentBottleneck": null,
   "measurements": [
     {
@@ -16,7 +16,7 @@
       "measured": 1,
       "result": "PASS",
       "gap": "Δtarget=0.0000, Δbest=0.0000",
-      "notes": "5/5 stages ≥ rc"
+      "notes": "4/4 stages ≥ rc"
     },
     {
       "id": "stage_commercial",
@@ -28,7 +28,7 @@
       "measured": 1,
       "result": "PASS",
       "gap": "Δtarget=0.0000, Δbest=0.0000",
-      "notes": "5/5 stages ≥ commercial"
+      "notes": "4/4 stages ≥ commercial"
     },
     {
       "id": "presets",
@@ -44,7 +44,7 @@
     },
     {
       "id": "wysiwyg_export",
-      "labelKo": "1080 WYSIWYG export",
+      "labelKo": "2160² WYSIWYG export",
       "kpi": "e2e_export_wysiwyg_passed (binary 1/0)",
       "target": 1,
       "theoreticalBest": 1,
@@ -71,10 +71,9 @@
       "target": 1,
       "theoreticalBest": 1,
       "unit": "ratio",
-      "measured": null,
-      "result": "SKIP",
-      "gap": "not measured",
-      "notes": "waived — export SHOWCASE_PHOTO_BATCH_REQUIRED=1 to enforce"
+      "measured": 1,
+      "result": "PASS",
+      "gap": "Δtarget=0.0000, Δbest=0.0000"
     },
     {
       "id": "motion_smooth",
@@ -102,7 +101,7 @@
     },
     {
       "id": "booth_aspects",
-      "labelKo": "export 1:1 (1080²)",
+      "labelKo": "export 1:1 (2160²)",
       "kpi": "validated_export_aspect_templates / 1",
       "target": 1,
       "theoreticalBest": 1,

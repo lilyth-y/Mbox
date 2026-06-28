@@ -42,6 +42,8 @@ export interface ShowcasePipelineConfig {
   rotateSpeedY: number;
   showcaseCameraRadius: number;
   morphDurationMs: number;
+  /** Crossfade begins this many ms before rotate segment ends (overlap with spin). */
+  morphOverlapMs: number;
   /** Front-on camera orbit angle (radians). */
   showcaseCameraAlpha: number;
   showcaseCameraBeta: number;
@@ -101,7 +103,8 @@ export const DEFAULT_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   rotateDurationMs: 3_400,
   rotateSpeedY: 0.9,
   showcaseCameraRadius: 3.2,
-  morphDurationMs: 2_200,
+  morphDurationMs: 2_800,
+  morphOverlapMs: 1_400,
   showcaseCameraAlpha: -Math.PI / 2,
   showcaseCameraBeta: 1.46,
   floatAmplitudeY: 0.06,
@@ -142,7 +145,8 @@ export const CLOUD_SHOWCASE_PIPELINE_CONFIG: ShowcasePipelineConfig = {
   showcaseCenter: DEFAULT_SHOWCASE_PIPELINE_CONFIG.showcaseCenter.clone(),
   revealHoldMs: 300,
   rotateDurationMs: 2_200,
-  morphDurationMs: 1_400,
+  morphDurationMs: 1_800,
+  morphOverlapMs: 900,
   pullSpinLeadMs: 900,
   pullDurationMs: 2_200,
   pullHoldMs: 600,

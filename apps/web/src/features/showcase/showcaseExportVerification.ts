@@ -158,6 +158,14 @@ export async function verifyShowcaseExportBlob(
       );
     }
 
+    const endProbeSec = Math.max(0.5, options.expectedDurationSec * 0.85);
+    await seekVideo(video, endProbeSec);
+    if (video.currentTime < options.expectedDurationSec * 0.45) {
+      errors.push(
+        `비디오 트랙이 조기 종료됐습니다 (${video.currentTime.toFixed(2)}s @ seek ${endProbeSec.toFixed(1)}s).`
+      );
+    }
+
     const sampleSec = Math.min(0.25, Math.max(0, durationSec * 0.02));
     await seekVideo(video, sampleSec);
 
