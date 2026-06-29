@@ -350,7 +350,7 @@ export function createShowcaseBabylonEngine(
   const useWebGl1 = forceWebGl1 === true;
 
   if (useWebGl1) {
-    return new Engine(canvas, true, {
+    const engine = new Engine(canvas, true, {
       preserveDrawingBuffer: automation ? true : false,
       stencil: false,
       antialias: false,
@@ -358,6 +358,12 @@ export function createShowcaseBabylonEngine(
       powerPreference: "default",
       disableWebGL2Support: true,
     });
+    try {
+      (engine.getCaps() as { parallelShaderCompile?: unknown }).parallelShaderCompile = null;
+    } catch {
+      // ignore
+    }
+    return engine;
   }
 
   const safeMode = forceLowPower || isGpuSafeMode();
@@ -401,7 +407,7 @@ export function createShowcaseBabylonEngine(
   for (const options of optionsList) {
     try {
       const engine = new Engine(canvas, true, options);
-      if (localGpuPath) {
+      if (localGpuPath || forceLowPower) {
         try {
           (engine.getCaps() as { parallelShaderCompile?: unknown }).parallelShaderCompile = null;
         } catch {

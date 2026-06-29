@@ -1,4 +1,4 @@
-import { isCloudGpuSession, isGpuSafeMode, isLocalGpuSession } from "../../shared/lib/gpuSession";
+import { isCloudGpuSession, isGpuSafeMode, isLocalGpuSession, isLocalhostInteractivePreview } from "../../shared/lib/gpuSession";
 import {
   isLocalGpuExportSession,
   isRenderWorkerExportSession,
@@ -165,17 +165,17 @@ export function resolveShowcaseSubsystemFlags(
   if (readSearchFlag("noPanorama") || kinematic) {
     base.chapelPanorama = false;
   }
-  if (readSearchFlag("noCrystalShell") || safe) {
+  if (readSearchFlag("noCrystalShell")) {
     base.crystalShell = false;
   }
   if (!base.crystalShell) {
     base.shellInnerLayer = false;
     base.shellGlow = false;
   }
-  if (readSearchFlag("noShellInner") || safe) {
+  if (readSearchFlag("noShellInner")) {
     base.shellInnerLayer = false;
   }
-  if (readSearchFlag("noDepthSplit") || safe) {
+  if (readSearchFlag("noDepthSplit")) {
     base.depthSplitForeground = false;
   }
   if (base.singleInnerPhoto) {
@@ -205,7 +205,7 @@ export function resolveShowcaseGpuTier(
   if (ctx.forceWebGl1 || ctx.gpuSafeSession) {
     return "simplified";
   }
-  if (isGpuSafeMode()) {
+  if (isGpuSafeMode() || isLocalhostInteractivePreview()) {
     return "simplified";
   }
   return "full";
@@ -237,6 +237,9 @@ export function getShowcaseConservativePlayingDelayMs(
   if (tier !== "simplified") {
     return 0;
   }
+  if (typeof window !== "undefined" && isLocalhostInteractivePreview() && !isGpuSafeMode()) {
+    return 1_500;
+  }
   const flags = resolveShowcaseSubsystemFlags(tier);
   const kinematic = shouldUseKinematicShowcasePreview(flags);
   const deferHavok = shouldDeferHavokUntilJewelStable(flags, tier);
@@ -259,6 +262,12 @@ export function resolveShowcaseGpuBudget(
     : tier === "simplified"
       ? { ...SHOWCASE_GPU_SIMPLIFIED_BUDGET }
       : { ...SHOWCASE_GPU_FULL_BUDGET };
+  if (typeof window !== "undefined" && isLocalhostInteractivePreview() && !isLocalGpuExportSession()) {
+    budget.hardwareScalingLevel = Math.max(budget.hardwareScalingLevel, 4);
+    budget.textureMaxEdge = Math.min(budget.textureMaxEdge, 1024);
+    budget.cubeTextureSize = Math.min(budget.cubeTextureSize, 1024);
+    budget.maxAnisotropy = Math.min(budget.maxAnisotropy, 2);
+  }
   budget.subsystems = resolveShowcaseSubsystemFlags(tier);
   if (imageCount > 1 && !isLocalGpuExportSession()) {
     const scale = Math.max(0.55, 1 - (imageCount - 1) * 0.06);

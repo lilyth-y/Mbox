@@ -335,7 +335,7 @@ export async function createShowcasePhysicsScene(
 
   const scene = new Scene(engine);
   partialScene = scene;
-  if (localGpuPath) {
+  if (localGpuPath || gpuSafeSession) {
     scene.blockMaterialDirtyMechanism = true;
   }
   bindShowcaseProfileScene(engine, scene);
@@ -899,6 +899,8 @@ export async function createShowcasePhysicsScene(
     if (localGpuPath) {
       runSafeRenderLoop();
       registerShowcaseRenderResume(engine, runSafeRenderLoop);
+    } else if (gpuSafeSession) {
+      scene.blockMaterialDirtyMechanism = false;
     }
     markShowcaseInitPhase("stable_frames", "post-director");
   }

@@ -52,10 +52,13 @@ export function isLocalGpuSession(): boolean {
     return true;
   }
   const params = new URLSearchParams(window.location.search);
-  if (params.get("fullGpu") === "1" || params.get("localOnly") === "1") {
+  if (params.get("safe") === "1") {
+    return false;
+  }
+  if (params.get("fullGpu") === "1") {
     return true;
   }
-  return isLocalhostDevHost();
+  return false;
 }
 
 /** @deprecated use isLocalGpuSession */
@@ -102,7 +105,7 @@ export function resolveGpuSessionMode(): GpuSessionMode {
   return "local";
 }
 
-/** Inject fullGpu + localOnly on localhost (showcase, main app, Cursor embedded browser). */
+/** Inject localOnly + noPhysics on localhost showcase (fullGpu is opt-in for RTX preview/export). */
 export function ensureLocalGpuSearchParams(): void {
   if (typeof window === "undefined") {
     return;
@@ -115,10 +118,6 @@ export function ensureLocalGpuSearchParams(): void {
     return;
   }
   let changed = false;
-  if (params.get("fullGpu") !== "1") {
-    params.set("fullGpu", "1");
-    changed = true;
-  }
   if (params.get("localOnly") !== "1") {
     params.set("localOnly", "1");
     changed = true;
@@ -131,4 +130,16 @@ export function ensureLocalGpuSearchParams(): void {
     const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
     window.history.replaceState(null, "", next);
   }
+}
+
+/** Dev localhost preview without ?fullGpu=1 — stable simplified tier (export still uses fullGpu). */
+export function isLocalhostInteractivePreview(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  if (!isLocalhostDevHost()) {
+    return false;
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("fullGpu") !== "1" && params.get("safe") !== "1";
 }

@@ -36,7 +36,7 @@ import {
   isShowcaseElectronPreviewShell,
   isShowcaseLocalGpuPreview,
 } from "./babylon/babylonCanvasGuard";
-import { isGpuSafeMode, isEmbeddedIdeShell, resolveGpuSessionMode } from "../../shared/lib/gpuSession";
+import { isGpuSafeMode, isEmbeddedIdeShell, isLocalhostInteractivePreview, resolveGpuSessionMode } from "../../shared/lib/gpuSession";
 import { usesChromeCompanionShell } from "../../shared/lib/gpuPresentation";
 import { isChromeCompanionTarget, postCompanionMessage, applyInboundCompanionCatalog } from "../../shared/lib/showcaseChromeCompanion";
 import { openSystemGpuBrowser } from "../../shared/lib/openSystemGpuBrowser";
@@ -279,10 +279,16 @@ export function ShowcaseDashboard() {
   const lastContextRestoreMsRef = useRef(0);
   const contextLossStreakRef = useRef(0);
   const gpuSafeSessionRef = useRef(
-    isShowcaseLocalGpuPreview() ? false : isGpuSafeMode()
+    isShowcaseLocalGpuPreview()
+      ? false
+      : isGpuSafeMode() || isLocalhostInteractivePreview()
   );
   /** GPU2 first — legacy GPU1 only after a real context-loss recovery. */
-  const webglFallbackRef = useRef(false);
+  const webglFallbackRef = useRef(
+    isShowcaseLocalGpuPreview()
+      ? false
+      : isGpuSafeMode() || isLocalhostInteractivePreview()
+  );
   const backdropMediaRef = useRef<HTMLVideoElement | HTMLImageElement | null>(null);
 
   const [webglRecovering, setWebglRecovering] = useState(false);
@@ -418,13 +424,18 @@ export function ShowcaseDashboard() {
       setBackdropDeferred(true);
       return;
     }
-    if (!resolveShowcaseSubsystemFlags().domBackdropVideo) {
+    const wantsBackdrop =
+      catalogRef.current.backgroundMediaSource !== "none" &&
+      Boolean(backdropMediaPath);
+    if (!wantsBackdrop) {
+      setBackdropDeferred(false);
       return;
     }
-    const deferMs = isGpuSafeMode() ? 4_000 : 1_500;
+    const deferMs =
+      isGpuSafeMode() || isLocalhostInteractivePreview() ? 2_000 : 1_500;
     const timer = window.setTimeout(() => setBackdropDeferred(false), deferMs);
     return () => window.clearTimeout(timer);
-  }, [ready, webglRecovering]);
+  }, [ready, webglRecovering, backdropMediaPath]);
 
   const applySceneImages = useCallback((nextImages: ProcessedImage[]) => {
     const nextKey = nextImages.map((image) => image.url).join("\0");
@@ -924,7 +935,7 @@ export function ShowcaseDashboard() {
           backdropSpillElement: spillRef.current,
 
           gpuSafeSession: isShowcaseLocalGpuPreview()
-            ? contextLossRebuildAttemptsRef.current >= 2
+            ? contextLossRebuildAttemptsRef.current >= 1
             : gpuSafeSessionRef.current,
 
           forceWebGl1: webglFallbackRef.current,
@@ -1002,7 +1013,7 @@ export function ShowcaseDashboard() {
                 return;
               }
 
-              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() ? 8 : 4)) {
+              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() || isLocalhostInteractivePreview() ? 8 : 4)) {
                 const help = buildShowcaseGpuHelp("GPU context lost", {
                   hadLiveContext: true,
                 });
@@ -1014,6 +1025,12 @@ export function ShowcaseDashboard() {
               }
 
               contextLossRebuildAttemptsRef.current += 1;
+              if (
+                isShowcaseLocalGpuPreview() &&
+                contextLossRebuildAttemptsRef.current >= 2
+              ) {
+                webglFallbackRef.current = true;
+              }
               sceneRef.current?.dispose();
               sceneRef.current = null;
               const canvasEl = canvasRef.current;
@@ -1038,7 +1055,7 @@ export function ShowcaseDashboard() {
                 contextLossRecoveryRef.current.rebuildTimer = null;
                 sceneRecoveryKeyRef.current += 1;
                 setSceneRecoveryKey(sceneRecoveryKeyRef.current);
-              }, contextLossRebuildAttemptsRef.current > 0 ? 800 : 450);
+              }, contextLossRebuildAttemptsRef.current > 0 ? 1_200 : 600);
               contextLossRecoveryRef.current = {
                 restoredListener: null,
                 rebuildTimer,
@@ -1098,7 +1115,7 @@ export function ShowcaseDashboard() {
               return;
             }
 
-            if (isGpuSafeMode()) {
+            if (isGpuSafeMode() || isLocalhostInteractivePreview()) {
               if (isExportGpuBusy()) {
                 setExportMessage("GPU 부하 감지 — 녹화 유지 중…");
                 contextLossRecoveryRef.current = {
@@ -1107,6 +1124,9 @@ export function ShowcaseDashboard() {
                   softRecoveryTimer: null,
                 };
                 return;
+              }
+              if (!webglFallbackRef.current && contextLossRebuildAttemptsRef.current >= 1) {
+                webglFallbackRef.current = true;
               }
               const rebuildTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.rebuildTimer = null;
@@ -1402,6 +1422,26 @@ export function ShowcaseDashboard() {
 
         const message = error instanceof Error ? error.message : "초기화 실패";
         lastInitErrorRef.current = message;
+
+        if (
+          isLocalhostInteractivePreview() &&
+          contextLossRebuildAttemptsRef.current < 8 &&
+          /webgl|gpu|context/i.test(message)
+        ) {
+          contextLossRebuildAttemptsRef.current += 1;
+          disposeAllBabylonEngines();
+          setSceneLoadError(null);
+          setSceneLoadHelp([]);
+          setReady(false);
+          setBackdropDeferred(true);
+          setStatus("미리보기 안정화 중…");
+          window.setTimeout(() => {
+            sceneRecoveryKeyRef.current += 1;
+            setSceneRecoveryKey(sceneRecoveryKeyRef.current);
+          }, 900);
+          return;
+        }
+
         disposeAllBabylonEngines();
 
         const help = buildShowcaseGpuHelp(message, {

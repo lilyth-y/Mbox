@@ -42,7 +42,7 @@ import {
   shouldSpawnJewelPhotoMorphTwin,
 } from "../showcaseGpuProfile";
 import { isRenderWorkerExportSession } from "../../../shared/lib/renderExportProfile";
-import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
+import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../shared/lib/gpuSession";
 import { isShowcaseAutomationSession } from "../showcaseAutomation";
 import { createKinematicPhysicsAggregateStub } from "./jewelKinematicStub";
 import { spreadGpuWork, waitGpuFrames } from "./showcaseGpuLoadScheduler";
@@ -173,7 +173,8 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
     { material: rig.fgMatB, mesh: rig.collider }
   );
   const seen = new Set<Material>();
-  const staggerCompile = isLocalGpuSession();
+  const staggerCompile =
+    isLocalGpuSession() || resolveShowcaseGpuTier() === "simplified";
 
   const compileOne = async (material: Material, mesh: Mesh): Promise<void> => {
     try {
@@ -193,7 +194,7 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
         }
         seen.add(material);
         await withPausedShowcaseRender(engine, () => compileOne(material, mesh));
-        await waitGpuFrames(12);
+        await waitGpuFrames(resolveShowcaseGpuTier() === "simplified" ? 24 : 12);
       }
     } else {
       await withPausedShowcaseRender(engine, async () => {
@@ -656,7 +657,7 @@ export async function createJewelCubePhysicsRigStaged(
 
 export function shouldStageJewelCubeSpawn(): boolean {
   // RTX / localhost — full shell + photos in one pass (no invisible pending shell gap).
-  if (isLocalGpuSession()) {
+  if (isLocalGpuSession() || isLocalhostInteractivePreview()) {
     return false;
   }
   if (isRenderWorkerExportSession()) {
