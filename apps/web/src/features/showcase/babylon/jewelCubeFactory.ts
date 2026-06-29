@@ -144,7 +144,10 @@ function collectJewelRigDrawMeshes(rig: JewelCubePhysicsRig): Mesh[] {
 }
 
 /** Block draw until custom shaders link — prevents parallel-compile CONTEXT_LOST on ANGLE. */
-export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Promise<void> {
+export async function forceCompileJewelRigShaders(
+  rig: JewelCubePhysicsRig,
+  options?: { photosOnly?: boolean }
+): Promise<void> {
   const scene = rig.collider.getScene();
   const engine = scene.getEngine() as Engine;
   const drawMeshes = collectJewelRigDrawMeshes(rig);
@@ -168,10 +171,14 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
   }
   pairs.push(
     { material: rig.bgMatA, mesh: rig.collider },
-    { material: rig.bgMatB, mesh: rig.collider },
-    { material: rig.fgMatA, mesh: rig.collider },
-    { material: rig.fgMatB, mesh: rig.collider }
+    { material: rig.bgMatB, mesh: rig.collider }
   );
+  if (!options?.photosOnly) {
+    pairs.push(
+      { material: rig.fgMatA, mesh: rig.collider },
+      { material: rig.fgMatB, mesh: rig.collider }
+    );
+  }
   const seen = new Set<Material>();
   const staggerCompile =
     isLocalGpuSession() || resolveShowcaseGpuTier() === "simplified";
@@ -194,7 +201,9 @@ export async function forceCompileJewelRigShaders(rig: JewelCubePhysicsRig): Pro
         }
         seen.add(material);
         await withPausedShowcaseRender(engine, () => compileOne(material, mesh));
-        await waitGpuFrames(resolveShowcaseGpuTier() === "simplified" ? 24 : 12);
+        const frameGap =
+          isLocalhostInteractivePreview() ? 36 : resolveShowcaseGpuTier() === "simplified" ? 24 : 12;
+        await waitGpuFrames(frameGap);
       }
     } else {
       await withPausedShowcaseRender(engine, async () => {
@@ -647,8 +656,12 @@ export async function createJewelCubePhysicsRigStaged(
       options.holoContent,
       (core as JewelCubePhysicsRig).hasDepthSplit
     );
-    await forceCompileJewelRigShaders(core as JewelCubePhysicsRig);
-    await waitGpuFrames(6);
+    if (isLocalhostInteractivePreview()) {
+      await waitGpuFrames(12);
+    } else {
+      await forceCompileJewelRigShaders(core as JewelCubePhysicsRig);
+      await waitGpuFrames(6);
+    }
     return core as JewelCubePhysicsRig;
   } finally {
     resumeShowcaseRender(engine);
@@ -656,9 +669,13 @@ export async function createJewelCubePhysicsRigStaged(
 }
 
 export function shouldStageJewelCubeSpawn(): boolean {
-  // RTX / localhost — full shell + photos in one pass (no invisible pending shell gap).
-  if (isLocalGpuSession() || isLocalhostInteractivePreview()) {
+  // ?fullGpu=1 RTX path — single-pass spawn (export-quality interactive).
+  if (isLocalGpuSession()) {
     return false;
+  }
+  // Default localhost preview — staged spawn avoids CONTEXT_LOST during jewel shaders.
+  if (isLocalhostInteractivePreview()) {
+    return true;
   }
   if (isRenderWorkerExportSession()) {
     return false;

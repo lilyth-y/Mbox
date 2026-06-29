@@ -723,7 +723,7 @@ export async function createShowcasePhysicsScene(
   });
   markShowcaseInitPhase("director");
 
-  /** Compile jewel shaders before the render loop — parallel draw + compile causes CONTEXT_LOST on ANGLE. */
+  /** Jewel spawn — block init on fullGpu export path; localhost interactive loads async. */
   if (localGpuPath) {
     director.setPlaying(true);
     const jewelBootstrapDeadline = performance.now() + 180_000;
@@ -737,9 +737,23 @@ export async function createShowcasePhysicsScene(
       await waitGpuFrames(2);
     }
     if (!director.getRig()) {
-      throw new Error("[showcase] local GPU jewel bootstrap timed out");
+      throw new Error("[showcase] jewel bootstrap timed out");
     }
     scene.blockMaterialDirtyMechanism = false;
+    await waitGpuFrames(gpuSpreadFrameGap());
+    assertContextAlive();
+  } else if (gpuBudget.tier === "simplified") {
+    director.setPlaying(true);
+    const interactiveDeadline = performance.now() + 45_000;
+    while (!director.getRig() && performance.now() < interactiveDeadline) {
+      assertShowcaseSceneInitContinues(options?.shouldContinue);
+      if (isBabylonGlContextLost(engine)) {
+        options?.onWebGLContextLost?.();
+        throw new Error(SHOWCASE_SCENE_INIT_CANCELLED);
+      }
+      director.tick(33);
+      await waitGpuFrames(6);
+    }
     await waitGpuFrames(gpuSpreadFrameGap());
     assertContextAlive();
   }

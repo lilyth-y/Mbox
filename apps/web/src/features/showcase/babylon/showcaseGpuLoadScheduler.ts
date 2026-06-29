@@ -1,10 +1,13 @@
 import { resolveShowcaseGpuTier } from "../showcaseGpuProfile";
-import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
+import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../shared/lib/gpuSession";
 
 /** Frames to idle the GPU between heavy init steps (shader compile, mesh spawn). */
 export function gpuSpreadFrameGap(): number {
   if (isLocalGpuSession()) {
     return 12;
+  }
+  if (isLocalhostInteractivePreview()) {
+    return 24;
   }
   return resolveShowcaseGpuTier() === "simplified" ? 16 : 2;
 }

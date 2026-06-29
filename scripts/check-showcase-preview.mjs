@@ -28,7 +28,7 @@ page.on("console", (m) => {
 
 const res = await page.goto(url, { waitUntil: "load", timeout: 60_000 });
 const timeline = [];
-for (let i = 0; i < 20; i++) {
+for (let i = 0; i < 30; i++) {
   await page.waitForTimeout(3000);
   const snap = await page.evaluate(() => {
     const body = document.body.innerText;

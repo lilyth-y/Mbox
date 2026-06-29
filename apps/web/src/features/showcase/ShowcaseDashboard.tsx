@@ -47,7 +47,6 @@ import {
 } from "./useShowcaseChromeCompanion";
 import type { ShowcaseCompanionState } from "../../shared/lib/showcaseChromeCompanion";
 import {
-  resolveShowcaseSubsystemFlags,
   getShowcaseConservativePlayingDelayMs,
 } from "./showcaseGpuProfile";
 import {
@@ -281,13 +280,13 @@ export function ShowcaseDashboard() {
   const gpuSafeSessionRef = useRef(
     isShowcaseLocalGpuPreview()
       ? false
-      : isGpuSafeMode() || isLocalhostInteractivePreview()
+      : isGpuSafeMode()
   );
-  /** GPU2 first — legacy GPU1 only after a real context-loss recovery. */
+  /** GPU2 first — WebGL1 only after a real context-loss recovery. */
   const webglFallbackRef = useRef(
     isShowcaseLocalGpuPreview()
       ? false
-      : isGpuSafeMode() || isLocalhostInteractivePreview()
+      : isGpuSafeMode()
   );
   const backdropMediaRef = useRef<HTMLVideoElement | HTMLImageElement | null>(null);
 
@@ -1013,7 +1012,7 @@ export function ShowcaseDashboard() {
                 return;
               }
 
-              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() || isLocalhostInteractivePreview() ? 8 : 4)) {
+              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() || isLocalhostInteractivePreview() ? 3 : 4)) {
                 const help = buildShowcaseGpuHelp("GPU context lost", {
                   hadLiveContext: true,
                 });
@@ -1425,7 +1424,7 @@ export function ShowcaseDashboard() {
 
         if (
           isLocalhostInteractivePreview() &&
-          contextLossRebuildAttemptsRef.current < 8 &&
+          contextLossRebuildAttemptsRef.current < 3 &&
           /webgl|gpu|context/i.test(message)
         ) {
           contextLossRebuildAttemptsRef.current += 1;
@@ -1435,10 +1434,11 @@ export function ShowcaseDashboard() {
           setReady(false);
           setBackdropDeferred(true);
           setStatus("미리보기 안정화 중…");
+          const retryDelayMs = 1_500 + contextLossRebuildAttemptsRef.current * 600;
           window.setTimeout(() => {
             sceneRecoveryKeyRef.current += 1;
             setSceneRecoveryKey(sceneRecoveryKeyRef.current);
-          }, 900);
+          }, retryDelayMs);
           return;
         }
 
@@ -1446,7 +1446,9 @@ export function ShowcaseDashboard() {
 
         const help = buildShowcaseGpuHelp(message, {
           hadLiveContext:
-            webglLiveRef.current && /context lost/i.test(message),
+            (webglLiveRef.current && /context lost/i.test(message)) ||
+            contextLossRebuildAttemptsRef.current >= 1,
+          recoveryAttempts: contextLossRebuildAttemptsRef.current,
         });
         setSceneLoadHelp(help);
         setSceneLoadError(help[0] ?? `물리 씬 오류: ${message}`);

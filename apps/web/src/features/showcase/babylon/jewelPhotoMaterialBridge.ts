@@ -16,7 +16,7 @@ import {
 
 export type JewelPhotoDisplayMaterial = JewelInnerPhotoMaterial | StandardMaterial;
 
-import { isLocalGpuSession } from "../../../shared/lib/gpuSession";
+import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../shared/lib/gpuSession";
 
 export function shouldUseStandardJewelPhotoPreview(
   options: Pick<
@@ -24,6 +24,10 @@ export function shouldUseStandardJewelPhotoPreview(
     "cubeFace" | "silhouetteKind" | "circleMask"
   > = {}
 ): boolean {
+  // Default localhost preview — StandardMaterial only (holo raster already clips silhouette).
+  if (isLocalhostInteractivePreview()) {
+    return true;
+  }
   // Custom shader UV / silhouette clip — StandardMaterial is a solid frame wash.
   if (options.cubeFace) {
     return false;

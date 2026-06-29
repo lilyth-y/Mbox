@@ -90,11 +90,16 @@ export function probeGpuSupport(): GpuProbeResult {
   let gpu2 = false;
   let gpu1 = false;
   try {
-    const canvas = document.createElement("canvas");
-    gpu2 = !!canvas.getContext("webgl2", GPU_CONTEXT_ATTRS);
+    const canvas2 = document.createElement("canvas");
+    gpu2 = !!canvas2.getContext("webgl2", GPU_CONTEXT_ATTRS);
+  } catch {
+    // leave false
+  }
+  try {
+    const canvas1 = document.createElement("canvas");
     gpu1 = !!(
-      canvas.getContext("webgl", GPU_CONTEXT_ATTRS) ||
-      canvas.getContext("experimental-webgl", GPU_CONTEXT_ATTRS)
+      canvas1.getContext("webgl", GPU_CONTEXT_ATTRS) ||
+      canvas1.getContext("experimental-webgl", GPU_CONTEXT_ATTRS)
     );
   } catch {
     // leave false
@@ -125,6 +130,8 @@ export function isShowcaseElectronPreviewShell(): boolean {
 export type GpuHelpContext = {
   /** GPU context had started before this failure (context lost vs never supported). */
   hadLiveContext?: boolean;
+  /** Hard-rebuild / init-retry count this page session. */
+  recoveryAttempts?: number;
 };
 
 /** @deprecated use GpuHelpContext */
@@ -133,9 +140,28 @@ export type WebGLHelpContext = GpuHelpContext;
 export function buildShowcaseGpuHelp(message: string, ctx?: GpuHelpContext): string[] {
   const probe = probeGpuSupport();
   const lines: string[] = [];
+  const recoveryAttempts = ctx?.recoveryAttempts ?? 0;
   const gpuNeverStarted =
     /webgl not supported|gpu not supported/i.test(message) ||
     (/gpu|webgl/i.test(message) && !probe.usable && ctx?.hadLiveContext !== true);
+
+  if (
+    recoveryAttempts >= 1 &&
+    !probe.usable &&
+    (/webgl not supported|gpu not supported/i.test(message) || ctx?.hadLiveContext === true)
+  ) {
+    lines.push(
+      "로컬 GPU는 시작됐지만 재시도 과정에서 WebGL 컨텍스트가 고갈되었습니다.",
+      "Chrome을 완전히 종료(작업 관리자에서 chrome.exe 전부)한 뒤, 3D·영상 탭 없이 이 페이지만 다시 열어 주세요."
+    );
+    if (import.meta.env.DEV) {
+      lines.push(
+        "Playwright·자동 검사용 Chrome이 GPU를 점유 중일 수 있습니다. 검사 스크립트를 끈 뒤 다시 시도하세요."
+      );
+    }
+    lines.push("chrome://gpu 에서 WebGL2가 Disabled 가 아닌지도 확인해 주세요.");
+    return lines;
+  }
 
   if (probe.embeddedIde && isLocalGpuSession() && !probe.usable) {
     lines.push(

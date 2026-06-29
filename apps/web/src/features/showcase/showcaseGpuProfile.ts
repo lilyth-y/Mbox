@@ -187,6 +187,11 @@ export function resolveShowcaseSubsystemFlags(
   if (readSearchFlag("noGlow") || tier === "simplified") {
     base.shellGlow = false;
   }
+  if (typeof window !== "undefined" && isLocalhostInteractivePreview()) {
+    base.crystalShell = false;
+    base.shellInnerLayer = false;
+    base.shellGlow = false;
+  }
 
   return base;
 }
