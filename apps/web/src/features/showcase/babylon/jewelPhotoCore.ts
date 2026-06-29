@@ -275,7 +275,15 @@ export function syncJewelRigFacePhotos(
   }
 
   if (shouldBindPerFaceCubePhotos(rig.photoLayout, urls.length)) {
-    const faceContents = urls.map((url) => runtime.getHoloContent(url));
+    const faceContents: HoloContentTextures[] = [];
+    for (const url of urls) {
+      try {
+        faceContents.push(runtime.getHoloContent(url));
+      } catch (error) {
+        console.warn("[showcase] skip cube face — holo not ready", url.slice(0, 64), error);
+        return;
+      }
+    }
     bindCubeLayerPerFacePhotos(rig, rig.bgLayerA, faceContents);
     if (rig.bgLayerB !== rig.bgLayerA && rig.bgLayerB.root.isEnabled()) {
       bindCubeLayerPerFacePhotos(rig, rig.bgLayerB, faceContents);
@@ -287,7 +295,13 @@ export function syncJewelRigFacePhotos(
   }
 
   const index = ((activeImageIndex % urls.length) + urls.length) % urls.length;
-  const holo = runtime.getHoloContent(urls[index]!);
+  let holo: HoloContentTextures;
+  try {
+    holo = runtime.getHoloContent(urls[index]!);
+  } catch (error) {
+    console.warn("[showcase] portrait holo not ready", urls[index]?.slice(0, 64), error);
+    return;
+  }
   applyPortraitHoloToRig(rig, holo);
 }
 

@@ -107,7 +107,7 @@ import { resolveShowcaseGpuBudget, type ShowcaseGpuBudget } from "../showcaseGpu
 import { gpuSpreadFrameGap, waitGpuFrames } from "./showcaseGpuLoadScheduler";
 import { resolveShowcaseBackgroundMediaPath } from "../showcaseBackgroundMedia";
 import { isShowcaseAutomationSession } from "../showcaseAutomation";
-import { isGpuSafeMode, isLocalGpuSession } from "../../../shared/lib/gpuSession";
+import { isGpuSafeMode, isLocalGpuSession, isLocalhostInteractivePreview } from "../../../shared/lib/gpuSession";
 import { isLocalGpuExportSession } from "../../../shared/lib/renderExportProfile";
 import {
   finalizeShowcaseResourceReport,
@@ -252,6 +252,9 @@ function resolveHoloPreloadImmediateCount(imageCount: number, localGpuPath: bool
     return 1;
   }
   if (localGpuPath) {
+    return imageCount;
+  }
+  if (isLocalhostInteractivePreview() && imageCount <= 12) {
     return imageCount;
   }
   return imageCount > 1 ? 1 : imageCount;

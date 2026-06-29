@@ -198,10 +198,19 @@ export async function preloadHoloContentTextures(
     map.set(key, entry);
   };
 
+  const loadSequential = async (items: typeof entries) => {
+    for (let i = 0; i < items.length; i += 1) {
+      await loadEntry(items[i]!);
+      if (i < items.length - 1) {
+        await waitGpuFrames(gap);
+      }
+    }
+  };
+
   if (options?.sequential || deferred.length > 0) {
-    for (const item of immediate) {
-      await loadEntry(item);
-      await waitGpuFrames(gap);
+    await loadSequential(immediate);
+    if (deferred.length > 0) {
+      await loadSequential(deferred);
     }
     return map;
   }
