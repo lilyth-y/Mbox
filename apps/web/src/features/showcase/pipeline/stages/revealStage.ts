@@ -21,6 +21,10 @@ import { applyJewelCrystalScale, getJewelCrystalFramingExtent } from "../../baby
 import { waitGpuFrames } from "../../babylon/showcaseGpuLoadScheduler";
 import { withPausedShowcaseRender } from "../../babylon/showcaseRenderControl";
 import { isBabylonGlContextLost } from "../../babylon/babylonCanvasGuard";
+import {
+  markShowcaseGlassUpgradeSkipped,
+  runShowcaseShellUpgrade,
+} from "../../babylon/showcaseGlassUpgrade";
 import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../../shared/lib/gpuSession";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import type { JewelCubePhysicsRig } from "../../babylon/jewelCubeFactory";
@@ -141,17 +145,27 @@ function finalizeRevealSpawn(
     const rig = ctx.rig;
     const envTexture = ctx.scene.environmentTexture;
     void (async () => {
-      const shellDelay = isLocalhostInteractivePreview() ? 120 : 48;
+      const shellDelay = isLocalhostInteractivePreview() ? 180 : 48;
       await waitGpuFrames(shellDelay);
       if (!ctx.rig || ctx.rig !== rig || !isJewelSpawnTokenValid(ctx, spawnToken)) {
         return;
       }
       const engine = ctx.scene.getEngine() as Engine;
-      try {
+      if (isBabylonGlContextLost(engine)) {
+        markShowcaseGlassUpgradeSkipped();
+        return;
+      }
+      await runShowcaseShellUpgrade(async () => {
         await withPausedShowcaseRender(engine, async () => {
+          if (isBabylonGlContextLost(engine)) {
+            throw new Error("context lost before shell attach");
+          }
           attachJewelCrystalShell(rig, ctx.scene, envTexture);
+          if (isBabylonGlContextLost(engine)) {
+            throw new Error("context lost after shell attach");
+          }
           await forceCompileJewelRigShaders(rig, { shellOnly: true });
-          await waitGpuFrames(isLocalhostInteractivePreview() ? 36 : 6);
+          await waitGpuFrames(isLocalhostInteractivePreview() ? 48 : 6);
         });
         if (
           ctx.rig &&
@@ -163,9 +177,8 @@ function finalizeRevealSpawn(
             bindShowcaseShellGlow(ctx.rig.shellMesh, ctx.rig.shellInnerMesh);
           }
         }
-      } catch (error) {
-        console.warn("[jewel] deferred shell attach failed", error);
-      }
+        return true;
+      });
     })();
   }
   ctx.phaseElapsedMs = 0;

@@ -36,6 +36,7 @@ import {
   isShowcaseElectronPreviewShell,
   isShowcaseLocalGpuPreview,
 } from "./babylon/babylonCanvasGuard";
+import { isShowcaseShellUpgradeInFlight, markShowcaseGlassUpgradeSkipped } from "./babylon/showcaseGlassUpgrade";
 import { isGpuSafeMode, isEmbeddedIdeShell, isLocalhostInteractivePreview, resolveGpuSessionMode } from "../../shared/lib/gpuSession";
 import { usesChromeCompanionShell } from "../../shared/lib/gpuPresentation";
 import { isChromeCompanionTarget, postCompanionMessage, applyInboundCompanionCatalog } from "../../shared/lib/showcaseChromeCompanion";
@@ -948,6 +949,34 @@ export function ShowcaseDashboard() {
               return;
             }
             const localGpuPath = isShowcaseLocalGpuPreview();
+            const interactive = isLocalhostInteractivePreview();
+            if (
+              interactive &&
+              (readyRef.current || isShowcaseShellUpgradeInFlight()) &&
+              sceneRef.current?.director.getRig()
+            ) {
+              markShowcaseGlassUpgradeSkipped();
+              const pending = contextLossRecoveryRef.current;
+              if (pending.rebuildTimer !== null) {
+                window.clearTimeout(pending.rebuildTimer);
+              }
+              if (pending.softRecoveryTimer !== null) {
+                window.clearTimeout(pending.softRecoveryTimer);
+              }
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer: null,
+                softRecoveryTimer: null,
+              };
+              setWebglRecovering(false);
+              setSceneLoadError(null);
+              setSceneLoadHelp([]);
+              setStatus(
+                "글래스 셸 로딩 중 GPU 한도 — 사진 미리보기는 유지됩니다. (?glass=1 또는 Chrome 재시작)"
+              );
+              sceneRef.current?.applySafeGpuRecovery();
+              return;
+            }
             if (!localGpuPath) {
               gpuSafeSessionRef.current = true;
             }
@@ -1012,7 +1041,7 @@ export function ShowcaseDashboard() {
                 return;
               }
 
-              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() || isLocalhostInteractivePreview() ? 3 : 4)) {
+              if (contextLossRebuildAttemptsRef.current >= (isGpuSafeMode() || isLocalhostInteractivePreview() ? 1 : 4)) {
                 const help = buildShowcaseGpuHelp("GPU context lost", {
                   hadLiveContext: true,
                 });
@@ -1421,26 +1450,6 @@ export function ShowcaseDashboard() {
 
         const message = error instanceof Error ? error.message : "초기화 실패";
         lastInitErrorRef.current = message;
-
-        if (
-          isLocalhostInteractivePreview() &&
-          contextLossRebuildAttemptsRef.current < 3 &&
-          /webgl|gpu|context/i.test(message)
-        ) {
-          contextLossRebuildAttemptsRef.current += 1;
-          disposeAllBabylonEngines();
-          setSceneLoadError(null);
-          setSceneLoadHelp([]);
-          setReady(false);
-          setBackdropDeferred(true);
-          setStatus("미리보기 안정화 중…");
-          const retryDelayMs = 1_500 + contextLossRebuildAttemptsRef.current * 600;
-          window.setTimeout(() => {
-            sceneRecoveryKeyRef.current += 1;
-            setSceneRecoveryKey(sceneRecoveryKeyRef.current);
-          }, retryDelayMs);
-          return;
-        }
 
         disposeAllBabylonEngines();
 

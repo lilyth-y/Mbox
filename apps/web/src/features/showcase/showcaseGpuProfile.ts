@@ -168,6 +168,14 @@ export function resolveShowcaseSubsystemFlags(
   if (readSearchFlag("noCrystalShell") || readSearchFlag("noGlass")) {
     base.crystalShell = false;
   }
+  if (
+    typeof window !== "undefined" &&
+    isLocalhostInteractivePreview() &&
+    !readSearchFlag("glass") &&
+    !isLocalGpuSession()
+  ) {
+    base.crystalShell = false;
+  }
   if (!base.crystalShell) {
     base.shellInnerLayer = false;
     base.shellGlow = false;
