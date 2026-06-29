@@ -160,7 +160,7 @@ export function buildShowcaseGpuHelp(message: string, ctx?: GpuHelpContext): str
       );
     }
     lines.push("chrome://gpu 에서 WebGL2가 Disabled 가 아닌지도 확인해 주세요.");
-    lines.push("안정 모드: URL에 ?noGlass=1 · 글래스 시도: ?glass=1 (Chrome 재시작 후)");
+    lines.push("안정 모드: ?noGlass=1 · 풀 셸: ?fullShell=1 · 최고 화질: ?fullGpu=1");
     return lines;
   }
 

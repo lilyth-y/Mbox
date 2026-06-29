@@ -36,7 +36,7 @@ import {
   isShowcaseElectronPreviewShell,
   isShowcaseLocalGpuPreview,
 } from "./babylon/babylonCanvasGuard";
-import { isShowcaseShellUpgradeInFlight, markShowcaseGlassUpgradeSkipped } from "./babylon/showcaseGlassUpgrade";
+import { isShowcaseShellUpgradeInFlight, markShowcaseGlassUpgradeSkipped, resetShowcaseGlassUpgradeSession } from "./babylon/showcaseGlassUpgrade";
 import { isGpuSafeMode, isEmbeddedIdeShell, isLocalhostInteractivePreview, resolveGpuSessionMode } from "../../shared/lib/gpuSession";
 import { usesChromeCompanionShell } from "../../shared/lib/gpuPresentation";
 import { isChromeCompanionTarget, postCompanionMessage, applyInboundCompanionCatalog } from "../../shared/lib/showcaseChromeCompanion";
@@ -327,6 +327,26 @@ export function ShowcaseDashboard() {
   useEffect(() => {
     readyRef.current = ready;
   }, [ready]);
+
+  useEffect(() => {
+    const onGlassLoading = () => {
+      if (readyRef.current) {
+        setStatus("글래스 셸 적용 중…");
+      }
+    };
+    const onGlassReady = () => {
+      const count = imagesRef.current?.length ?? 0;
+      if (count > 0 && readyRef.current) {
+        setStatus(`${count}장 · ${describeShowcasePipeline()}`);
+      }
+    };
+    window.addEventListener("mbox-showcase-glass-loading", onGlassLoading);
+    window.addEventListener("mbox-showcase-glass-ready", onGlassReady);
+    return () => {
+      window.removeEventListener("mbox-showcase-glass-loading", onGlassLoading);
+      window.removeEventListener("mbox-showcase-glass-ready", onGlassReady);
+    };
+  }, []);
 
   const [sceneLoadError, setSceneLoadError] = useState<string | null>(null);
   const [sceneLoadHelp, setSceneLoadHelp] = useState<string[]>([]);
@@ -893,6 +913,7 @@ export function ShowcaseDashboard() {
 
 
     void (async () => {
+      resetShowcaseGlassUpgradeSession();
       setReady(false);
 
       setSceneLoadError(null);
@@ -972,7 +993,7 @@ export function ShowcaseDashboard() {
               setSceneLoadError(null);
               setSceneLoadHelp([]);
               setStatus(
-                "글래스 셸 로딩 중 GPU 한도 — 사진 미리보기는 유지됩니다. (?glass=1 또는 Chrome 재시작)"
+                "글래스 셸 로딩 실패 — 사진 미리보기는 유지됩니다. Chrome 재시작 후 새로고침해 주세요."
               );
               sceneRef.current?.applySafeGpuRecovery();
               return;

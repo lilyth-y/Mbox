@@ -49,9 +49,7 @@ for (let i = 0; i < 30; i++) {
       phases: report?.phases?.map((p) => p.phase) ?? null,
       gpuTier: report?.gpuTier ?? null,
       jewel: report?.phases?.some((p) => p.phase === "jewel_spawn") ?? false,
-      glassShell:
-        Boolean(window.__MBOX_SHOWCASE_MESH_AUDIT__?.()) &&
-        (window.__MBOX_SHOWCASE_MESH_AUDIT__?.().counts?.shells ?? 0) >= 1,
+      glassShell: report?.phases?.some((p) => p.phase === "glass_shell") ?? false,
       hasBackdropVideo: Boolean(
         document.querySelector(
           ".showcase-dom-backdrop, [data-showcase-backdrop='primary']"
@@ -61,10 +59,11 @@ for (let i = 0; i < 30; i++) {
   });
   timeline.push({ sec: (i + 1) * 3, ...snap });
   console.log(JSON.stringify(timeline[timeline.length - 1]));
-  if (!snap.blocked && snap.jewel && snap.status && !snap.hardError) {
-    if (snap.glassShell || snap.sec >= 24) {
-      break;
-    }
+  if (!snap.blocked && snap.jewel && snap.glassShell && snap.status && !snap.hardError) {
+    break;
+  }
+  if (!snap.blocked && snap.jewel && snap.status && !snap.hardError && snap.sec >= 30) {
+    break;
   }
   if (snap.hardError) {
     break;
@@ -76,7 +75,7 @@ await page.screenshot({ path: shotPath, fullPage: false });
 await browser.close();
 
 const last = timeline[timeline.length - 1];
-const ok = !last?.blocked && !last?.hardError && last?.jewel && Boolean(last?.status);
+const ok = !last?.blocked && !last?.hardError && last?.jewel && last?.glassShell && Boolean(last?.status);
 const report = { url, http: res?.status(), ok, last, timeline, consoleTail: consoleTail.slice(-15), shotPath };
 writeFileSync(join(outDir, "latest-report.json"), JSON.stringify(report, null, 2));
 console.log("\nRESULT ok=", ok, "shot=", shotPath);

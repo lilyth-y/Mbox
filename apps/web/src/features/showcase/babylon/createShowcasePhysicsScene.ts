@@ -15,6 +15,10 @@ import {
   waitForGpuStableFrames,
 } from "./babylonCanvasGuard";
 import {
+  isShowcaseShellUpgradeInFlight,
+  markShowcaseGlassUpgradeSkipped,
+} from "./showcaseGlassUpgrade";
+import {
   registerShowcaseRenderResume,
   unregisterShowcaseRenderResume,
 } from "./showcaseRenderControl";
@@ -549,6 +553,10 @@ export async function createShowcasePhysicsScene(
     hadContextLoss = true;
     console.warn("[showcase] Babylon onContextLostObservable fired");
     engine.stopRenderLoop();
+    if (isShowcaseShellUpgradeInFlight()) {
+      markShowcaseGlassUpgradeSkipped();
+      return;
+    }
     options?.onWebGLContextLost?.();
   });
 

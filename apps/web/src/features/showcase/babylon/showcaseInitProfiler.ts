@@ -10,7 +10,8 @@ export type ShowcaseInitPhase =
   | "backdrop"
   | "director"
   | "stable_frames"
-  | "jewel_spawn";
+  | "jewel_spawn"
+  | "glass_shell";
 
 export type ShowcaseInitPhaseRecord = {
   phase: ShowcaseInitPhase;
@@ -56,6 +57,7 @@ const PHASE_BUDGET_MS: Record<ShowcaseInitPhase, number> = {
   director: 100,
   stable_frames: 500,
   jewel_spawn: 400,
+  glass_shell: 600,
 };
 
 let active = false;
@@ -91,7 +93,7 @@ export function markShowcaseInitPhase(
 ): void {
   const now = performance.now();
   if (!active) {
-    if (phase !== "jewel_spawn") {
+    if (phase !== "jewel_spawn" && phase !== "glass_shell") {
       return;
     }
     phases.push({

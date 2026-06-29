@@ -29,6 +29,7 @@ import {
   getShowcaseCatalogColorState,
 } from "../showcaseCatalogColorState";
 import { resolveShowcaseGpuTier } from "../../showcaseGpuProfile";
+import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../../shared/lib/gpuSession";
 
 const VERTEX = `
 precision highp float;
@@ -229,6 +230,9 @@ export function shouldUseLiteCrystalShellShader(): boolean {
   if (typeof window !== "undefined") {
     if (new URLSearchParams(window.location.search).get("fullShell") === "1") {
       return false;
+    }
+    if (isLocalhostInteractivePreview() && !isLocalGpuSession()) {
+      return true;
     }
   }
   return resolveShowcaseGpuTier() === "simplified";

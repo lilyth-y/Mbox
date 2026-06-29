@@ -20,11 +20,13 @@ import { resolveShowcaseSubsystemFlags } from "../../showcaseGpuProfile";
 import { applyJewelCrystalScale, getJewelCrystalFramingExtent } from "../../babylon/showcaseJewelScale";
 import { waitGpuFrames } from "../../babylon/showcaseGpuLoadScheduler";
 import { withPausedShowcaseRender } from "../../babylon/showcaseRenderControl";
-import { isBabylonGlContextLost } from "../../babylon/babylonCanvasGuard";
+import { isBabylonGlContextLost, waitForGpuStableFrames } from "../../babylon/babylonCanvasGuard";
 import {
+  markShowcaseGlassUpgradeReady,
   markShowcaseGlassUpgradeSkipped,
   runShowcaseShellUpgrade,
 } from "../../babylon/showcaseGlassUpgrade";
+import { markShowcaseInitPhase } from "../../babylon/showcaseInitProfiler";
 import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../../shared/lib/gpuSession";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import type { JewelCubePhysicsRig } from "../../babylon/jewelCubeFactory";
@@ -145,13 +147,18 @@ function finalizeRevealSpawn(
     const rig = ctx.rig;
     const envTexture = ctx.scene.environmentTexture;
     void (async () => {
-      const shellDelay = isLocalhostInteractivePreview() ? 180 : 48;
+      const shellDelay = isLocalhostInteractivePreview() ? 72 : 48;
       await waitGpuFrames(shellDelay);
       if (!ctx.rig || ctx.rig !== rig || !isJewelSpawnTokenValid(ctx, spawnToken)) {
         return;
       }
       const engine = ctx.scene.getEngine() as Engine;
       if (isBabylonGlContextLost(engine)) {
+        markShowcaseGlassUpgradeSkipped();
+        return;
+      }
+      const stable = await waitForGpuStableFrames(engine, 6, undefined, 12_000);
+      if (stable !== "stable" || isBabylonGlContextLost(engine)) {
         markShowcaseGlassUpgradeSkipped();
         return;
       }
@@ -165,18 +172,24 @@ function finalizeRevealSpawn(
             throw new Error("context lost after shell attach");
           }
           await forceCompileJewelRigShaders(rig, { shellOnly: true });
-          await waitGpuFrames(isLocalhostInteractivePreview() ? 48 : 6);
+          await waitGpuFrames(isLocalhostInteractivePreview() ? 24 : 6);
         });
         if (
-          ctx.rig &&
-          isJewelSpawnTokenValid(ctx, spawnToken) &&
-          isJewelShellRenderable(ctx.rig)
+          !ctx.rig ||
+          !isJewelSpawnTokenValid(ctx, spawnToken) ||
+          !isJewelShellRenderable(ctx.rig)
         ) {
-          const shellGlow = resolveShowcaseSubsystemFlags().shellGlow;
-          if (shellGlow) {
-            bindShowcaseShellGlow(ctx.rig.shellMesh, ctx.rig.shellInnerMesh);
-          }
+          throw new Error("shell not renderable after attach");
         }
+        const shellGlow = resolveShowcaseSubsystemFlags().shellGlow;
+        if (shellGlow) {
+          bindShowcaseShellGlow(ctx.rig.shellMesh, ctx.rig.shellInnerMesh);
+        }
+        markShowcaseInitPhase(
+          "glass_shell",
+          isLocalhostInteractivePreview() ? "lite" : "full"
+        );
+        markShowcaseGlassUpgradeReady();
         return true;
       });
     })();
