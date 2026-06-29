@@ -7,9 +7,26 @@ export function gpuSpreadFrameGap(): number {
     return 12;
   }
   if (isLocalhostInteractivePreview()) {
-    return 24;
+    return 12;
   }
   return resolveShowcaseGpuTier() === "simplified" ? 16 : 2;
+}
+
+/** Frame gap between holo photo texture uploads (smaller sets need less idle time). */
+export function holoTextureSpreadGap(imageCount: number): number {
+  if (isLocalGpuSession()) {
+    return 8;
+  }
+  if (isLocalhostInteractivePreview()) {
+    if (imageCount <= 3) {
+      return 3;
+    }
+    if (imageCount <= 8) {
+      return 5;
+    }
+    return 8;
+  }
+  return resolveShowcaseGpuTier() === "simplified" ? 8 : 2;
 }
 
 export function waitGpuFrames(frameCount: number): Promise<void> {

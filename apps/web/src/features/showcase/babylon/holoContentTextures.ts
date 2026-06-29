@@ -13,7 +13,7 @@ import { createJewelPhotoTexture } from "./photoTextureRaster";
 import type { JewelPhotoCropMeta, JewelPhotoTextureOptions } from "./jewelPhotoTextureTypes";
 
 import { resolveJewelPhotoRasterCacheKey } from "./jewelPhotoRasterSpec";
-import { gpuSpreadFrameGap, waitGpuFrames } from "./showcaseGpuLoadScheduler";
+import { holoTextureSpreadGap, waitGpuFrames } from "./showcaseGpuLoadScheduler";
 
 
 
@@ -174,7 +174,11 @@ export async function preloadHoloContentTextures(
 
   maxAnisotropy = 16,
 
-  options?: { sequential?: boolean; immediateCount?: number }
+  options?: {
+    sequential?: boolean;
+    immediateCount?: number;
+    existingCache?: Map<string, HoloContentTextures>;
+  }
 
 ): Promise<Map<string, HoloContentTextures>> {
 
@@ -190,10 +194,22 @@ export async function preloadHoloContentTextures(
   const immediateCount = Math.max(1, options?.immediateCount ?? entries.length);
   const immediate = entries.slice(0, immediateCount);
   const deferred = entries.slice(immediateCount);
+  const existingCache = options?.existingCache;
 
   const map = new Map<string, HoloContentTextures>();
-  const gap = gpuSpreadFrameGap();
+  if (existingCache) {
+    for (const [key] of entries) {
+      const cached = existingCache.get(key);
+      if (cached) {
+        map.set(key, cached);
+      }
+    }
+  }
+  const gap = holoTextureSpreadGap(entries.length);
   const loadEntry = async ([key, image]: readonly [string, ProcessedImage]) => {
+    if (map.has(key)) {
+      return;
+    }
     const entry = await loadHoloContentEntry(scene, image, profile, maxAnisotropy);
     map.set(key, entry);
   };
@@ -233,7 +249,7 @@ export async function prefetchDeferredHoloContentTextures(
     unique.set(imageCacheKey(image, profile), image);
   }
   const entries = [...unique.entries()].slice(skipCount);
-  const gap = gpuSpreadFrameGap();
+  const gap = holoTextureSpreadGap(entries.length + skipCount);
   for (const [key, image] of entries) {
     if (cache.has(key)) {
       continue;

@@ -61,7 +61,7 @@ export interface ShowcasePipelineDirector {
 
   getPresentationPreferences: () => ShowcasePresentationPreferences;
 
-  setImageUrls: (urls: string[]) => void;
+  setImageUrls: (urls: string[], options?: { soft?: boolean }) => void;
 
   setCatalog: (catalog: ShowcaseCatalogOptions) => void;
 
@@ -436,9 +436,23 @@ export function createShowcasePipelineDirector(
 
     getPresentationPreferences: () => ({ ...presentationPrefs }),
 
-    setImageUrls(next: string[]) {
+    setImageUrls(next: string[], options?: { soft?: boolean }) {
 
+      const prevUrls = state.urls;
       state.urls = next.slice();
+
+      if (
+        options?.soft &&
+        state.rig &&
+        state.urls.length > 0 &&
+        prevUrls.length > 0 &&
+        state.playing
+      ) {
+        state.imageIndex =
+          ((state.imageIndex % state.urls.length) + state.urls.length) % state.urls.length;
+        syncJewelRigFacePhotos(state.rig, runtime, state.urls, state.imageIndex);
+        return;
+      }
 
       state.imageIndex = 0;
 

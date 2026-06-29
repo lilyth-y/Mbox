@@ -477,7 +477,7 @@ export function ShowcaseDashboard() {
           setStatus(`${nextImages.length}장 · 사진 적용 중…`);
           await handle.setImages(nextImages);
           sceneImagesKeyRef.current = nextKey;
-          setCurrentStep(1);
+          setCurrentStep(handle.getImageIndex() + 1);
           setStatus(`${nextImages.length}장 · ${describeShowcasePipeline()}`);
         } catch (error) {
           const message = error instanceof Error ? error.message : "사진 텍스처 로드 실패";
@@ -1757,6 +1757,21 @@ export function ShowcaseDashboard() {
       playingRef.current = true;
       sceneRef.current?.setPlaying(true);
 
+      // Uploads often start with just a few photos. Cube(6면) is the most GPU-sensitive
+      // and can look empty until all faces are populated. Prefer portrait engraving
+      // so users see their uploads immediately (they can switch back to cube anytime).
+      let effectiveCatalog = catalogRef.current;
+      if (
+        effectiveCatalog.photoLayout !== "portrait" &&
+        (effectiveCatalog.photoLayout === "cube" || effectiveCatalog.photoLayout === "auto") &&
+        nextImages.length < 6
+      ) {
+        effectiveCatalog = { ...effectiveCatalog, photoLayout: "portrait" as const };
+        catalogRef.current = effectiveCatalog;
+        setCatalog(effectiveCatalog);
+        syncShowcaseCatalogToUrl(effectiveCatalog);
+      }
+
       const pipelineLabel = describeShowcasePipeline();
       setStatus(
         chromeCompanionShell
@@ -1768,7 +1783,12 @@ export function ShowcaseDashboard() {
 
       if (!chromeCompanionShell && readyRef.current && sceneRef.current) {
         sceneImagesKeyRef.current = null;
-        void applySceneImages(nextImages);
+        const jewelKey = buildJewelProfileKey(effectiveCatalog);
+        if (jewelKey !== sceneJewelProfileKeyRef.current) {
+          void scheduleJewelProfileUpdate(effectiveCatalog, nextImages).then(() => applySceneImages(nextImages));
+        } else {
+          void applySceneImages(nextImages);
+        }
       } else if (chromeCompanionShell && !chromeLive) {
         setStatus(`${nextImages.length}장 · RTX Chrome 탭을 연 뒤 사진이 표시됩니다`);
       }
@@ -1780,6 +1800,18 @@ export function ShowcaseDashboard() {
         const refinedImages = refined.slice(0, 12);
         imagesRef.current = refinedImages;
         setImages(refinedImages);
+
+        let refinedCatalog = catalogRef.current;
+        if (
+          refinedCatalog.photoLayout !== "portrait" &&
+          (refinedCatalog.photoLayout === "cube" || refinedCatalog.photoLayout === "auto") &&
+          refinedImages.length < 6
+        ) {
+          refinedCatalog = { ...refinedCatalog, photoLayout: "portrait" as const };
+          catalogRef.current = refinedCatalog;
+          setCatalog(refinedCatalog);
+          syncShowcaseCatalogToUrl(refinedCatalog);
+        }
         if (usedCloud) {
           setStatus(
             applyBackgroundRemoval
@@ -1791,7 +1823,14 @@ export function ShowcaseDashboard() {
         }
         if (!chromeCompanionShell && readyRef.current && sceneRef.current) {
           sceneImagesKeyRef.current = null;
-          void applySceneImages(refinedImages);
+          const jewelKey = buildJewelProfileKey(refinedCatalog);
+          if (jewelKey !== sceneJewelProfileKeyRef.current) {
+            void scheduleJewelProfileUpdate(refinedCatalog, refinedImages).then(() =>
+              applySceneImages(refinedImages)
+            );
+          } else {
+            void applySceneImages(refinedImages);
+          }
         }
       });
     } catch (error) {

@@ -132,19 +132,27 @@ function bindShellEnvMaps(
 
 
 
-  if (shellMaterial) {
+  if (shellMaterial && typeof (shellMaterial as any).setVector3 === "function") {
 
-    setJewelCrystalShellEnvMaps(shellMaterial, colorEnv, mediaEnv);
+    try {
+      setJewelCrystalShellEnvMaps(shellMaterial, colorEnv, mediaEnv);
+    } catch {
+      // Some sessions can temporarily expose a lite shell material placeholder.
+      // Keep the preview running; env maps will be rebound after upgrade.
+    }
 
     applyUserCrystalSurfaceColor(shellMaterial);
-
     applyCrystalMediaReflectionStrength(shellMaterial);
 
   }
 
-  if (innerShellMaterial) {
+  if (innerShellMaterial && typeof (innerShellMaterial as any).setVector3 === "function") {
 
-    setJewelCrystalShellEnvMaps(innerShellMaterial, colorEnv, mediaEnv);
+    try {
+      setJewelCrystalShellEnvMaps(innerShellMaterial, colorEnv, mediaEnv);
+    } catch {
+      // ignore
+    }
 
   }
 

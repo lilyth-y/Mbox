@@ -146,7 +146,7 @@ function collectJewelRigDrawMeshes(rig: JewelCubePhysicsRig): Mesh[] {
 /** Block draw until custom shaders link — prevents parallel-compile CONTEXT_LOST on ANGLE. */
 export async function forceCompileJewelRigShaders(
   rig: JewelCubePhysicsRig,
-  options?: { photosOnly?: boolean; shellOnly?: boolean }
+  options?: { photosOnly?: boolean; shellOnly?: boolean; liveCompile?: boolean }
 ): Promise<void> {
   const scene = rig.collider.getScene();
   const engine = scene.getEngine() as Engine;
@@ -191,6 +191,7 @@ export async function forceCompileJewelRigShaders(
   const seen = new Set<Material>();
   const staggerCompile =
     isLocalGpuSession() || resolveShowcaseGpuTier() === "simplified";
+  const liveCompile = Boolean(options?.liveCompile);
 
   const compileOne = async (material: Material, mesh: Mesh): Promise<void> => {
     try {
@@ -209,10 +210,21 @@ export async function forceCompileJewelRigShaders(
           continue;
         }
         seen.add(material);
-        await withPausedShowcaseRender(engine, () => compileOne(material, mesh));
-        const frameGap =
-          isLocalhostInteractivePreview() ? 36 : resolveShowcaseGpuTier() === "simplified" ? 24 : 12;
-        await waitGpuFrames(frameGap);
+        if (liveCompile) {
+          await compileOne(material, mesh);
+          await waitGpuFrames(
+            isLocalhostInteractivePreview()
+              ? 4
+              : resolveShowcaseGpuTier() === "simplified"
+                ? 8
+                : 6
+          );
+        } else {
+          await withPausedShowcaseRender(engine, () => compileOne(material, mesh));
+          const frameGap =
+            isLocalhostInteractivePreview() ? 12 : resolveShowcaseGpuTier() === "simplified" ? 24 : 12;
+          await waitGpuFrames(frameGap);
+        }
       }
     } else {
       await withPausedShowcaseRender(engine, async () => {
@@ -641,7 +653,10 @@ export async function createJewelCubePhysicsRigStaged(
   options: JewelCubeSpawnOptions
 ): Promise<JewelCubePhysicsRig> {
   const engine = scene.getEngine() as Engine;
-  pauseShowcaseRender(engine);
+  const pauseOuter = !isLocalhostInteractivePreview();
+  if (pauseOuter) {
+    pauseShowcaseRender(engine);
+  }
   let core: JewelCubePhysicsRig | null = null;
 
   try {
@@ -666,14 +681,16 @@ export async function createJewelCubePhysicsRigStaged(
       (core as JewelCubePhysicsRig).hasDepthSplit
     );
     if (isLocalhostInteractivePreview()) {
-      await waitGpuFrames(12);
+      await waitGpuFrames(4);
     } else {
       await forceCompileJewelRigShaders(core as JewelCubePhysicsRig);
       await waitGpuFrames(6);
     }
     return core as JewelCubePhysicsRig;
   } finally {
-    resumeShowcaseRender(engine);
+    if (pauseOuter) {
+      resumeShowcaseRender(engine);
+    }
   }
 }
 

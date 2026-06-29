@@ -1071,11 +1071,13 @@ export async function createShowcasePhysicsScene(
         nextImages,
         holoRasterProfile,
         maxAnisotropy,
-        holoPreloadOptions
+        { ...holoPreloadOptions, existingCache: holoContentCache }
       )
         .then((nextCache) => {
           mergeHoloCache(nextCache);
-          director.setImageUrls(nextImages.map((image) => image.url));
+          director.setImageUrls(nextImages.map((image) => image.url), {
+            soft: Boolean(director.getRig()) && director.playing,
+          });
           if (nextImages.length > holoImmediateCount) {
             return prefetchDeferredHoloContentTextures(
               scene,

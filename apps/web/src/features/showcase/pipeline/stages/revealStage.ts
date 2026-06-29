@@ -147,7 +147,7 @@ function finalizeRevealSpawn(
     const rig = ctx.rig;
     const envTexture = ctx.scene.environmentTexture;
     void (async () => {
-      const shellDelay = isLocalhostInteractivePreview() ? 72 : 48;
+      const shellDelay = isLocalhostInteractivePreview() ? 36 : 48;
       await waitGpuFrames(shellDelay);
       if (!ctx.rig || ctx.rig !== rig || !isJewelSpawnTokenValid(ctx, spawnToken)) {
         return;
@@ -157,13 +157,18 @@ function finalizeRevealSpawn(
         markShowcaseGlassUpgradeSkipped();
         return;
       }
-      const stable = await waitForGpuStableFrames(engine, 6, undefined, 12_000);
+      const stable = await waitForGpuStableFrames(
+        engine,
+        isLocalhostInteractivePreview() ? 3 : 6,
+        undefined,
+        12_000
+      );
       if (stable !== "stable" || isBabylonGlContextLost(engine)) {
         markShowcaseGlassUpgradeSkipped();
         return;
       }
       await runShowcaseShellUpgrade(async () => {
-        await withPausedShowcaseRender(engine, async () => {
+        const attachAndCompile = async () => {
           if (isBabylonGlContextLost(engine)) {
             throw new Error("context lost before shell attach");
           }
@@ -171,9 +176,17 @@ function finalizeRevealSpawn(
           if (isBabylonGlContextLost(engine)) {
             throw new Error("context lost after shell attach");
           }
-          await forceCompileJewelRigShaders(rig, { shellOnly: true });
-          await waitGpuFrames(isLocalhostInteractivePreview() ? 24 : 6);
-        });
+          await forceCompileJewelRigShaders(rig, {
+            shellOnly: true,
+            liveCompile: isLocalhostInteractivePreview(),
+          });
+          await waitGpuFrames(isLocalhostInteractivePreview() ? 4 : 6);
+        };
+        if (isLocalhostInteractivePreview()) {
+          await attachAndCompile();
+        } else {
+          await withPausedShowcaseRender(engine, attachAndCompile);
+        }
         if (
           !ctx.rig ||
           !isJewelSpawnTokenValid(ctx, spawnToken) ||

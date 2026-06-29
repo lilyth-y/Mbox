@@ -6,6 +6,8 @@ import type { Scene } from "@babylonjs/core/scene";
 
 import { isTransparentMatteDataUrl } from "@mbox/shared";
 
+import { isLocalhostInteractivePreview } from "../../../shared/lib/gpuSession";
+
 import {
 
   drawImageCoverToRect,
@@ -64,7 +66,10 @@ export type { JewelPhotoCropMeta, JewelPhotoTextureOptions } from "./jewelPhotoT
 
 
 
-function loadImageElement(url: string, timeoutMs = 12_000): Promise<HTMLImageElement> {
+function loadImageElement(url: string, timeoutMs?: number): Promise<HTMLImageElement> {
+  const effectiveTimeoutMs =
+    timeoutMs ??
+    (url.startsWith("data:") || url.startsWith("blob:") ? 30_000 : 12_000);
 
   return new Promise((resolve, reject) => {
 
@@ -74,7 +79,7 @@ function loadImageElement(url: string, timeoutMs = 12_000): Promise<HTMLImageEle
 
       reject(new Error(`[showcase] photo load timeout: ${url.slice(0, 96)}`));
 
-    }, timeoutMs);
+    }, effectiveTimeoutMs);
 
     if (!url.startsWith("data:") && !url.startsWith("blob:")) {
 
@@ -100,6 +105,11 @@ function loadImageElement(url: string, timeoutMs = 12_000): Promise<HTMLImageEle
 
           }
 
+        }
+
+        if (!image.naturalWidth || !image.naturalHeight) {
+          reject(new Error(`[showcase] photo load empty: ${url.slice(0, 96)}`));
+          return;
         }
 
         resolve(image);
@@ -420,6 +430,24 @@ export async function createJewelPhotoTexture(
 
     outHeight = sq;
 
+  }
+
+  const useDirectDraw =
+    isLocalhostInteractivePreview() &&
+    (imageUrl.startsWith("data:") || imageUrl.startsWith("blob:"));
+
+  if (useDirectDraw) {
+    // Upload previews: avoid ImageBitmap/OffscreenCanvas raster paths which can produce
+    // blank results on some ANGLE/WebView setups. Show the original immediately.
+    const texture = new Texture(
+      imageUrl,
+      scene,
+      false,
+      true,
+      Texture.TRILINEAR_SAMPLINGMODE
+    );
+    configureJewelPhotoTexture(texture, maxAnisotropy);
+    return texture;
   }
 
 
