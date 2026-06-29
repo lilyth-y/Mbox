@@ -146,7 +146,7 @@ function collectJewelRigDrawMeshes(rig: JewelCubePhysicsRig): Mesh[] {
 /** Block draw until custom shaders link — prevents parallel-compile CONTEXT_LOST on ANGLE. */
 export async function forceCompileJewelRigShaders(
   rig: JewelCubePhysicsRig,
-  options?: { photosOnly?: boolean }
+  options?: { photosOnly?: boolean; shellOnly?: boolean }
 ): Promise<void> {
   const scene = rig.collider.getScene();
   const engine = scene.getEngine() as Engine;
@@ -163,21 +163,30 @@ export async function forceCompileJewelRigShaders(
   }
 
   const pairs: Array<{ material: Material | null; mesh: Mesh }> = [];
-  if (isJewelShellRenderable(rig)) {
+  if (options?.shellOnly) {
+    if (isJewelShellRenderable(rig)) {
+      pairs.push(
+        { material: rig.shellMaterial, mesh: rig.shellMesh },
+        { material: rig.shellInnerMaterial, mesh: rig.shellInnerMesh ?? rig.shellMesh }
+      );
+    }
+  } else {
+    if (isJewelShellRenderable(rig)) {
+      pairs.push(
+        { material: rig.shellMaterial, mesh: rig.shellMesh },
+        { material: rig.shellInnerMaterial, mesh: rig.shellInnerMesh ?? rig.shellMesh }
+      );
+    }
     pairs.push(
-      { material: rig.shellMaterial, mesh: rig.shellMesh },
-      { material: rig.shellInnerMaterial, mesh: rig.shellInnerMesh ?? rig.shellMesh }
+      { material: rig.bgMatA, mesh: rig.collider },
+      { material: rig.bgMatB, mesh: rig.collider }
     );
-  }
-  pairs.push(
-    { material: rig.bgMatA, mesh: rig.collider },
-    { material: rig.bgMatB, mesh: rig.collider }
-  );
-  if (!options?.photosOnly) {
-    pairs.push(
-      { material: rig.fgMatA, mesh: rig.collider },
-      { material: rig.fgMatB, mesh: rig.collider }
-    );
+    if (!options?.photosOnly) {
+      pairs.push(
+        { material: rig.fgMatA, mesh: rig.collider },
+        { material: rig.fgMatB, mesh: rig.collider }
+      );
+    }
   }
   const seen = new Set<Material>();
   const staggerCompile =

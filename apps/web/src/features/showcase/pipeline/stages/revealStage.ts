@@ -21,7 +21,7 @@ import { applyJewelCrystalScale, getJewelCrystalFramingExtent } from "../../baby
 import { waitGpuFrames } from "../../babylon/showcaseGpuLoadScheduler";
 import { withPausedShowcaseRender } from "../../babylon/showcaseRenderControl";
 import { isBabylonGlContextLost } from "../../babylon/babylonCanvasGuard";
-import { isLocalGpuSession } from "../../../../shared/lib/gpuSession";
+import { isLocalGpuSession, isLocalhostInteractivePreview } from "../../../../shared/lib/gpuSession";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import type { JewelCubePhysicsRig } from "../../babylon/jewelCubeFactory";
 import {
@@ -141,7 +141,8 @@ function finalizeRevealSpawn(
     const rig = ctx.rig;
     const envTexture = ctx.scene.environmentTexture;
     void (async () => {
-      await waitGpuFrames(48);
+      const shellDelay = isLocalhostInteractivePreview() ? 120 : 48;
+      await waitGpuFrames(shellDelay);
       if (!ctx.rig || ctx.rig !== rig || !isJewelSpawnTokenValid(ctx, spawnToken)) {
         return;
       }
@@ -149,9 +150,19 @@ function finalizeRevealSpawn(
       try {
         await withPausedShowcaseRender(engine, async () => {
           attachJewelCrystalShell(rig, ctx.scene, envTexture);
-          await forceCompileJewelRigShaders(rig);
-          await waitGpuFrames(6);
+          await forceCompileJewelRigShaders(rig, { shellOnly: true });
+          await waitGpuFrames(isLocalhostInteractivePreview() ? 36 : 6);
         });
+        if (
+          ctx.rig &&
+          isJewelSpawnTokenValid(ctx, spawnToken) &&
+          isJewelShellRenderable(ctx.rig)
+        ) {
+          const shellGlow = resolveShowcaseSubsystemFlags().shellGlow;
+          if (shellGlow) {
+            bindShowcaseShellGlow(ctx.rig.shellMesh, ctx.rig.shellInnerMesh);
+          }
+        }
       } catch (error) {
         console.warn("[jewel] deferred shell attach failed", error);
       }

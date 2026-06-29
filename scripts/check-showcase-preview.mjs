@@ -49,6 +49,9 @@ for (let i = 0; i < 30; i++) {
       phases: report?.phases?.map((p) => p.phase) ?? null,
       gpuTier: report?.gpuTier ?? null,
       jewel: report?.phases?.some((p) => p.phase === "jewel_spawn") ?? false,
+      glassShell:
+        Boolean(window.__MBOX_SHOWCASE_MESH_AUDIT__?.()) &&
+        (window.__MBOX_SHOWCASE_MESH_AUDIT__?.().counts?.shells ?? 0) >= 1,
       hasBackdropVideo: Boolean(
         document.querySelector(
           ".showcase-dom-backdrop, [data-showcase-backdrop='primary']"
@@ -59,7 +62,9 @@ for (let i = 0; i < 30; i++) {
   timeline.push({ sec: (i + 1) * 3, ...snap });
   console.log(JSON.stringify(timeline[timeline.length - 1]));
   if (!snap.blocked && snap.jewel && snap.status && !snap.hardError) {
-    break;
+    if (snap.glassShell || snap.sec >= 24) {
+      break;
+    }
   }
   if (snap.hardError) {
     break;

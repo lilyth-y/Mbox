@@ -165,7 +165,7 @@ export function resolveShowcaseSubsystemFlags(
   if (readSearchFlag("noPanorama") || kinematic) {
     base.chapelPanorama = false;
   }
-  if (readSearchFlag("noCrystalShell")) {
+  if (readSearchFlag("noCrystalShell") || readSearchFlag("noGlass")) {
     base.crystalShell = false;
   }
   if (!base.crystalShell) {
@@ -185,11 +185,6 @@ export function resolveShowcaseSubsystemFlags(
     base.singleInnerPhoto = false;
   }
   if (readSearchFlag("noGlow") || tier === "simplified") {
-    base.shellGlow = false;
-  }
-  if (typeof window !== "undefined" && isLocalhostInteractivePreview()) {
-    base.crystalShell = false;
-    base.shellInnerLayer = false;
     base.shellGlow = false;
   }
 
@@ -268,12 +263,17 @@ export function resolveShowcaseGpuBudget(
       ? { ...SHOWCASE_GPU_SIMPLIFIED_BUDGET }
       : { ...SHOWCASE_GPU_FULL_BUDGET };
   if (typeof window !== "undefined" && isLocalhostInteractivePreview() && !isLocalGpuExportSession()) {
-    budget.hardwareScalingLevel = Math.max(budget.hardwareScalingLevel, 4);
-    budget.textureMaxEdge = Math.min(budget.textureMaxEdge, 1024);
-    budget.cubeTextureSize = Math.min(budget.cubeTextureSize, 1024);
-    budget.maxAnisotropy = Math.min(budget.maxAnisotropy, 2);
+    budget.hardwareScalingLevel = Math.min(budget.hardwareScalingLevel, 1.5);
+    budget.textureMaxEdge = Math.min(budget.textureMaxEdge, 1536);
+    budget.cubeTextureSize = Math.min(budget.cubeTextureSize, 1536);
+    budget.maxAnisotropy = Math.min(budget.maxAnisotropy, 8);
   }
   budget.subsystems = resolveShowcaseSubsystemFlags(tier);
+  if (typeof window !== "undefined" && isLocalhostInteractivePreview() && !isLocalGpuExportSession()) {
+    if (!readSearchFlag("noVideo") && !isGpuSafeMode()) {
+      budget.subsystems.domBackdropVideo = true;
+    }
+  }
   if (imageCount > 1 && !isLocalGpuExportSession()) {
     const scale = Math.max(0.55, 1 - (imageCount - 1) * 0.06);
     budget.textureMaxEdge = Math.max(512, Math.floor(budget.textureMaxEdge * scale));
