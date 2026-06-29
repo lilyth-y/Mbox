@@ -60,7 +60,11 @@ export type ShowcaseExportCompositeStreamOptions = {
 export type ShowcaseExportCompositeStream = {
   stream: MediaStream;
   getPaintCount: () => number;
+  getRecordedPaintCount: () => number;
   beginRecording: () => void;
+  /** Explicit composite paint for paced export (one encoder frame). */
+  paintExportFrame: () => void;
+  setSuppressAutoPaint: (suppressed: boolean) => void;
   waitForRecordedFrames: (frameCount: number, timeoutMs?: number) => Promise<void>;
   dispose: () => void;
   waitForPaintCount: (count: number, timeoutMs?: number) => Promise<void>;
@@ -94,6 +98,7 @@ export function createShowcaseExportCompositeStream(
   let paintCount = 0;
   let recordPaintCount = 0;
   let recordingActive = false;
+  let suppressAutoPaint = false;
   const paintWaiters: Array<(count: number) => void> = [];
   const recordWaiters: Array<(count: number) => void> = [];
 
@@ -147,7 +152,13 @@ export function createShowcaseExportCompositeStream(
 
   paint();
 
-  const unsubscribeRender = onAfterRender(paint);
+  const paintFromBabylonRender = () => {
+    if (!suppressAutoPaint) {
+      paint();
+    }
+  };
+
+  const unsubscribeRender = onAfterRender(paintFromBabylonRender);
 
   let disposed = false;
   let rafId = 0;
@@ -296,7 +307,12 @@ export function createShowcaseExportCompositeStream(
   return {
     stream: mediaStream,
     getPaintCount: () => paintCount,
+    getRecordedPaintCount: () => recordPaintCount,
     beginRecording,
+    paintExportFrame: paint,
+    setSuppressAutoPaint: (suppressed: boolean) => {
+      suppressAutoPaint = suppressed;
+    },
     waitForRecordedFrames,
     waitForPaintCount,
     dispose: () => {

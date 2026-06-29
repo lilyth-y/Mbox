@@ -39,7 +39,6 @@ import {
 import {
   resolveShowcaseSubsystemFlags,
   resolveShowcaseGpuTier,
-  usesJewelPhotoMorphTwin,
   shouldSpawnJewelPhotoMorphTwin,
 } from "../showcaseGpuProfile";
 import { isRenderWorkerExportSession } from "../../../shared/lib/renderExportProfile";

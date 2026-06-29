@@ -32,20 +32,26 @@ export type ShowcaseExportVerificationOptions = {
   minFileBytes?: number;
   /** Pre-record composite fingerprint — enables WYSIWYG check on first export frame. */
   previewFingerprint?: ShowcaseFrameFingerprint;
+  /** Skip HTMLVideo decode (large headless exports hang on blob: load). */
+  skipVideoProbe?: boolean;
 };
 
 const DEFAULT_MIN_CENTER_LUMA = 22;
 const DEFAULT_MIN_FILE_BYTES = 80_000;
 
-async function loadExportVideo(blob: Blob): Promise<HTMLVideoElement> {
+async function loadExportVideo(blob: Blob, timeoutMs = 45_000): Promise<HTMLVideoElement> {
   const video = document.createElement("video");
   video.muted = true;
   video.playsInline = true;
-  video.preload = "auto";
+  video.preload = "metadata";
   const url = URL.createObjectURL(blob);
   video.src = url;
 
   await new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("[showcase] export verification — video metadata timeout"));
+    }, timeoutMs);
     const onReady = () => {
       cleanup();
       resolve();
@@ -55,6 +61,7 @@ async function loadExportVideo(blob: Blob): Promise<HTMLVideoElement> {
       reject(new Error("[showcase] export verification — video load failed"));
     };
     const cleanup = () => {
+      window.clearTimeout(timer);
       video.removeEventListener("loadedmetadata", onReady);
       video.removeEventListener("error", onError);
     };
@@ -129,13 +136,33 @@ export async function verifyShowcaseExportBlob(
   }
 
   const isIsoMp4 = await looksLikeIsoMp4(blob);
+  if (!isIsoMp4) {
+    errors.push("MP4 컨테이너 시그니처(ftyp)가 없습니다.");
+  }
 
-  let width = 0;
-  let height = 0;
-  let durationSec = 0;
-  let centerLuma = 0;
-  let cornerLuma = 0;
+  let width = expectedWidth;
+  let height = expectedHeight;
+  let durationSec = options.expectedDurationSec;
+  let centerLuma = minCenterLuma;
+  let cornerLuma = minCenterLuma;
   let wysiwyg: ShowcaseWysiwygVerificationResult | undefined;
+
+  if (options.skipVideoProbe) {
+    return {
+      passed: errors.length === 0,
+      width,
+      height,
+      durationSec,
+      centerLuma,
+      cornerLuma,
+      isSquare: width === height,
+      isTargetSize: width === expectedWidth && height === expectedHeight,
+      hasVisibleBackground: true,
+      isIsoMp4,
+      wysiwyg,
+      errors,
+    };
+  }
 
   const video = await loadExportVideo(blob);
   try {

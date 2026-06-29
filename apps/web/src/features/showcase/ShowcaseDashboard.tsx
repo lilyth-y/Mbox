@@ -266,7 +266,6 @@ export function ShowcaseDashboard() {
   const imagesRef = useRef<ProcessedImage[] | null>(INITIAL_SHOWCASE_IMAGES);
 
   const sceneLoadTokenRef = useRef(0);
-  const sceneInitInFlightRef = useRef(false);
   const sceneRecoveryKeyRef = useRef(0);
   const [sceneRecoveryKey, setSceneRecoveryKey] = useState(0);
   const webglLiveRef = useRef(false);
@@ -883,17 +882,13 @@ export function ShowcaseDashboard() {
 
 
     void (async () => {
-      if (sceneInitInFlightRef.current) {
-        return;
-      }
-      sceneInitInFlightRef.current = true;
-
       setReady(false);
 
       setSceneLoadError(null);
       setSceneLoadHelp([]);
 
       webglLiveRef.current = false;
+      setWebglRecovering(false);
 
       setStatus("미리보기 준비 중…");
 
@@ -901,10 +896,8 @@ export function ShowcaseDashboard() {
         import("./babylon/createShowcasePhysicsScene"),
       ]);
 
-      if (cancelled) {
-
+      if (cancelled || loadToken !== sceneLoadTokenRef.current) {
         return;
-
       }
 
 
@@ -912,14 +905,9 @@ export function ShowcaseDashboard() {
       const snapshot = imagesRef.current;
 
       if (!snapshot?.length) {
-
         setStatus("사진을 불러오는 중…");
-
         return;
-
       }
-
-
 
       try {
         // Hard guarantee: prevent Babylon engine overlap across recoveries.
@@ -936,7 +924,7 @@ export function ShowcaseDashboard() {
           backdropSpillElement: spillRef.current,
 
           gpuSafeSession: isShowcaseLocalGpuPreview()
-            ? false
+            ? contextLossRebuildAttemptsRef.current >= 2
             : gpuSafeSessionRef.current,
 
           forceWebGl1: webglFallbackRef.current,
@@ -977,7 +965,23 @@ export function ShowcaseDashboard() {
               };
             };
 
+            const isExportGpuBusy = (): boolean => {
+              if (!isRecordingRef.current) {
+                if (sceneRef.current?.director.getExportRecording()) {
+                  sceneRef.current.setExportRecording(false);
+                }
+                return false;
+              }
+              return true;
+            };
+
             const scheduleHardRebuild = () => {
+              if (isExportGpuBusy()) {
+                console.warn(
+                  "[showcase] deferring GPU hard rebuild — MP4 export in progress"
+                );
+                return;
+              }
               clearContextLossRecovery();
               setWebglRecovering(false);
 
@@ -1058,6 +1062,22 @@ export function ShowcaseDashboard() {
             }
 
             if (localGpuPath) {
+              if (isExportGpuBusy()) {
+                console.warn(
+                  "[showcase] WebGL context lost during export — soft recovery only"
+                );
+                setExportMessage("GPU 부하 감지 — 녹화 유지 중…");
+                const softRecoveryTimer = window.setTimeout(() => {
+                  contextLossRecoveryRef.current.softRecoveryTimer = null;
+                  sceneRef.current?.applySafeGpuRecovery();
+                }, 1_500);
+                contextLossRecoveryRef.current = {
+                  restoredListener: null,
+                  rebuildTimer: null,
+                  softRecoveryTimer,
+                };
+                return;
+              }
               const softRecoveryTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.softRecoveryTimer = null;
                 sceneRef.current?.applySafeGpuRecovery();
@@ -1069,7 +1089,7 @@ export function ShowcaseDashboard() {
                   contextLossRecoveryRef.current.softRecoveryTimer = null;
                 }
                 scheduleHardRebuild();
-              }, readyRef.current ? 4_000 : 15_000);
+              }, readyRef.current ? 4_000 : 6_000);
               contextLossRecoveryRef.current = {
                 restoredListener: null,
                 rebuildTimer,
@@ -1079,6 +1099,15 @@ export function ShowcaseDashboard() {
             }
 
             if (isGpuSafeMode()) {
+              if (isExportGpuBusy()) {
+                setExportMessage("GPU 부하 감지 — 녹화 유지 중…");
+                contextLossRecoveryRef.current = {
+                  restoredListener: null,
+                  rebuildTimer: null,
+                  softRecoveryTimer: null,
+                };
+                return;
+              }
               const rebuildTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.rebuildTimer = null;
                 scheduleHardRebuild();
@@ -1100,6 +1129,15 @@ export function ShowcaseDashboard() {
 
             if (rapidReloss) {
               sceneRef.current?.applySafeGpuRecovery();
+              if (isExportGpuBusy()) {
+                setExportMessage("GPU 부하 감지 — 녹화 유지 중…");
+                contextLossRecoveryRef.current = {
+                  restoredListener: null,
+                  rebuildTimer: null,
+                  softRecoveryTimer: null,
+                };
+                return;
+              }
               const rebuildTimer = window.setTimeout(() => {
                 contextLossRecoveryRef.current.rebuildTimer = null;
                 scheduleHardRebuild();
@@ -1119,6 +1157,16 @@ export function ShowcaseDashboard() {
               contextLossRecoveryRef.current.softRecoveryTimer = null;
               sceneRef.current?.applySafeGpuRecovery();
             }, 2_000);
+
+            if (isExportGpuBusy()) {
+              setExportMessage("GPU 부하 감지 — 녹화 유지 중…");
+              contextLossRecoveryRef.current = {
+                restoredListener: null,
+                rebuildTimer: null,
+                softRecoveryTimer,
+              };
+              return;
+            }
 
             const rebuildTimer = window.setTimeout(() => {
               contextLossRecoveryRef.current.rebuildTimer = null;
@@ -1371,8 +1419,6 @@ export function ShowcaseDashboard() {
               : `미리보기 오류: ${message}`
         );
 
-      } finally {
-        sceneInitInFlightRef.current = false;
       }
 
     })();

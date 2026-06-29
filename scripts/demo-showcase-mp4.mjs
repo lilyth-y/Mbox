@@ -143,7 +143,87 @@ if (!existsSync(localMp4)) {
 }
 
 const mp4Path = join(outDir, "showcase.mp4");
-const sizeMb = (readFileSync(mp4Path).length / (1024 * 1024)).toFixed(2);
+let sizeMb = (readFileSync(mp4Path).length / (1024 * 1024)).toFixed(2);
+
+function probeStream(path, streamSelector, entries, countFrames = false) {
+  const args = [
+    "-v",
+    "error",
+    ...(countFrames ? ["-count_frames"] : []),
+    "-select_streams",
+    streamSelector,
+    "-show_entries",
+    entries,
+    "-of",
+    "default=noprint_wrappers=1",
+    path,
+  ];
+  const result = spawnSync("ffprobe", args, { encoding: "utf8" });
+  if (result.status !== 0) {
+    return null;
+  }
+  const out = {};
+  for (const line of result.stdout.trim().split(/\r?\n/)) {
+    const eq = line.indexOf("=");
+    if (eq > 0) {
+      out[line.slice(0, eq)] = line.slice(eq + 1);
+    }
+  }
+  return out;
+}
+
+if (fps > 30) {
+  const videoProbe = probeStream(
+    mp4Path,
+    "v:0",
+    "stream=duration,nb_read_frames,avg_frame_rate",
+    true
+  );
+  const rawDur = Number(videoProbe?.duration ?? 0);
+  const frameCount = Number(videoProbe?.nb_read_frames ?? 0);
+  const targetDur = frameCount > 0 ? frameCount / fps : rawDur;
+  if (
+    Number.isFinite(rawDur) &&
+    rawDur > 0 &&
+    Number.isFinite(targetDur) &&
+    targetDur > 0 &&
+    rawDur > targetDur * 1.12
+  ) {
+    const ratio = targetDur / rawDur;
+    const retimedPath = join(outDir, "showcase.retime.mp4");
+    console.log(
+      `[demo] retiming paced export ${rawDur.toFixed(1)}s → ${targetDur.toFixed(1)}s (${frameCount} frames @ ${fps}fps)`
+    );
+    const retime = spawnSync(
+      "ffmpeg",
+      [
+        "-y",
+        "-i",
+        mp4Path,
+        "-filter:v",
+        `setpts=PTS*${ratio},fps=${fps}`,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "18",
+        "-c:a",
+        "copy",
+        "-movflags",
+        "+faststart",
+        retimedPath,
+      ],
+      { stdio: "pipe", encoding: "utf8" }
+    );
+    if (retime.status === 0 && existsSync(retimedPath)) {
+      writeFileSync(mp4Path, readFileSync(retimedPath));
+      sizeMb = (readFileSync(mp4Path).length / (1024 * 1024)).toFixed(2);
+    } else {
+      console.warn("[demo] ffmpeg retime failed — using raw export");
+    }
+  }
+}
 
 let durationSec = null;
 const probe = spawnSync(

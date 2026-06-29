@@ -50,18 +50,24 @@ export async function startBgmRecordingSession(
   const fadeInSec = fadeInMs / 1_000;
   const fadeOutSec = fadeOutMs / 1_000;
   const fadeOutStart = Math.max(fadeInSec, durationSec - fadeOutSec);
+  const holdUntilDone = options.holdUntilExportDone === true;
 
-  if (options.holdUntilExportDone) {
+  if (holdUntilDone) {
     source.loop = true;
   }
 
   gain.gain.setValueAtTime(0, now);
   gain.gain.linearRampToValueAtTime(volume, now + fadeInSec);
-  gain.gain.setValueAtTime(volume, now + fadeOutStart);
-  gain.gain.linearRampToValueAtTime(0, now + durationSec + 0.15);
+
+  if (!holdUntilDone) {
+    gain.gain.setValueAtTime(volume, now + fadeOutStart);
+    gain.gain.linearRampToValueAtTime(0, now + durationSec + 0.15);
+  }
 
   source.start(now);
-  source.stop(now + durationSec + 0.35);
+  if (!holdUntilDone) {
+    source.stop(now + durationSec + 0.35);
+  }
 
   await delay(40);
 
@@ -83,7 +89,13 @@ export async function startBgmRecordingSession(
     }
     stopped = true;
     try {
-      source.stop();
+      if (holdUntilDone) {
+        const t = audioContext.currentTime;
+        gain.gain.linearRampToValueAtTime(0, t + 0.2);
+        source.stop(t + 0.35);
+      } else {
+        source.stop();
+      }
     } catch {
       // already stopped
     }
@@ -91,7 +103,7 @@ export async function startBgmRecordingSession(
     void audioContext.close();
   };
 
-  if (!options.holdUntilExportDone) {
+  if (!holdUntilDone) {
     window.setTimeout(stop, durationMs + 500);
   }
 

@@ -166,7 +166,10 @@ export interface ShowcasePhysicsSceneHandle {
   recordPacedExportFrames: (
     frameCount: number,
     fps: number,
-    options?: { onFrame?: (frameIndex: number) => void }
+    options?: {
+      onFrame?: (frameIndex: number) => void;
+      onAfterSimFrame?: () => void;
+    }
   ) => Promise<void>;
 
   setImages: (images: ProcessedImage[]) => Promise<void>;
@@ -302,6 +305,7 @@ export async function createShowcasePhysicsScene(
   );
   const recoveryAttempt = Math.max(0, options?.contextLossRecoveryAttempt ?? 0);
   const localGpuPath = isLocalGpuSession();
+  const localGpuRecoveryMode = localGpuPath && recoveryAttempt > 0;
 
   let partialEngine: Engine | null = null;
   let partialScene: Scene | null = null;
@@ -363,7 +367,8 @@ export async function createShowcasePhysicsScene(
   const skipChapelPanorama =
     usesDomBackdrop ||
     !subsystems.chapelPanorama ||
-    (isLocalGpuExportSession() && catalog.backgroundPreset !== "booth");
+    (isLocalGpuExportSession() && catalog.backgroundPreset !== "booth") ||
+    localGpuRecoveryMode;
 
   const holoPreloadOptions = buildHoloPreloadOptions(images.length, localGpuPath, gpuBudget.tier);
   const holoImmediateCount = holoPreloadOptions.immediateCount;
@@ -686,7 +691,7 @@ export async function createShowcasePhysicsScene(
     }
     assertContextAlive();
     markShowcaseInitPhase("stable_frames", "pre-director");
-  } else if (localGpuPath) {
+  } else if (localGpuPath && !localGpuRecoveryMode) {
     const preDirectorStable = await waitForGpuStableFrames(
       engine,
       4,
@@ -703,6 +708,10 @@ export async function createShowcasePhysicsScene(
     await waitGpuFrames(gpuSpreadFrameGap());
     assertContextAlive();
     markShowcaseInitPhase("stable_frames", "pre-director");
+  } else if (localGpuRecoveryMode) {
+    await waitGpuFrames(gpuSpreadFrameGap() * 2);
+    assertContextAlive();
+    markShowcaseInitPhase("stable_frames", "recovery-skip");
   }
 
   const director = createShowcasePipelineDirector(scene, camera, imageUrls, {
@@ -987,11 +996,13 @@ export async function createShowcasePhysicsScene(
       }
       engine.stopRenderLoop();
       const logEvery = Math.max(60, Math.round(fps * 2));
+      const frameBudgetMs = 1000 / Math.max(1, fps);
       try {
         for (let i = 0; i < frameCount; i++) {
           if (!canSceneRender()) {
             break;
           }
+          const frameStart = performance.now();
           options?.onFrame?.(i);
           exportPacedStepActive = true;
           try {
@@ -1000,10 +1011,16 @@ export async function createShowcasePhysicsScene(
             console.warn("[showcase] paced export frame failed", error);
             break;
           }
+          options?.onAfterSimFrame?.();
           if (i > 0 && i % logEvery === 0) {
             console.info(`[showcase] paced export ${i}/${frameCount}`);
           }
-          // One rAF per frame so captureStream(0) + requestFrame keeps up with the encoder.
+          // captureStream(0): one requestFrame per paint — cap wall rate so MediaRecorder keeps every frame.
+          const elapsed = performance.now() - frameStart;
+          const waitMs = Math.max(0, frameBudgetMs - elapsed);
+          if (waitMs > 0) {
+            await new Promise<void>((resolve) => window.setTimeout(resolve, waitMs));
+          }
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         }
         console.info(`[showcase] paced export done ${frameCount}/${frameCount}`);

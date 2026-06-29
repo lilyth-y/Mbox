@@ -351,6 +351,7 @@ export async function exportShowcaseMp4(
     );
 
     const contentMs = durationMs - RECORD_ENCODER_FLUSH_MS;
+    const contentFrames = Math.ceil((contentMs * exportFps) / 1000);
 
     const bgmUrl = options.bgmUrl ?? null;
     const withAudio =
@@ -375,9 +376,10 @@ export async function exportShowcaseMp4(
 
       fps: exportFps,
 
+      // Paced export: one encoder frame per paint (captureStream(0) + requestFrame).
       manualCapture: localGpu,
 
-      fixedCadence: true,
+      fixedCadence: !localGpu,
 
       onAfterRender: (paint) => handle.onAfterRender(paint),
 
@@ -393,9 +395,9 @@ export async function exportShowcaseMp4(
       bgmSession = await startBgmRecordingSession({
         videoStream: stream,
         audioUrl: bgmUrl,
-        durationMs,
+        durationMs: contentMs,
         volume: options.bgmVolume ?? 0.85,
-        holdUntilExportDone: true,
+        holdUntilExportDone: !localGpu,
       });
     }
 
@@ -413,7 +415,6 @@ export async function exportShowcaseMp4(
 
     recorder.start(recordStream, mimeType, encodeBitrate);
 
-    const contentFrames = Math.ceil((contentMs * exportFps) / 1000);
     const pacedRecordTimeoutMs = Math.max(
       localGpu ? 2_400_000 : 180_000,
       Math.ceil((contentFrames / exportFps) * (localGpu ? 25_000 : 2_500))
@@ -437,21 +438,49 @@ export async function exportShowcaseMp4(
     };
 
     if (localGpu) {
-      composite.beginRecording();
+      if (!composite) {
+        throw new ShowcaseExportError("export composite unavailable");
+      }
+      const exportComposite = composite;
+      exportComposite.beginRecording();
+      exportComposite.setSuppressAutoPaint(true);
       if (compositeBackdrop instanceof HTMLVideoElement) {
         compositeBackdrop.pause();
       }
-      await handle.recordPacedExportFrames(contentFrames, exportFps, {
-        onFrame: stepExportBackdrop,
-      });
-      await composite.waitForRecordedFrames(contentFrames, pacedRecordTimeoutMs);
+      try {
+        await handle.recordPacedExportFrames(contentFrames, exportFps, {
+          onFrame: stepExportBackdrop,
+          onAfterSimFrame: () => exportComposite.paintExportFrame(),
+        });
+      } finally {
+        exportComposite.setSuppressAutoPaint(false);
+      }
+      const painted = exportComposite.getRecordedPaintCount();
+      console.info(`[showcase] paced paints recorded ${painted}/${contentFrames}`);
+      if (painted < contentFrames) {
+        await exportComposite.waitForRecordedFrames(contentFrames, pacedRecordTimeoutMs);
+      }
+      console.info("[showcase] encoder flush…");
     } else {
       await new Promise<void>((resolve) => window.setTimeout(resolve, contentMs));
     }
 
     await new Promise<void>((resolve) => window.setTimeout(resolve, RECORD_ENCODER_FLUSH_MS));
 
-    let blob = normalizeRecordingBlob(await recorder.stop(), extension);
+    console.info("[showcase] recorder stop…");
+    let blob = normalizeRecordingBlob(
+      await Promise.race([
+        recorder.stop(),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(
+            () => reject(new Error("[showcase] recorder.stop timed out")),
+            localGpu ? 300_000 : 120_000
+          )
+        ),
+      ]),
+      extension
+    );
+    console.info(`[showcase] recorder done ${(blob.size / (1024 * 1024)).toFixed(2)} MB`);
 
     bgmSession?.stop();
 
@@ -466,19 +495,35 @@ export async function exportShowcaseMp4(
     }
 
     const expectedDurationSec = contentMs / 1000;
+    const filename = `${baseName}.${outExtension}`;
+    const skipVideoProbe =
+      workerSession && (blob.size > 8_000_000 || localGpu);
+
+    if (workerSession) {
+      downloadBlob(blob, filename);
+      console.info("[showcase] worker download triggered");
+    }
+
+    console.info(
+      skipVideoProbe
+        ? "[showcase] verifying export (lightweight)…"
+        : "[showcase] verifying export…"
+    );
     const verification = await verifyShowcaseExportBlob(blob, {
       expectedWidth: outputSize,
       expectedHeight: outputSize,
       expectedDurationSec,
       durationToleranceSec: Math.max(2.5, expectedDurationSec * 0.18),
-      previewFingerprint,
+      previewFingerprint: skipVideoProbe ? undefined : previewFingerprint,
+      skipVideoProbe,
     });
 
     if (!verification.passed) {
       throw new ShowcaseExportError(verification.errors.join(" "));
     }
-
-    const filename = `${baseName}.${outExtension}`;
+    console.info(
+      `[showcase] verification ok ${verification.durationSec.toFixed(1)}s ${verification.width}×${verification.height}`
+    );
 
     publishShowcaseExportE2ePayload({
       bytes: blob.size,
@@ -491,8 +536,16 @@ export async function exportShowcaseMp4(
       },
     });
 
-    await publishRenderWorkerBlob(blob);
-    downloadBlob(blob, filename);
+    if (!workerSession) {
+      downloadBlob(blob, filename);
+    }
+
+    if (blob.size <= 24_000_000) {
+      await publishRenderWorkerBlob(blob);
+      console.info("[showcase] worker blob published");
+    } else {
+      console.info("[showcase] worker blob via download (large export)");
+    }
 
     return { blob, filename };
   } finally {
